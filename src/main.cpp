@@ -1,7 +1,7 @@
 import example;
 
 auto main(int argc, char** argv) -> int {
-    example e{};
-    e.hello();
+    greeter g{};
+    g.hello();
     return 0;
 }

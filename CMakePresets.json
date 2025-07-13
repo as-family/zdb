@@ -3,15 +3,28 @@
   "configurePresets": [
     {
       "name": "gcc",
-      "displayName": "GCC",
-      "description": "Use GCC as the compiler",
+      "displayName": "GCC Build",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "binaryDir": "${sourceDir}/out/build/gcc",
       "cacheVariables": {
-        "CMAKE_CXX_COMPILER": "g++",
-        "CMAKE_BUILD_TYPE": "debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "/usr/local/gcc-15.1/bin/gcc",
+        "CMAKE_CXX_COMPILER": "/usr/local/gcc-15.1/bin/g++",
+        "CMAKE_EXE_LINKER_FLAGS": "-Wl,-rpath,/usr/local/gcc-15.1/lib64",
+        "CMAKE_SHARED_LINKER_FLAGS": "-Wl,-rpath,/usr/local/gcc-15.1/lib64",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+      },
+      "environment": {
+        "CC": "/usr/local/gcc-15.1/bin/gcc",
+        "CXX": "/usr/local/gcc-15.1/bin/g++",
+        "LD_LIBRARY_PATH": "/usr/local/gcc-15.1/lib64"
       }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "gcc",
+      "configurePreset": "gcc"
     }
   ]
 }
