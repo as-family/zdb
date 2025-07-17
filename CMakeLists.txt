@@ -79,6 +79,7 @@ target_sources(zdb
     src/main.cpp
     src/PeerNode.cpp
     src/proto/peer.proto
+    src/InMemoryKVStore.cpp
 )
 
 target_link_libraries(zdb
@@ -123,6 +124,7 @@ if(BUILD_TESTING)
     target_sources(unit_tests
       PRIVATE
         src/unit_tests.cpp
+        src/InMemoryKVStore.cpp
     )
 
     target_link_libraries(unit_tests

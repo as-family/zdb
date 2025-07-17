@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
+#include "InMemoryKVStore.hpp"
 
-// Demonstrate some basic assertions.
-TEST(HelloTest, BasicAssertions) {
-  // Expect two strings not to be equal.
-  EXPECT_STRNE("hello", "world");
-  // Expect equality.
-  EXPECT_EQ(7 * 6, 42);
+class InMemoryKVStoreTest : public testing::Test {
+protected:
+    InMemoryKVStore kv{};
+};
+
+TEST_F(InMemoryKVStoreTest, StartsEmpty) {
+    ASSERT_EQ(kv.size(), 0);
 }
