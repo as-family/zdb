@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package peer;
+
+service PeerService {
+  rpc Ping (PingRequest) returns (PingReply) {}
+}
+
+message PingRequest {
+  string from_peer = 1;
+  string message = 2;
+}
+
+message PingReply {
+  string from_peer = 1;
+  string message = 2;
+}
