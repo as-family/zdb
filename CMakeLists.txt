@@ -6,7 +6,6 @@ project(zdb
   LANGUAGES CXX
 )
 
-set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -63,16 +62,17 @@ target_compile_options(zdb PRIVATE
   -Wnull-dereference
 
   # -fsanitize=address
-  # -fsanitize=undefined
-  # -fsanitize=thread
+  -fsanitize=undefined
+  -fsanitize=thread
   -fstack-protector-strong
   -D_FORTIFY_SOURCE=2
 )
 
-# target_link_options(zdb PRIVATE
-#   -fsanitize=address
-#   -fsanitize=undefined
-# )
+target_link_options(zdb PRIVATE
+  # -fsanitize=address
+  -fsanitize=undefined
+  -fsanitize=thread
+)
 
 target_sources(zdb
   PRIVATE
@@ -80,6 +80,9 @@ target_sources(zdb
     src/PeerNode.cpp
     src/proto/peer.proto
     src/InMemoryKVStore.cpp
+    src/KVServer.cpp
+    src/proto/KVStore.proto
+    src/Simple.cpp
 )
 
 target_link_libraries(zdb
@@ -141,6 +144,41 @@ if(BUILD_TESTING)
       CXX_STANDARD_REQUIRED ON
       CXX_EXTENSIONS OFF
     )
+
+    target_compile_options(zdb PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+    -g
+    -O0
+    -Og
+
+    -Wconversion
+    -Wsign-conversion
+    -Wcast-align
+    -Wunused
+    -Wshadow
+    -Wold-style-cast
+    -Woverloaded-virtual
+    -Wnon-virtual-dtor
+    -Wduplicated-cond
+    -Wduplicated-branches
+    -Wlogical-op
+    -Wnull-dereference
+
+    # -fsanitize=address
+    -fsanitize=undefined
+    -fsanitize=thread
+    -fstack-protector-strong
+    -D_FORTIFY_SOURCE=2
+  )
+
+  target_link_options(zdb PRIVATE
+    # -fsanitize=address
+    -fsanitize=undefined
+    -fsanitize=thread
+  )
+
 
     gtest_discover_tests(unit_tests)
   else()

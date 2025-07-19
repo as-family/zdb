@@ -2,7 +2,11 @@
 #include <thread>
 #include <chrono>
 #include <vector>
-#include "PeerNode.hpp"
+// #include "PeerNode.hpp"
+// #include "KVServer.hpp"
+// #include "InMemoryKVStore.hpp"
+#include "Simple.hpp"
+#include <thread>
 
 int main(int argc, char** argv) {
     if (argc != 3) {
@@ -10,23 +14,34 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::string peer_id = argv[1];
-    std::string port = argv[2];
-    std::string listen_address = "localhost:" + port;
+    std::string peer_id {argv[1]};
+    std::string port {argv[2]};
+    std::string listen_address {"localhost:" + port};
 
-    std::vector<std::string> peer_addresses = {
+    std::vector<std::string> peer_addresses {
         "localhost:50051",
         "localhost:50052",
         "localhost:50053"
     };
 
-    PeerNode peer(peer_id, listen_address, peer_addresses);
-    peer.startServer();
+    std::cout << "hello" << std::endl;
+    Simple s{};
+    Server ss {listen_address, &s};
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    // ss.wait();
+
+    // InMemoryKVStore kvStore {};
+    // KVServer kvServer {listen_address, kvStore};
+    // kvServer.wait();
+    
+
+    // PeerNode peer(peer_id, listen_address, peer_addresses);
+    // peer.startServer();
 
     // Give server time to start
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    // std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    peer.pingPong();
+    // peer.pingPong();
 
     return 0;
 }

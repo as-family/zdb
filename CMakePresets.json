@@ -1,30 +1,76 @@
 {
-  "version": 3,
-  "configurePresets": [
-    {
-      "name": "gcc",
-      "displayName": "GCC Build",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/gcc",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_COMPILER": "/usr/local/gcc-15.1/bin/gcc",
-        "CMAKE_CXX_COMPILER": "/usr/local/gcc-15.1/bin/g++",
-        "CMAKE_EXE_LINKER_FLAGS": "-Wl,-rpath,/usr/local/gcc-15.1/lib64",
-        "CMAKE_SHARED_LINKER_FLAGS": "-Wl,-rpath,/usr/local/gcc-15.1/lib64",
-        "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
-      },
-      "environment": {
-        "CC": "/usr/local/gcc-15.1/bin/gcc",
-        "CXX": "/usr/local/gcc-15.1/bin/g++",
-        "LD_LIBRARY_PATH": "/usr/local/gcc-15.1/lib64"
-      }
-    }
-  ],
-  "buildPresets": [
-    {
-      "name": "gcc",
-      "configurePreset": "gcc"
-    }
-  ]
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "gcc-13-preset",
+            "displayName": "GCC 13 Preset",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/gcc-13",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_C_COMPILER": "/usr/bin/gcc-13",
+                "CMAKE_CXX_COMPILER": "/usr/bin/g++-13",
+                "CMAKE_CXX_STANDARD": "23",
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+            },
+            "environment": {
+                "CC": "/usr/bin/gcc-13",
+                "CXX": "/usr/bin/g++-13"
+            }
+        },
+        {
+            "name": "llvm-21-preset",
+            "displayName": "LLVM 21 Preset",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/llvm-21",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_C_COMPILER": "/usr/local/llvm-21.1/bin/clang",
+                "CMAKE_CXX_COMPILER": "/usr/local/llvm-21.1/bin/clang++",
+                "CMAKE_CXX_FLAGS": "-stdlib=libc++",
+                "CMAKE_EXE_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld -Wl,-rpath,/usr/local/llvm-21.1/lib/x86_64-unknown-linux-gnu",
+                "CMAKE_SHARED_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld -Wl,-rpath,/usr/local/llvm-21.1/lib/x86_64-unknown-linux-gnu",
+                "CMAKE_CXX_STANDARD": "17",
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+            },
+            "environment": {
+                "CC": "/usr/local/llvm-21.1/bin/clang",
+                "CXX": "/usr/local/llvm-21.1/bin/clang++" 
+            }
+        },
+        {
+            "name": "gcc-16-preset",
+            "displayName": "GCC 16 Preset",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/gcc-16",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_C_COMPILER": "/usr/local/gcc-15.1/bin/gcc",
+                "CMAKE_CXX_COMPILER": "/usr/local/gcc-15.1/bin/g++",
+                "CMAKE_EXE_LINKER_FLAGS": "-Wl,-rpath,/usr/local/gcc-15.1/lib64",
+                "CMAKE_SHARED_LINKER_FLAGS": "-Wl,-rpath,/usr/local/gcc-15.1/lib64",
+                "CMAKE_CXX_STANDARD": "23",
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+            },
+            "environment": {
+                "CC": "/usr/local/gcc-15.1/bin/gcc",
+                "CXX": "/usr/local/gcc-15.1/bin/g++",
+                "LD_LIBRARY_PATH": "/usr/local/gcc-15.1/lib64"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "gcc-13",
+            "configurePreset": "gcc-13-preset"
+        },
+        {
+            "name": "llvm-21",
+            "configurePreset": "llvm-21-preset"
+        },
+        {
+            "name": "gcc-16",
+            "configurePreset": "gcc-16-preset"
+        }
+    ]
 }

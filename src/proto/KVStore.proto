@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package KVStore;
+
+service KVStoreService {
+    rpc get(GetRequest) returns (GetReply) {}
+    rpc set(SetRquest) returns (SetReply) {}
+    rpc erase(EraseRequest) returns (EraseReply) {}
+}
+
+message GetRequest {
+    string key = 1;
+}
+
+message GetReply {
+    string value = 1;
+}
+
+message SetRquest {
+    string key = 1;
+    string value = 2;
+}
+
+message SetReply {
+}
+
+message EraseRequest  {
+    string key = 1;
+}
+
+message EraseReply {
+    string value = 1;
+}
