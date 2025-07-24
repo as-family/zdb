@@ -60,18 +60,6 @@ target_compile_options(zdb PRIVATE
   -Wduplicated-branches
   -Wlogical-op
   -Wnull-dereference
-
-  # -fsanitize=address
-  -fsanitize=undefined
-  -fsanitize=thread
-  -fstack-protector-strong
-  -D_FORTIFY_SOURCE=2
-)
-
-target_link_options(zdb PRIVATE
-  # -fsanitize=address
-  -fsanitize=undefined
-  -fsanitize=thread
 )
 
 target_sources(zdb
@@ -80,9 +68,8 @@ target_sources(zdb
     src/PeerNode.cpp
     src/proto/peer.proto
     src/InMemoryKVStore.cpp
-    src/KVServer.cpp
     src/proto/KVStore.proto
-    src/Simple.cpp
+    src/KVStoreServer.cpp
 )
 
 target_link_libraries(zdb
@@ -145,7 +132,7 @@ if(BUILD_TESTING)
       CXX_EXTENSIONS OFF
     )
 
-    target_compile_options(zdb PRIVATE
+    target_compile_options(unit_tests PRIVATE
     -Wall
     -Wextra
     -Wpedantic
@@ -173,7 +160,7 @@ if(BUILD_TESTING)
     -D_FORTIFY_SOURCE=2
   )
 
-  target_link_options(zdb PRIVATE
+  target_link_options(unit_tests PRIVATE
     # -fsanitize=address
     -fsanitize=undefined
     -fsanitize=thread

@@ -1,13 +1,14 @@
-#ifndef SIMPLE_H
-#define SIMPLE_H
+#ifndef KV_STORE_SERVER_H
+#define KV_STORE_SERVER_H
 
 #include <memory>
 #include <grpcpp/grpcpp.h>
 #include "src/proto/KVStore.grpc.pb.h"
+#include "InMemoryKVStore.hpp"
 
-class Simple final : public KVStore::KVStoreService::Service {
+class KVStoreServiceImpl final : public KVStore::KVStoreService::Service {
 public:
-    Simple();
+    KVStoreServiceImpl(InMemoryKVStore&);
     grpc::Status get(
         grpc::ServerContext* context,
         const KVStore::GetRequest* request,
@@ -20,17 +21,18 @@ public:
         grpc::ServerContext* context,
         const KVStore::EraseRequest* request,
         KVStore::EraseReply* reply) override;
+private:
+    InMemoryKVStore& kvStore;
 };
 
-class Server {
+class KVStoreServer {
 public:
-    Server(std::string, Simple*);
+    KVStoreServer(const std::string, KVStoreServiceImpl&);
     void wait();
-    ~Server();
 private:
     std::string listen_address;
-    Simple* service;
+    KVStoreServiceImpl& service;
     std::unique_ptr<grpc::Server> server;
 };
 
-#endif // SIMPLE_H
+#endif // KV_STORE_SERVER_H

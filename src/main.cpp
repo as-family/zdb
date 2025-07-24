@@ -1,12 +1,9 @@
 #include <iostream>
+#include <vector>
 #include <thread>
 #include <chrono>
-#include <vector>
-// #include "PeerNode.hpp"
-// #include "KVServer.hpp"
-// #include "InMemoryKVStore.hpp"
-#include "Simple.hpp"
-#include <thread>
+#include "InMemoryKVStore.hpp"
+#include "KVStoreServer.hpp"
 
 int main(int argc, char** argv) {
     if (argc != 3) {
@@ -23,25 +20,10 @@ int main(int argc, char** argv) {
         "localhost:50052",
         "localhost:50053"
     };
-
-    std::cout << "hello" << std::endl;
-    Simple s{};
-    Server ss {listen_address, &s};
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    // ss.wait();
-
-    // InMemoryKVStore kvStore {};
-    // KVServer kvServer {listen_address, kvStore};
-    // kvServer.wait();
     
-
-    // PeerNode peer(peer_id, listen_address, peer_addresses);
-    // peer.startServer();
-
-    // Give server time to start
-    // std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    // peer.pingPong();
-
+    InMemoryKVStore kvStore {};
+    KVStoreServiceImpl s{kvStore};
+    KVStoreServer ss {listen_address, s};
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     return 0;
 }

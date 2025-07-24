@@ -10,9 +10,9 @@
 
 class InMemoryKVStore {
 public:
-    std::string get(std::string key) const;
-    void set(std::string key, std::string value);
-    std::string erase(std::string key);
+    std::string get(const std::string key) const;
+    void set(const std::string key, const std::string value);
+    std::string erase(const std::string key);
     size_t size() const;
 private:
     std::unordered_map<std::string, std::string> store;

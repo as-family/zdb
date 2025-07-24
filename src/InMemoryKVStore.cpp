@@ -1,6 +1,6 @@
 #include "InMemoryKVStore.hpp"
 
-std::string InMemoryKVStore::get(std::string key) const {
+std::string InMemoryKVStore::get(const std::string key) const {
     std::shared_lock l {m};
     auto i = store.find(key);
     if (i == store.end()) {
@@ -9,12 +9,12 @@ std::string InMemoryKVStore::get(std::string key) const {
     return (*store.find(key)).second;
 }
 
-void InMemoryKVStore::set(std::string key, std::string value) {
+void InMemoryKVStore::set(const std::string key, const std::string value) {
     std::unique_lock l {m};
     store[key] = value;
 }
 
-std::string InMemoryKVStore::erase(std::string key) {
+std::string InMemoryKVStore::erase(const std::string key) {
     std::unique_lock l {m};
     auto value = get(key);
     store.erase(key);

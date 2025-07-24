@@ -6,6 +6,7 @@ service KVStoreService {
     rpc get(GetRequest) returns (GetReply) {}
     rpc set(SetRquest) returns (SetReply) {}
     rpc erase(EraseRequest) returns (EraseReply) {}
+    rpc size(SizeRequest) returns (SizeReply) {}
 }
 
 message GetRequest {
@@ -30,4 +31,11 @@ message EraseRequest  {
 
 message EraseReply {
     string value = 1;
+}
+
+message SizeRequest {
+}
+
+message SizeReply {
+    int64 size = 1;
 }
