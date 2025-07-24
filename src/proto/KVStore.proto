@@ -37,5 +37,5 @@ message SizeRequest {
 }
 
 message SizeReply {
-    int64 size = 1;
+    uint64 size = 1;
 }

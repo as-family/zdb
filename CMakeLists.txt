@@ -70,6 +70,7 @@ target_sources(zdb
     src/InMemoryKVStore.cpp
     src/proto/KVStore.proto
     src/KVStoreServer.cpp
+    src/KVStoreClient.cpp
 )
 
 target_link_libraries(zdb

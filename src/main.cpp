@@ -4,6 +4,7 @@
 #include <chrono>
 #include "InMemoryKVStore.hpp"
 #include "KVStoreServer.hpp"
+#include "KVStoreClient.hpp"
 
 int main(int argc, char** argv) {
     if (argc != 3) {
@@ -25,5 +26,9 @@ int main(int argc, char** argv) {
     KVStoreServiceImpl s{kvStore};
     KVStoreServer ss {listen_address, s};
     std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    KVStoreClient client {listen_address};
+    client.set("hello", "world");
+    std::cout << client.get("hello") << std::endl;
     return 0;
 }
