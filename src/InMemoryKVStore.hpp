@@ -8,6 +8,8 @@
 #include <mutex>
 #include <cctype>
 
+namespace zdb {
+
 class InMemoryKVStore {
 public:
     std::string get(const std::string key) const;
@@ -18,5 +20,7 @@ private:
     std::unordered_map<std::string, std::string> store;
     mutable std::shared_mutex m;
 };
+
+} // namespace zdb
 
 #endif // IN_MEMORY_KV_STORE_H

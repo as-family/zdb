@@ -4,7 +4,9 @@
 #include <string>
 #include <memory>
 #include <grpcpp/grpcpp.h>
-#include "src/proto/KVStore.grpc.pb.h"
+#include "src/proto/kvStore.grpc.pb.h"
+
+namespace zdb {
 
 class KVStoreClient {
 public:
@@ -15,7 +17,9 @@ public:
     size_t size() const;
 private:
     std::shared_ptr<grpc::Channel> channel;
-    std::unique_ptr<KVStore::KVStoreService::Stub> stub;
+    std::unique_ptr<kvStore::KVStoreService::Stub> stub;
 };
+
+} // namespace zdb
 
 #endif // KV_STORE_CLIENT_H

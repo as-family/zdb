@@ -3,24 +3,26 @@
 
 #include <memory>
 #include <grpcpp/grpcpp.h>
-#include "src/proto/KVStore.grpc.pb.h"
+#include "src/proto/kvStore.grpc.pb.h"
 #include "InMemoryKVStore.hpp"
 
-class KVStoreServiceImpl final : public KVStore::KVStoreService::Service {
+namespace zdb {
+
+class KVStoreServiceImpl final : public kvStore::KVStoreService::Service {
 public:
     KVStoreServiceImpl(InMemoryKVStore&);
     grpc::Status get(
         grpc::ServerContext* context,
-        const KVStore::GetRequest* request,
-        KVStore::GetReply* reply) override;
+        const kvStore::GetRequest* request,
+        kvStore::GetReply* reply) override;
     grpc::Status set(
         grpc::ServerContext* context,
-        const KVStore::SetRquest* request,
-        KVStore::SetReply* reply) override;
+        const kvStore::SetRquest* request,
+        kvStore::SetReply* reply) override;
     grpc::Status erase(
         grpc::ServerContext* context,
-        const KVStore::EraseRequest* request,
-        KVStore::EraseReply* reply) override;
+        const kvStore::EraseRequest* request,
+        kvStore::EraseReply* reply) override;
 private:
     InMemoryKVStore& kvStore;
 };
@@ -34,5 +36,7 @@ private:
     KVStoreServiceImpl& service;
     std::unique_ptr<grpc::Server> server;
 };
+
+} // namespace zdb
 
 #endif // KV_STORE_SERVER_H

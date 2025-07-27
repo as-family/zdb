@@ -68,7 +68,7 @@ target_sources(zdb
     src/PeerNode.cpp
     src/proto/peer.proto
     src/InMemoryKVStore.cpp
-    src/proto/KVStore.proto
+    src/proto/kvStore.proto
     src/KVStoreServer.cpp
     src/KVStoreClient.cpp
 )

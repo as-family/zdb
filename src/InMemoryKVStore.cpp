@@ -1,5 +1,7 @@
 #include "InMemoryKVStore.hpp"
 
+namespace zdb {
+
 std::string InMemoryKVStore::get(const std::string key) const {
     std::shared_lock l {m};
     auto i = store.find(key);
@@ -25,3 +27,5 @@ size_t InMemoryKVStore::size() const {
     std::shared_lock l {m};
     return store.size();
 }
+
+} // namespace zdb

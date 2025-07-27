@@ -1,13 +1,15 @@
 #include "KVStoreClient.hpp"
 
+namespace zdb {
+
 KVStoreClient::KVStoreClient(const std::string s_address)
     : channel {grpc::CreateChannel(s_address, grpc::InsecureChannelCredentials())},
-      stub {KVStore::KVStoreService::NewStub(channel)} {}
+      stub {kvStore::KVStoreService::NewStub(channel)} {}
     
 std::string KVStoreClient::get(const std::string key) const {
-    KVStore::GetRequest request;
+    kvStore::GetRequest request;
     request.set_key(key);
-    KVStore::GetReply reply;
+    kvStore::GetReply reply;
     grpc::ClientContext context;
     grpc::Status status {stub->get(&context, request, &reply)};
     if (status.ok()) {
@@ -18,10 +20,10 @@ std::string KVStoreClient::get(const std::string key) const {
 }
 
 void KVStoreClient::set(const std::string key, const std::string value) {
-    KVStore::SetRquest request;
+    kvStore::SetRquest request;
     request.set_key(key);
     request.set_value(value);
-    KVStore::SetReply reply;
+    kvStore::SetReply reply;
     grpc::ClientContext context;
     grpc::Status status {stub->set(&context, request, &reply)};
     if (!status.ok()) {
@@ -30,9 +32,9 @@ void KVStoreClient::set(const std::string key, const std::string value) {
 }
 
 std::string KVStoreClient::erase(const std::string key) {
-    KVStore::EraseRequest request;
+    kvStore::EraseRequest request;
     request.set_key(key);
-    KVStore::EraseReply reply;
+    kvStore::EraseReply reply;
     grpc::ClientContext context;
     grpc::Status status {stub->erase(&context, request, &reply)};
     if (status.ok()) {
@@ -43,8 +45,8 @@ std::string KVStoreClient::erase(const std::string key) {
 }
 
 size_t KVStoreClient::size() const {
-    KVStore::SizeRequest request;
-    KVStore::SizeReply reply;
+    kvStore::SizeRequest request;
+    kvStore::SizeReply reply;
     grpc::ClientContext context;
     grpc::Status status {stub->size(&context, request, &reply)};
     if (status.ok()) {
@@ -53,3 +55,5 @@ size_t KVStoreClient::size() const {
         throw status;
     }
 }
+
+} // namespace zdb

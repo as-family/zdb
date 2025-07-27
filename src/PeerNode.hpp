@@ -8,6 +8,8 @@
 #include <grpcpp/grpcpp.h>
 #include "src/proto/peer.grpc.pb.h"
 
+namespace zdb {
+
 class PeerNode {
 private:
     class PeerServiceImpl final : public peer::PeerService::Service {
@@ -36,5 +38,7 @@ private:
     std::unique_ptr<PeerServiceImpl> service;
     std::map<std::string, std::unique_ptr<peer::PeerService::Stub>> stubs;
 };
+
+} // namespace zdb
 
 #endif // PEER_NODE_H

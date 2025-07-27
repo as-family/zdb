@@ -9,6 +9,8 @@ using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
+
+namespace zdb {
 using peer::PeerService;
 using peer::PingReply;
 using peer::PingRequest;
@@ -83,3 +85,5 @@ void PeerNode::pingPong() {
         std::this_thread::sleep_for(std::chrono::seconds(3));
     }
 }
+
+} // namespace zdb

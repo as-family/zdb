@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package KVStore;
+package zdb.kvStore;
 
 service KVStoreService {
     rpc get(GetRequest) returns (GetReply) {}

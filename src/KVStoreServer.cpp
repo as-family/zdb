@@ -1,12 +1,14 @@
 #include "KVStoreServer.hpp"
 
+namespace zdb {
+
 KVStoreServiceImpl::KVStoreServiceImpl(InMemoryKVStore& kv)
     : kvStore {kv} {}
 
 grpc::Status KVStoreServiceImpl::get(
     grpc::ServerContext *context,
-    const KVStore::GetRequest *request,
-    KVStore::GetReply *reply) {
+    const kvStore::GetRequest *request,
+    kvStore::GetReply *reply) {
     try {
         auto value = kvStore.get(request->key());
         reply->set_value(value);
@@ -18,16 +20,16 @@ grpc::Status KVStoreServiceImpl::get(
 
 grpc::Status KVStoreServiceImpl::set(
     grpc::ServerContext* context,
-    const KVStore::SetRquest* request,
-    KVStore::SetReply* reply) {
+    const kvStore::SetRquest* request,
+    kvStore::SetReply* reply) {
     kvStore.set(request->key(), request->value());
     return grpc::Status::OK;
 }
 
 grpc::Status KVStoreServiceImpl::erase(
     grpc::ServerContext* context,
-    const KVStore::EraseRequest* request,
-    KVStore::EraseReply* reply) {
+    const kvStore::EraseRequest* request,
+    kvStore::EraseReply* reply) {
     try {
         reply->set_value(kvStore.erase(request->key()));
         return grpc::Status::OK;
@@ -47,3 +49,5 @@ KVStoreServer::KVStoreServer(const std::string l_address, KVStoreServiceImpl& s)
 void KVStoreServer::wait() {
     server->Wait();
 }
+
+} // namespace zdb

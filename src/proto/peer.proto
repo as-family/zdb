@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package peer;
+package zdb.peer;
 
 service PeerService {
   rpc Ping (PingRequest) returns (PingReply) {}
