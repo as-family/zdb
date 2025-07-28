@@ -2,21 +2,22 @@
 
 namespace zdb {
 
-std::string InMemoryKVStore::get(const std::string key) const {
+std::expected<std::optional<std::string>, Error> InMemoryKVStore::get(const std::string key) const {
     std::shared_lock l {m};
     auto i = store.find(key);
     if (i == store.end()) {
-        throw std::out_of_range{""};
+        return std::nullopt;
     }
     return (*store.find(key)).second;
 }
 
-void InMemoryKVStore::set(const std::string key, const std::string value) {
+std::expected<void, Error> InMemoryKVStore::set(const std::string key, const std::string value) {
     std::unique_lock l {m};
     store[key] = value;
+    return {};
 }
 
-std::string InMemoryKVStore::erase(const std::string key) {
+std::expected<std::optional<std::string>, Error> InMemoryKVStore::erase(const std::string key) {
     std::unique_lock l {m};
     auto value = get(key);
     store.erase(key);

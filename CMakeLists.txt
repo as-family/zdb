@@ -71,6 +71,9 @@ target_sources(zdb
     src/proto/kvStore.proto
     src/KVStoreServer.cpp
     src/KVStoreClient.cpp
+    src/proto/error.proto
+    src/Error.cpp
+    src/ErrorConverter.cpp
 )
 
 target_link_libraries(zdb
@@ -116,6 +119,7 @@ if(BUILD_TESTING)
       PRIVATE
         src/unit_tests.cpp
         src/InMemoryKVStore.cpp
+        src/Error.cpp
     )
 
     target_link_libraries(unit_tests

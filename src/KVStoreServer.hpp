@@ -17,12 +17,16 @@ public:
         kvStore::GetReply* reply) override;
     grpc::Status set(
         grpc::ServerContext* context,
-        const kvStore::SetRquest* request,
+        const kvStore::SetRequest* request,
         kvStore::SetReply* reply) override;
     grpc::Status erase(
         grpc::ServerContext* context,
         const kvStore::EraseRequest* request,
         kvStore::EraseReply* reply) override;
+    grpc::Status size(
+        grpc::ServerContext* context,
+        const kvStore::SizeRequest* request,
+        kvStore::SizeReply* reply) override;
 private:
     InMemoryKVStore& kvStore;
 };

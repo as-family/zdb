@@ -31,6 +31,6 @@ int main(int argc, char** argv) {
 
     KVStoreClient client {listen_address};
     client.set("hello", "world");
-    std::cout << client.get("hello") << std::endl;
+    std::cout << client.get("hello")->value() << std::endl;
     return 0;
 }

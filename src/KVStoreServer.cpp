@@ -1,4 +1,6 @@
 #include "KVStoreServer.hpp"
+#include "ErrorConverter.hpp"
+#include "Error.hpp"
 
 namespace zdb {
 
@@ -9,33 +11,49 @@ grpc::Status KVStoreServiceImpl::get(
     grpc::ServerContext *context,
     const kvStore::GetRequest *request,
     kvStore::GetReply *reply) {
-    try {
-        auto value = kvStore.get(request->key());
-        reply->set_value(value);
+
+    auto v = kvStore.get(request->key());
+    if (!v.has_value()) {
+        return toGrpcStatus(v.error());
+    }
+    else if (!v->has_value()) {
+        return toGrpcStatus(Error {ErrorCode::NotFound, "key not found"});
+    } else {
+        reply->set_value(v->value());
         return grpc::Status::OK;
-    } catch(std::out_of_range& e) {
-        return grpc::Status(grpc::StatusCode::NOT_FOUND, "key not found");
     }
 }
 
 grpc::Status KVStoreServiceImpl::set(
     grpc::ServerContext* context,
-    const kvStore::SetRquest* request,
+    const kvStore::SetRequest* request,
     kvStore::SetReply* reply) {
-    kvStore.set(request->key(), request->value());
-    return grpc::Status::OK;
+    auto v = kvStore.set(request->key(), request->value());
+    return toGrpcStatus(std::move(v));
 }
 
 grpc::Status KVStoreServiceImpl::erase(
     grpc::ServerContext* context,
     const kvStore::EraseRequest* request,
     kvStore::EraseReply* reply) {
-    try {
-        reply->set_value(kvStore.erase(request->key()));
-        return grpc::Status::OK;
-    } catch(std::out_of_range& e) {
-        return grpc::Status(grpc::StatusCode::NOT_FOUND, "key not found");
+    auto v = kvStore.erase(request->key());
+    if (!v.has_value()) {
+        return toGrpcStatus(v.error());
     }
+    else if (!v->has_value()) {
+        return toGrpcStatus(Error {ErrorCode::NotFound, "key not found"});
+    } else {
+        reply->set_value(v->value());
+        return grpc::Status::OK;
+    }
+}
+
+grpc::Status KVStoreServiceImpl::size(
+    grpc::ServerContext* context,
+    const kvStore::SizeRequest* request,
+    kvStore::SizeReply* reply) {
+    reply->set_size(kvStore.size());
+    return grpc::Status::OK;
 }
 
 KVStoreServer::KVStoreServer(const std::string l_address, KVStoreServiceImpl& s)

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package zdb.protoError;
+
+enum ErrorCode {
+    UNKNOWN = 0;
+    NOT_FOUND = 1;
+    INVALID_ARG = 2;
+}
+
+message ErrorDetails {
+    ErrorCode code = 1;
+    string what = 2;
+    string key = 3;
+}
