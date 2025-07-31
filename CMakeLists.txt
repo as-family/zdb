@@ -74,6 +74,11 @@ target_sources(zdb
     src/proto/error.proto
     src/Error.cpp
     src/ErrorConverter.cpp
+    src/Repeater.cpp
+    src/FullJitter.cpp
+    src/ExponentialBackoff.cpp
+    src/CircuitBreaker.cpp
+    src/KVRPCService.cpp
 )
 
 target_link_libraries(zdb

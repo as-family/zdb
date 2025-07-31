@@ -2,16 +2,21 @@
 #define ERROR_H
 
 #include <string>
-#include <iostream>
+#include <ostream>
 #include <sstream>
+#include <unordered_set>
 
 namespace zdb {
 
 enum class ErrorCode {
     Unknown,
     NotFound,
-    InvalidArg
+    InvalidArg,
+    ServiceTemporarilyUnavailable
 };
+
+std::unordered_set<ErrorCode> retriableErrorCodes();
+bool isRetriable(ErrorCode code);
 
 std::ostream& operator<<(std::ostream& os, ErrorCode code);
 

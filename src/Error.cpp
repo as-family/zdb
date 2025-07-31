@@ -10,9 +10,19 @@ std::ostream& operator<<(std::ostream& os, ErrorCode code) {
 std::string toString(ErrorCode code) {
     switch (code)
     {
+        case ErrorCode::Unknown: return "Unknown";
         case ErrorCode::NotFound: return "Not Found";
         case ErrorCode::InvalidArg: return "Invalid Argument";
+        case ErrorCode::ServiceTemporarilyUnavailable: return "Service Temporarily Unavailable";
     }
+}
+
+std::unordered_set<ErrorCode> retriableErrorCodes() {
+    return {ErrorCode::Unknown, ErrorCode::ServiceTemporarilyUnavailable};
+}
+
+bool isRetriable(ErrorCode code) {
+    return retriableErrorCodes().contains(code);
 }
 
 

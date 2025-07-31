@@ -5,6 +5,9 @@
 #include "InMemoryKVStore.hpp"
 #include "KVStoreServer.hpp"
 #include "KVStoreClient.hpp"
+#include "RetryPolicy.hpp"
+#include <spdlog/spdlog.h>
+#include <chrono>
 
 using namespace zdb;
 
@@ -17,7 +20,6 @@ int main(int argc, char** argv) {
     std::string peer_id {argv[1]};
     std::string port {argv[2]};
     std::string listen_address {"localhost:" + port};
-
     std::vector<std::string> peer_addresses {
         "localhost:50051",
         "localhost:50052",
@@ -29,8 +31,13 @@ int main(int argc, char** argv) {
     KVStoreServer ss {listen_address, s};
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    KVStoreClient client {listen_address};
+    RetryPolicy p {3, std::chrono::microseconds(100), std::chrono::milliseconds(500), std::chrono::seconds(5)};
+    KVStoreClient client {peer_addresses, p};
     client.set("hello", "world");
     std::cout << client.get("hello")->value() << std::endl;
+    std::cout << client.size().value() << std::endl;
+    std::cout << client.erase("hello")->value() << std::endl;
+    std::cout << client.size().value() << std::endl;
+    std::cout << client.get("hello").error().what << std::endl;
     return 0;
 }

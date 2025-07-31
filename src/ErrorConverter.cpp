@@ -31,6 +31,9 @@ Error toError(grpc::Status status) {
         case grpc::StatusCode::INVALID_ARGUMENT:
             code = ErrorCode::InvalidArg;
             break;
+        case grpc::StatusCode::UNAVAILABLE:
+            code = ErrorCode::ServiceTemporarilyUnavailable;
+            break;
         default:
             code = ErrorCode::Unknown;
     }

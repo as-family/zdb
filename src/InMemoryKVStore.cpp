@@ -19,9 +19,12 @@ std::expected<void, Error> InMemoryKVStore::set(const std::string key, const std
 
 std::expected<std::optional<std::string>, Error> InMemoryKVStore::erase(const std::string key) {
     std::unique_lock l {m};
-    auto value = get(key);
+    auto i = store.find(key);
+    if (i == store.end()) {
+        return std::nullopt;
+    }
     store.erase(key);
-    return value;
+    return i->second;
 }
 
 size_t InMemoryKVStore::size() const {
