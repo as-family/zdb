@@ -1,6 +1,6 @@
 #include "KVStoreServer.hpp"
-#include "ErrorConverter.hpp"
-#include "Error.hpp"
+#include "common/ErrorConverter.hpp"
+#include "common/Error.hpp"
 
 namespace zdb {
 

@@ -6,7 +6,7 @@
 #include <vector>
 #include <map>
 #include <grpcpp/grpcpp.h>
-#include "src/proto/peer.grpc.pb.h"
+#include "proto/peer.grpc.pb.h"
 
 namespace zdb {
 

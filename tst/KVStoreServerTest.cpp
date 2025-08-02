@@ -1,9 +1,9 @@
 
 #include <gtest/gtest.h>
 #include <grpcpp/grpcpp.h>
-#include "../KVStoreServer.hpp"
-#include "../InMemoryKVStore.hpp"
-#include <src/proto/kvStore.grpc.pb.h>
+#include "server/KVStoreServer.hpp"
+#include "server/InMemoryKVStore.hpp"
+#include "proto/kvStore.grpc.pb.h"
 #include <thread>
 #include <chrono>
 #include <string>

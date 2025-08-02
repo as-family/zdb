@@ -2,10 +2,10 @@
 #include <vector>
 #include <thread>
 #include <chrono>
-#include "InMemoryKVStore.hpp"
-#include "KVStoreServer.hpp"
-#include "KVStoreClient.hpp"
-#include "RetryPolicy.hpp"
+#include "server/InMemoryKVStore.hpp"
+#include "server/KVStoreServer.hpp"
+#include "client/KVStoreClient.hpp"
+#include "common/RetryPolicy.hpp"
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <string>
@@ -13,13 +13,8 @@
 using namespace zdb;
 
 int main(int argc, char** argv) {
-    if (argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <peer_id> <port>" << std::endl;
-        return 1;
-    }
-
-    std::string peer_id {argv[1]};
-    std::string port {argv[2]};
+    std::string peer_id {"Alice"};
+    std::string port {"50051"};
     std::string listen_address {"localhost:" + port};
     std::vector<std::string> peer_addresses {
         "localhost:50051",

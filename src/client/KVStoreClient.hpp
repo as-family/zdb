@@ -7,9 +7,9 @@
 #include <optional>
 #include <vector>
 #include <unordered_map>
-#include "Error.hpp"
-#include "KVRPCService.hpp"
-#include "RetryPolicy.hpp"
+#include "common/Error.hpp"
+#include "client/KVRPCService.hpp"
+#include "common/RetryPolicy.hpp"
 
 namespace zdb {
 

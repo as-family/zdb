@@ -1,12 +1,12 @@
 #ifndef KVRPC_SERVICE_H
 #define KVRPC_SERVICE_H
 
-#include "CircuitBreaker.hpp"
-#include "Repeater.hpp"
-#include "Error.hpp"
-#include "ErrorConverter.hpp"
+#include "common/CircuitBreaker.hpp"
+#include "common/Repeater.hpp"
+#include "common/Error.hpp"
+#include "common/ErrorConverter.hpp"
 #include <grpcpp/grpcpp.h>
-#include "src/proto/kvStore.grpc.pb.h"
+#include "proto/kvStore.grpc.pb.h"
 #include <expected>
 #include <memory>
 #include <functional>

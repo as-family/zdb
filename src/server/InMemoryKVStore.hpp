@@ -8,7 +8,7 @@
 #include <cctype>
 #include <expected>
 #include <optional>
-#include "Error.hpp"
+#include "common/Error.hpp"
 
 namespace zdb {
 

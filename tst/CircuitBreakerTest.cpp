@@ -1,7 +1,7 @@
-#include "../CircuitBreaker.hpp"
-#include "../RetryPolicy.hpp"
-#include "../Error.hpp"
-#include "../ErrorConverter.hpp"
+#include "common/CircuitBreaker.hpp"
+#include "common/RetryPolicy.hpp"
+#include "common/Error.hpp"
+#include "common/ErrorConverter.hpp"
 #include <gtest/gtest.h>
 #include <grpcpp/grpcpp.h>
 #include <chrono>

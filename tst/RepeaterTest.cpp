@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include <grpcpp/grpcpp.h>
-#include "../Repeater.hpp"
-#include "../RetryPolicy.hpp"
-#include "../Error.hpp"
-#include "../ErrorConverter.hpp"
+#include "common/Repeater.hpp"
+#include "common/RetryPolicy.hpp"
+#include "common/Error.hpp"
+#include "common/ErrorConverter.hpp"
 
 using namespace zdb;
 

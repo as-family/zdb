@@ -1,5 +1,5 @@
 #include "ErrorConverter.hpp"
-#include "src/proto/error.pb.h"
+#include "proto/error.pb.h"
 
 namespace zdb {
 

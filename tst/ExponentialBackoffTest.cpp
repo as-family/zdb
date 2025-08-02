@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "../ExponentialBackoff.hpp"
-#include "../RetryPolicy.hpp"
+#include "common/ExponentialBackoff.hpp"
+#include "common/RetryPolicy.hpp"
 
 using namespace zdb;
 

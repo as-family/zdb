@@ -35,7 +35,7 @@
             },
             "environment": {
                 "CC": "/usr/local/llvm-21.1/bin/clang",
-                "CXX": "/usr/local/llvm-21.1/bin/clang++" 
+                "CXX": "/usr/local/llvm-21.1/bin/clang++"
             }
         },
         {
@@ -70,6 +70,14 @@
         },
         {
             "name": "gcc-16",
+            "configurePreset": "gcc-16-preset"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "Test",
+            "description": "",
+            "displayName": "",
             "configurePreset": "gcc-16-preset"
         }
     ]

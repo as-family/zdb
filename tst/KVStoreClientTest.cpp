@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 #include <grpcpp/grpcpp.h>
-#include "../KVStoreClient.hpp"
-#include "../RetryPolicy.hpp"
-#include "../Error.hpp"
-#include "../KVStoreServer.hpp"
-#include "../InMemoryKVStore.hpp"
-#include <src/proto/kvStore.grpc.pb.h>
+#include "client/KVStoreClient.hpp"
+#include "common/RetryPolicy.hpp"
+#include "common/Error.hpp"
+#include "server/KVStoreServer.hpp"
+#include "server/InMemoryKVStore.hpp"
+#include "proto/kvStore.grpc.pb.h"
 #include <thread>
 #include <chrono>
 #include <string>

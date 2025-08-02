@@ -1,4 +1,5 @@
 #include "Error.hpp"
+#include <utility>
 
 namespace zdb {
 
@@ -15,6 +16,7 @@ std::string toString(ErrorCode code) {
         case ErrorCode::InvalidArg: return "Invalid Argument";
         case ErrorCode::ServiceTemporarilyUnavailable: return "Service Temporarily Unavailable";
     }
+    std::unreachable();
 }
 
 std::unordered_set<ErrorCode> retriableErrorCodes() {

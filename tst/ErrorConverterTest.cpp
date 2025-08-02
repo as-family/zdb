@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "../ErrorConverter.hpp"
-#include "../Error.hpp"
+#include "common/ErrorConverter.hpp"
+#include "common/Error.hpp"
 #include <grpcpp/grpcpp.h>
 
 using namespace zdb;

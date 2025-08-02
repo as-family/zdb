@@ -1,9 +1,9 @@
 
-#include "../KVRPCService.hpp"
-#include "../RetryPolicy.hpp"
-#include "../Error.hpp"
-#include "../KVStoreServer.hpp"
-#include "../InMemoryKVStore.hpp"
+#include "client/KVRPCService.hpp"
+#include "common/RetryPolicy.hpp"
+#include "common/Error.hpp"
+#include "server/KVStoreServer.hpp"
+#include "server/InMemoryKVStore.hpp"
 #include <gtest/gtest.h>
 #include <grpcpp/grpcpp.h>
 #include <thread>

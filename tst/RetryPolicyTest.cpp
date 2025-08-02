@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "../RetryPolicy.hpp"
+#include "common/RetryPolicy.hpp"
 #include <stdexcept>
 
 using namespace zdb;

@@ -3,7 +3,7 @@
 
 #include <memory>
 #include <grpcpp/grpcpp.h>
-#include "src/proto/kvStore.grpc.pb.h"
+#include "proto/kvStore.grpc.pb.h"
 #include "InMemoryKVStore.hpp"
 
 namespace zdb {

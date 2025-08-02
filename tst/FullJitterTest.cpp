@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "../FullJitter.hpp"
+#include "common/FullJitter.hpp"
 #include <chrono>
 #include <set>
 

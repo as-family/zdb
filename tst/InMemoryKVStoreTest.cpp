@@ -2,7 +2,7 @@
 #include <thread>
 #include <vector>
 #include <atomic>
-#include "../InMemoryKVStore.hpp"
+#include "server/InMemoryKVStore.hpp"
 
 using namespace zdb;
 

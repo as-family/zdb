@@ -1,5 +1,5 @@
 #include "KVStoreClient.hpp"
-#include "ErrorConverter.hpp"
+#include "common/ErrorConverter.hpp"
 #include <stdexcept>
 
 namespace zdb {
