@@ -19,14 +19,14 @@ KVStoreClient::KVStoreClient(const std::vector<std::string>& addresses, RetryPol
     }
 }
 
-std::expected<std::optional<std::string>, Error> KVStoreClient::get(const std::string key) const {
+std::expected<std::string, Error> KVStoreClient::get(const std::string key) const {
     kvStore::GetRequest request;
     request.set_key(key);
     kvStore::GetReply reply;
     auto t = currentService->second.call(
         &kvStore::KVStoreService::Stub::get,
         request,
-        &reply
+        reply
     );
     if (t.has_value()) {
         return reply.value();
@@ -42,7 +42,7 @@ std::expected<void, Error> KVStoreClient::set(const std::string key, const std::
     auto t = currentService->second.call(
         &kvStore::KVStoreService::Stub::set,
         request,
-        &reply
+        reply
     );
     if (t.has_value()) {
         return {};
@@ -50,14 +50,14 @@ std::expected<void, Error> KVStoreClient::set(const std::string key, const std::
     return std::unexpected {t.error()};
 }
 
-std::expected<std::optional<std::string>, Error> KVStoreClient::erase(const std::string key) {
+std::expected<std::string, Error> KVStoreClient::erase(const std::string key) {
     kvStore::EraseRequest request;
     request.set_key(key);
     kvStore::EraseReply reply;
     auto t = currentService->second.call(
         &kvStore::KVStoreService::Stub::erase,
         request,
-        &reply
+        reply
     );
     if (t.has_value()) {
         return reply.value();
@@ -71,7 +71,7 @@ std::expected<size_t, Error> KVStoreClient::size() const {
     auto t = currentService->second.call(
         &kvStore::KVStoreService::Stub::size,
         request,
-        &reply
+        reply
     );
     if (t.has_value()) {
         return reply.size();

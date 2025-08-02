@@ -19,6 +19,7 @@ include(CTest)
 set(FETCHCONTENT_QUIET OFF)
 
 set(gRPC_BUILD_TESTS OFF CACHE BOOL "Build gRPC tests" FORCE)
+set(RE2_BUILD_TESTING OFF CACHE BOOL "Build re tests" FORCE)
 set(gRPC_INSTALL ON CACHE BOOL "Install gRPC" FORCE)
 set(gRPC_BUILD_GRPC_CPP_PLUGIN ON CACHE BOOL "Build grpc_cpp_plugin" FORCE)
 FetchContent_Declare(
@@ -40,7 +41,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(spdlog)
 
 add_executable(zdb)
-target_compile_options(zdb PRIVATE
+target_compile_options(zdb PUBLIC
   -Wall
   -Wextra
   -Wpedantic
@@ -62,30 +63,29 @@ target_compile_options(zdb PRIVATE
   -Wnull-dereference
 )
 
-target_sources(zdb
-  PRIVATE
-    src/main.cpp
-    src/PeerNode.cpp
-    src/proto/peer.proto
-    src/InMemoryKVStore.cpp
-    src/proto/kvStore.proto
-    src/KVStoreServer.cpp
-    src/KVStoreClient.cpp
-    src/proto/error.proto
-    src/Error.cpp
-    src/ErrorConverter.cpp
-    src/Repeater.cpp
-    src/FullJitter.cpp
-    src/ExponentialBackoff.cpp
-    src/CircuitBreaker.cpp
-    src/KVRPCService.cpp
+target_sources(zdb PRIVATE
+  src/main.cpp
+  src/PeerNode.cpp
+  src/proto/peer.proto
+  src/InMemoryKVStore.cpp
+  src/proto/kvStore.proto
+  src/KVStoreServer.cpp
+  src/KVStoreClient.cpp
+  src/proto/error.proto
+  src/Error.cpp
+  src/ErrorConverter.cpp
+  src/Repeater.cpp
+  src/FullJitter.cpp
+  src/ExponentialBackoff.cpp
+  src/CircuitBreaker.cpp
+  src/KVRPCService.cpp
+  src/RetryPolicy.cpp
 )
 
-target_link_libraries(zdb
-  PRIVATE
-    protobuf::libprotobuf
-    grpc++
-    spdlog::spdlog
+target_link_libraries(zdb PRIVATE
+  protobuf::libprotobuf
+  grpc++
+  spdlog::spdlog
 )
 
 include("${grpc_BINARY_DIR}/third_party/protobuf/cmake/protobuf/protobuf-generate.cmake")
@@ -117,32 +117,49 @@ if(BUILD_TESTING)
   include(GoogleTest)
 
   # Only create test target if test files exist
-  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/unit_tests.cpp")
-    add_executable(unit_tests)
+  add_executable(tests)
 
-    target_sources(unit_tests
-      PRIVATE
-        src/unit_tests.cpp
-        src/InMemoryKVStore.cpp
-        src/Error.cpp
-    )
+  target_sources(tests PRIVATE
+    src/proto/error.proto
+    src/InMemoryKVStore.cpp
+    src/ExponentialBackoff.cpp
+    src/RetryPolicy.cpp
+    src/FullJitter.cpp
+    src/Error.cpp
+    src/ErrorConverter.cpp
+    src/Repeater.cpp
+    src/CircuitBreaker.cpp
+    src/KVRPCService.cpp
+    src/proto/kvStore.proto
+    src/KVStoreServer.cpp
+    src/KVStoreServer.cpp
+    src/KVStoreClient.cpp
+    src/tst/InMemoryKVStoreTest.cpp
+    src/tst/ExponentialBackoffTest.cpp
+    src/tst/RetryPolicyTest.cpp
+    src/tst/FullJitterTest.cpp
+    src/tst/ErrorConverterTest.cpp
+    src/tst/RepeaterTest.cpp
+    src/tst/CircuitBreakerTest.cpp
+    src/tst/KVRPCServiceTest.cpp
+    src/tst/KVStoreServerTest.cpp
+    src/tst/KVStoreClientTest.cpp
+  )
 
-    target_link_libraries(unit_tests
-      PRIVATE
-        GTest::gtest_main
-        GTest::gmock_main
-        protobuf::libprotobuf
-        grpc++
-        spdlog::spdlog
-    )
+  target_link_libraries(tests PRIVATE
+    GTest::gtest_main
+    GTest::gmock_main
+    grpc++
+    protobuf::libprotobuf
+  )
 
-    set_target_properties(unit_tests PROPERTIES
-      CXX_STANDARD 23
-      CXX_STANDARD_REQUIRED ON
-      CXX_EXTENSIONS OFF
-    )
+  set_target_properties(tests PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+  )
 
-    target_compile_options(unit_tests PRIVATE
+  target_compile_options(tests PRIVATE
     -Wall
     -Wextra
     -Wpedantic
@@ -164,23 +181,29 @@ if(BUILD_TESTING)
     -Wnull-dereference
 
     # -fsanitize=address
-    -fsanitize=undefined
-    -fsanitize=thread
+    # -fsanitize=undefined
+    # -fsanitize=thread
     -fstack-protector-strong
     -D_FORTIFY_SOURCE=2
+    )
+
+    target_link_options(tests PRIVATE
+      # -fsanitize=address
+      # -fsanitize=undefined
+      # -fsanitize=thread
   )
 
-  target_link_options(unit_tests PRIVATE
-    # -fsanitize=address
-    -fsanitize=undefined
-    -fsanitize=thread
+  protobuf_generate(TARGET tests)
+  protobuf_generate(
+    TARGET tests
+    LANGUAGE grpc
+    PLUGIN protoc-gen-grpc=$<TARGET_FILE:grpc_cpp_plugin>
+    PLUGIN_OPTIONS generate_mock_code=true
+    GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
   )
+  target_include_directories(tests PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
-
-    gtest_discover_tests(unit_tests)
-  else()
-    message(WARNING "unit_tests.cpp not found, skipping test target creation")
-  endif()
+  gtest_discover_tests(tests)
 endif()
 
 # --- Installation ---

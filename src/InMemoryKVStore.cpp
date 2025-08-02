@@ -8,7 +8,7 @@ std::expected<std::optional<std::string>, Error> InMemoryKVStore::get(const std:
     if (i == store.end()) {
         return std::nullopt;
     }
-    return (*store.find(key)).second;
+    return i->second;
 }
 
 std::expected<void, Error> InMemoryKVStore::set(const std::string key, const std::string value) {
@@ -23,8 +23,9 @@ std::expected<std::optional<std::string>, Error> InMemoryKVStore::erase(const st
     if (i == store.end()) {
         return std::nullopt;
     }
-    store.erase(key);
-    return i->second;
+    auto v = i->second;
+    store.erase(i);
+    return v;
 }
 
 size_t InMemoryKVStore::size() const {

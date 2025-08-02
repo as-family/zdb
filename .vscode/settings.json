@@ -6,6 +6,7 @@
     ],
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cmake.configureOnOpen": false,
+    "cmake.configureOnEdit": false,
     "files.associations": {
         "pointers": "cpp",
         "any": "cpp",

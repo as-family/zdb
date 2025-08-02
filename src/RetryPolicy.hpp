@@ -6,10 +6,11 @@
 namespace zdb {
 
 struct RetryPolicy {
-    int failureThreshold;
+    RetryPolicy(std::chrono::microseconds base, std::chrono::microseconds max, std::chrono::microseconds reset, int threshold);
     std::chrono::microseconds baseDelay;
     std::chrono::microseconds maxDelay;
     std::chrono::microseconds resetTimeout;
+    int failureThreshold;
 };
 
 } // namespace zdb

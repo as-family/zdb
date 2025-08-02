@@ -22,10 +22,10 @@ public:
     std::expected<void, Error> call(
         grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
-        Rep* reply) {
-        std::function<grpc::Status()> bound = [this, f, request, reply] {
+        Rep& reply) {
+        std::function<grpc::Status()> bound = [this, f, request, &reply] {
             auto c = grpc::ClientContext();
-            return (stub.get()->*f)(&c, request, reply);
+            return (stub.get()->*f)(&c, request, &reply);
         };
         auto status = circuitBreaker.call(bound);
         if (status.ok()) {

@@ -4,7 +4,6 @@
 #include "Error.hpp"
 #include <grpcpp/grpcpp.h>
 #include <google/protobuf/any.pb.h>
-#include "src/proto/error.grpc.pb.h"
 #include <expected>
 #include <optional>
 

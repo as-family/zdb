@@ -9,10 +9,10 @@
 namespace zdb {
 
 enum class ErrorCode {
-    Unknown,
     NotFound,
     InvalidArg,
-    ServiceTemporarilyUnavailable
+    ServiceTemporarilyUnavailable,
+    Unknown
 };
 
 std::unordered_set<ErrorCode> retriableErrorCodes();

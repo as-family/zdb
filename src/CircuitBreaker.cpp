@@ -8,6 +8,9 @@ CircuitBreaker::CircuitBreaker(const RetryPolicy& p)
     : state {State::Closed}, policy{p}, repeater {p}, lastFailureTime{} {}
 
 grpc::Status CircuitBreaker::call(std::function<grpc::Status()>& rpc) {
+    if (rpc == nullptr) {
+        throw std::bad_function_call {};
+    }
     switch (state) {
         case State::Open:
             if (std::chrono::steady_clock::now() - lastFailureTime < policy.resetTimeout) {
@@ -42,6 +45,7 @@ grpc::Status CircuitBreaker::call(std::function<grpc::Status()>& rpc) {
             return status;
         }
     }
+    std::unreachable();
 }
 
 bool CircuitBreaker::isOpen() {
