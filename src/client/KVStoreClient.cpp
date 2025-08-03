@@ -1,6 +1,7 @@
 #include "KVStoreClient.hpp"
 #include "common/ErrorConverter.hpp"
 #include <stdexcept>
+#include <spdlog/spdlog.h>
 
 namespace zdb {
 
@@ -15,6 +16,7 @@ KVStoreClient::KVStoreClient(const std::vector<std::string>& addresses, RetryPol
         }
     }
     if (currentService == services.end()) {
+        spdlog::error("KVStoreClient: Could not connect to any server. Throwing runtime_error.");
         throw std::runtime_error("KVStoreClient: Could not connect to any server"); 
     }
 }
@@ -31,6 +33,7 @@ std::expected<std::string, Error> KVStoreClient::get(const std::string key) cons
     if (t.has_value()) {
         return reply.value();
     }
+    spdlog::warn("Failed to get key '{}': {}", key, t.error().what);
     return std::unexpected {t.error()};
 }
 
@@ -47,6 +50,7 @@ std::expected<void, Error> KVStoreClient::set(const std::string key, const std::
     if (t.has_value()) {
         return {};
     }
+    spdlog::warn("Failed to set key '{}': {}", key, t.error().what);
     return std::unexpected {t.error()};
 }
 
@@ -62,6 +66,7 @@ std::expected<std::string, Error> KVStoreClient::erase(const std::string key) {
     if (t.has_value()) {
         return reply.value();
     }
+    spdlog::warn("Failed to erase key '{}': {}", key, t.error().what);
     return std::unexpected {t.error()};
 }
 
@@ -76,6 +81,7 @@ std::expected<size_t, Error> KVStoreClient::size() const {
     if (t.has_value()) {
         return reply.size();
     }
+    spdlog::warn("Failed to get size: {}", t.error().what);
     return std::unexpected {t.error()};
 }
 

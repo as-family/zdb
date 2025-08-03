@@ -15,6 +15,7 @@ if(${BUILD_TESTING})
   include(GoogleTest)
 
   add_executable(tests)
+  enable_testing()
 
   target_include_directories(tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src
@@ -53,6 +54,7 @@ if(${BUILD_TESTING})
     grpc++
     protobuf::libprotobuf
     protobuf_generated
+    spdlog::spdlog
   )
 
   target_compile_options(tests PRIVATE

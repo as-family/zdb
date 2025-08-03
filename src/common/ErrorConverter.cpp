@@ -1,5 +1,6 @@
 #include "ErrorConverter.hpp"
 #include "proto/error.pb.h"
+#include <spdlog/spdlog.h>
 
 namespace zdb {
 
@@ -26,6 +27,9 @@ grpc::Status toGrpcStatus(const Error& error) {
 Error toError(grpc::Status status) {
     ErrorCode code;
     switch (status.error_code()) {
+        case grpc::StatusCode::OK:
+            spdlog::error("Attempted to convert OK gRPC status to Error. Throwing logic_error.");
+            throw std::logic_error("Cannot convert OK status to Error");
         case grpc::StatusCode::NOT_FOUND:
             code = ErrorCode::NotFound;
             break;
@@ -38,6 +42,7 @@ Error toError(grpc::Status status) {
         default:
             code = ErrorCode::Unknown;
     }
+    spdlog::warn("gRPC call failed with status: {} - {}", static_cast<int>(status.error_code()), status.error_message());
     return Error(code, status.error_message());
 }
 

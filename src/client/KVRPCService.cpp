@@ -1,6 +1,7 @@
 #include "KVRPCService.hpp"
 
 #include<chrono>
+#include <spdlog/spdlog.h>
 
 namespace zdb {
 
@@ -11,6 +12,7 @@ KVRPCService::KVRPCService(const std::string s_address, const RetryPolicy& p)
 std::expected<void, Error> KVRPCService::connect() {
     channel = grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
     if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::seconds(1))) {
+        spdlog::warn("Could not connect to service @ {}", address);
         return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + address}};
     }
     stub = kvStore::KVStoreService::NewStub(channel);

@@ -1,6 +1,7 @@
 #include "CircuitBreaker.hpp"
 #include "Error.hpp"
 #include "ErrorConverter.hpp"
+#include <spdlog/spdlog.h>
 
 namespace zdb {
 
@@ -9,6 +10,7 @@ CircuitBreaker::CircuitBreaker(const RetryPolicy& p)
 
 grpc::Status CircuitBreaker::call(std::function<grpc::Status()>& rpc) {
     if (rpc == nullptr) {
+        spdlog::error("CircuitBreaker: rpc function is nullptr. Throwing bad_function_call.");
         throw std::bad_function_call {};
     }
     switch (state) {

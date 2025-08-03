@@ -13,15 +13,17 @@
 using namespace zdb;
 
 int main(int argc, char** argv) {
+    spdlog::info("ZDB! Starting...");
     std::string peer_id {"Alice"};
     std::string port {"50051"};
     std::string listen_address {"localhost:" + port};
+    spdlog::info("Listening on: {}", listen_address);
     std::vector<std::string> peer_addresses {
         "localhost:50051",
         "localhost:50052",
         "localhost:50053"
     };
-    
+
     InMemoryKVStore kvStore {};
     KVStoreServiceImpl s{kvStore};
     KVStoreServer ss {listen_address, s};
