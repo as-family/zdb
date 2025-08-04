@@ -36,6 +36,7 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/client/KVStoreClient.cpp
     ${CMAKE_SOURCE_DIR}/src/server/InMemoryKVStore.cpp
     ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp
+    ${CMAKE_SOURCE_DIR}/src/client/Config.cpp
     ${CMAKE_SOURCE_DIR}/tst/InMemoryKVStoreTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/ExponentialBackoffTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/RetryPolicyTest.cpp
@@ -46,6 +47,7 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/tst/KVRPCServiceTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/KVStoreServerTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/KVStoreClientTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/ConfigTest.cpp
   )
 
   target_link_libraries(tests PRIVATE

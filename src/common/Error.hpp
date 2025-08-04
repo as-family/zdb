@@ -12,6 +12,7 @@ enum class ErrorCode {
     NotFound,
     InvalidArg,
     ServiceTemporarilyUnavailable,
+    AllServicesUnavailable,
     Unknown
 };
 

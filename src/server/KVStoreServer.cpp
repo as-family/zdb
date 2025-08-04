@@ -68,4 +68,11 @@ void KVStoreServer::wait() {
     server->Wait();
 }
 
+void KVStoreServer::shutdown() {
+    if (server) {
+        server->Shutdown();
+        server.reset();
+    }
+}
+
 } // namespace zdb

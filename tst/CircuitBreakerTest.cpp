@@ -11,19 +11,19 @@ using namespace zdb;
 
 class CircuitBreakerTest : public ::testing::Test {
 protected:
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2};
+    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2};
     CircuitBreaker breaker{policy};
 };
 
 TEST_F(CircuitBreakerTest, InitialStateClosed) {
-    EXPECT_FALSE(breaker.isOpen());
+    EXPECT_FALSE(breaker.open());
 }
 
 TEST_F(CircuitBreakerTest, SuccessfulCallKeepsClosed) {
     std::function<grpc::Status()> rpc = [] { return grpc::Status::OK; };
     auto status = breaker.call(rpc);
     EXPECT_TRUE(status.ok());
-    EXPECT_FALSE(breaker.isOpen());
+    EXPECT_FALSE(breaker.open());
 }
 
 TEST_F(CircuitBreakerTest, RetriableFailureOpensBreaker) {
@@ -32,7 +32,7 @@ TEST_F(CircuitBreakerTest, RetriableFailureOpensBreaker) {
     };
     auto status = breaker.call(rpc);
     EXPECT_EQ(status.error_code(), grpc::StatusCode::UNAVAILABLE);
-    EXPECT_TRUE(breaker.isOpen());
+    EXPECT_TRUE(breaker.open());
 }
 
 TEST_F(CircuitBreakerTest, NonRetriableFailureKeepsClosed) {
@@ -41,7 +41,7 @@ TEST_F(CircuitBreakerTest, NonRetriableFailureKeepsClosed) {
     };
     auto status = breaker.call(rpc);
     EXPECT_EQ(status.error_code(), grpc::StatusCode::INVALID_ARGUMENT);
-    EXPECT_FALSE(breaker.isOpen());
+    EXPECT_FALSE(breaker.open());
 }
 
 TEST_F(CircuitBreakerTest, OpenBreakerBlocksCalls) {
@@ -50,7 +50,7 @@ TEST_F(CircuitBreakerTest, OpenBreakerBlocksCalls) {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     breaker.call(rpc);
-    EXPECT_TRUE(breaker.isOpen());
+    EXPECT_TRUE(breaker.open());
     // Should block
     auto status = breaker.call(rpc);
     EXPECT_EQ(status.error_code(), grpc::StatusCode::UNAVAILABLE);
@@ -63,7 +63,7 @@ TEST_F(CircuitBreakerTest, HalfOpenAllowsTestCall) {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     breaker.call(rpc);
-    EXPECT_TRUE(breaker.isOpen());
+    EXPECT_TRUE(breaker.open());
     // Wait for resetTimeout
     std::this_thread::sleep_for(policy.resetTimeout);
     // Should transition to HalfOpen and call rpc
@@ -75,7 +75,7 @@ TEST_F(CircuitBreakerTest, HalfOpenAllowsTestCall) {
     auto status = breaker.call(testRpc);
     EXPECT_TRUE(called);
     EXPECT_TRUE(status.ok());
-    EXPECT_FALSE(breaker.isOpen());
+    EXPECT_FALSE(breaker.open());
 }
 
 TEST_F(CircuitBreakerTest, HalfOpenFailureReopensBreaker) {
@@ -84,7 +84,7 @@ TEST_F(CircuitBreakerTest, HalfOpenFailureReopensBreaker) {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     breaker.call(rpc);
-    EXPECT_TRUE(breaker.isOpen());
+    EXPECT_TRUE(breaker.open());
     // Wait for resetTimeout
     std::this_thread::sleep_for(policy.resetTimeout);
     // Should transition to HalfOpen and call rpc
@@ -93,7 +93,7 @@ TEST_F(CircuitBreakerTest, HalfOpenFailureReopensBreaker) {
     };
     auto status = breaker.call(failRpc);
     EXPECT_EQ(status.error_code(), grpc::StatusCode::UNAVAILABLE);
-    EXPECT_TRUE(breaker.isOpen());
+    EXPECT_TRUE(breaker.open());
 }
 
 TEST_F(CircuitBreakerTest, HalfOpenNonRetriableFailureClosesBreaker) {
@@ -102,7 +102,7 @@ TEST_F(CircuitBreakerTest, HalfOpenNonRetriableFailureClosesBreaker) {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     breaker.call(rpc);
-    EXPECT_TRUE(breaker.isOpen());
+    EXPECT_TRUE(breaker.open());
     // Wait for resetTimeout
     std::this_thread::sleep_for(policy.resetTimeout);
     // Should transition to HalfOpen and call rpc
@@ -111,7 +111,7 @@ TEST_F(CircuitBreakerTest, HalfOpenNonRetriableFailureClosesBreaker) {
     };
     auto status = breaker.call(nonRetriableRpc);
     EXPECT_EQ(status.error_code(), grpc::StatusCode::INVALID_ARGUMENT);
-    EXPECT_FALSE(breaker.isOpen());
+    EXPECT_FALSE(breaker.open());
 }
 
 TEST_F(CircuitBreakerTest, MultipleFailuresTriggerOpen) {
@@ -123,7 +123,7 @@ TEST_F(CircuitBreakerTest, MultipleFailuresTriggerOpen) {
     for (int i = 0; i < policy.failureThreshold; ++i) {
         breaker.call(rpc);
     }
-    EXPECT_TRUE(breaker.isOpen());
+    EXPECT_TRUE(breaker.open());
 }
 
 TEST_F(CircuitBreakerTest, RapidCallsRespectTimeout) {
@@ -131,7 +131,7 @@ TEST_F(CircuitBreakerTest, RapidCallsRespectTimeout) {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     breaker.call(rpc);
-    EXPECT_TRUE(breaker.isOpen());
+    EXPECT_TRUE(breaker.open());
     // Rapid call should still be blocked
     auto status = breaker.call(rpc);
     EXPECT_EQ(status.error_code(), grpc::StatusCode::UNAVAILABLE);

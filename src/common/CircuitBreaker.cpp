@@ -50,7 +50,7 @@ grpc::Status CircuitBreaker::call(std::function<grpc::Status()>& rpc) {
     std::unreachable();
 }
 
-bool CircuitBreaker::isOpen() {
+bool CircuitBreaker::open() const {
     return state == CircuitBreaker::State::Open;
 }
 

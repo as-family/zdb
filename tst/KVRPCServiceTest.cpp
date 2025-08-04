@@ -32,7 +32,7 @@ private:
 
 class KVRPCServiceTest : public ::testing::Test {
 protected:
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2};
+    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 0};
     std::string address{"localhost:50051"};
     std::unique_ptr<TestKVServer> testServer;
     void SetUp() override {
@@ -50,7 +50,7 @@ TEST_F(KVRPCServiceTest, ConnectSuccess) {
     KVRPCService service{address, policy};
     auto result = service.connect();
     EXPECT_TRUE(result.has_value());
-    EXPECT_TRUE(service.isAvailable());
+    EXPECT_TRUE(service.available());
 }
 
 
@@ -62,16 +62,16 @@ TEST_F(KVRPCServiceTest, ConnectFailure) {
 }
 
 
-TEST_F(KVRPCServiceTest, IsAvailableReflectsCircuitBreaker) {
+TEST_F(KVRPCServiceTest, availableReflectsCircuitBreaker) {
     KVRPCService service{address, policy};
     service.connect();
-    EXPECT_TRUE(service.isAvailable());
+    EXPECT_TRUE(service.available());
     testServer->reset(); // Simulate server failure
     kvStore::GetRequest req;
     req.set_key("key");
     kvStore::GetReply rep;
     service.call(&kvStore::KVStoreService::Stub::get, req, rep);
-    EXPECT_FALSE(service.isAvailable());
+    EXPECT_FALSE(service.available());
 }
 
 

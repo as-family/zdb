@@ -17,7 +17,7 @@ public:
     };
     CircuitBreaker(const RetryPolicy& p);
     grpc::Status call(std::function<grpc::Status()>& rpc);
-    bool isOpen();
+    bool open() const;
 private:
     State state;
     const RetryPolicy& policy;

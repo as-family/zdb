@@ -35,6 +35,7 @@ class KVStoreServer {
 public:
     KVStoreServer(const std::string, KVStoreServiceImpl&);
     void wait();
+    void shutdown();
 private:
     std::string listen_address;
     KVStoreServiceImpl& service;

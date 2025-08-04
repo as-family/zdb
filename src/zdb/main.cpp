@@ -29,8 +29,9 @@ int main(int argc, char** argv) {
     KVStoreServer ss {listen_address, s};
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    RetryPolicy p {std::chrono::microseconds(100), std::chrono::milliseconds(500), std::chrono::seconds(5), 3};
-    KVStoreClient client {peer_addresses, p};
+    RetryPolicy p {std::chrono::microseconds(100), std::chrono::milliseconds(500), std::chrono::seconds(5), 3, 3};
+    Config config {peer_addresses, p};
+    KVStoreClient client {config};
     client.set("hello", "world");
     std::cout << client.get("hello").value() << std::endl;
     std::cout << client.size().value() << std::endl;

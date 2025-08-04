@@ -3,10 +3,19 @@
 
 namespace zdb {
 
-RetryPolicy::RetryPolicy(std::chrono::microseconds base, std::chrono::microseconds max, std::chrono::microseconds reset, int threshold) {
+RetryPolicy::RetryPolicy(
+    std::chrono::microseconds base,
+    std::chrono::microseconds max,
+    std::chrono::microseconds reset,
+    int threshold,
+    int services) {
     if (threshold < 0) {
         spdlog::error("RetryPolicy: Failure threshold must be >= zero. Throwing invalid_argument.");
         throw std::invalid_argument("Failure threshold must be >= zero.");
+    }
+    if (services < 0) {
+        spdlog::error("RetryPolicy: Services to try must be >= zero. Throwing invalid_argument.");
+        throw std::invalid_argument("Services to try must be >= zero.");
     }
     if (base < std::chrono::microseconds::zero()) {
         spdlog::error("RetryPolicy: Base delay must be >= zero. Throwing invalid_argument.");
@@ -28,6 +37,7 @@ RetryPolicy::RetryPolicy(std::chrono::microseconds base, std::chrono::microsecon
     maxDelay = max;
     resetTimeout = reset;
     failureThreshold = threshold;
+    servicesToTry = services;
 }
 
 } // namespace zdb

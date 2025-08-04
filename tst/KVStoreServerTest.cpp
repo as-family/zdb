@@ -27,8 +27,13 @@ protected:
     }
 
     void TearDown() override {
-        // No direct shutdown, but thread will exit when process ends
-        if (serverThread.joinable()) serverThread.detach();
+        // Gracefully shutdown the server
+        if (server) {
+            server->shutdown();
+        }
+        if (serverThread.joinable()) {
+            serverThread.join();
+        }
     }
 };
 
