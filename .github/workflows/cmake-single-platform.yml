@@ -39,12 +39,21 @@ jobs:
         restore-keys: |
           vcpkg-downloads-${{ runner.os }}-
 
+    - name: Cache apt packages
+      uses: actions/cache@v4
+      with:
+        path: /var/cache/apt
+        key: apt-packages-${{ runner.os }}
+        restore-keys: |
+          apt-packages-${{ runner.os }}
+
     - name: Install dependencies and static analysis tools
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           cppcheck \
-          clang-tidy
+          clang-tidy \
+          clang-tools
 
     - name: Setup vcpkg
       run: |
@@ -54,10 +63,10 @@ jobs:
     - name: Cache CMake build
       uses: actions/cache@v4
       with:
-        path: out/build
-        key: cmake-build-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp') }}
+        path: out/build/gcc-14
+        key: cmake-build-${{ runner.os }}-gcc-14-${{ hashFiles('**/CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'tst/**/*.cpp', 'vcpkg.json', 'CMakePresets.json') }}
         restore-keys: |
-          cmake-build-${{ runner.os }}-
+          cmake-build-${{ runner.os }}-gcc-14-
 
     - name: Configure CMake using preset
       # Use the gcc-14-config preset from CMakePresets.json
@@ -82,9 +91,29 @@ jobs:
         cppcheck --enable=all --std=c++23 --suppress=missingIncludeSystem \
           --xml --xml-version=2 src/ 2> cppcheck-report.xml
 
+    - name: Cache clang-tidy analysis
+      uses: actions/cache@v4
+      with:
+        path: .clang-tidy-cache
+        key: clang-tidy-${{ runner.os }}-${{ hashFiles('src/**/*.cpp', 'src/**/*.hpp', '.clang-tidy') }}
+        restore-keys: |
+          clang-tidy-${{ runner.os }}-
+
     - name: Run clang-tidy
       run: |
-        find src/ -name "*.cpp" -o -name "*.hpp" | xargs clang-tidy -p ${{ steps.build-dir.outputs.build_dir }}
+        # Create cache directory for clang-tidy
+        mkdir -p .clang-tidy-cache
+        
+        # Method 1: Direct clang-tidy with compile_commands.json (most reliable)
+        find src/ -name "*.cpp" | xargs -I {} clang-tidy {} -p ${{ steps.build-dir.outputs.build_dir }} --format-style=file --quiet
+        
+        # Method 2: Alternative using CMake target (uncomment to use)
+        # cmake --build ${{ steps.build-dir.outputs.build_dir }} --target clang-tidy
+        
+        # Method 3: Using run-clang-tidy for parallel execution (fastest for large codebases)
+        # if command -v run-clang-tidy >/dev/null 2>&1; then
+        #   run-clang-tidy -p ${{ steps.build-dir.outputs.build_dir }} -quiet src/ -j $(nproc)
+        # fi
 
     - name: Test
       working-directory: ${{ steps.build-dir.outputs.build_dir }}

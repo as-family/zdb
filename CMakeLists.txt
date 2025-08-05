@@ -10,8 +10,26 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Disable C++ modules until clang-tidy supports them
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 # Store build directory in a cache variable for easy querying
 set(ZDB_BUILD_DIR "${CMAKE_BINARY_DIR}" CACHE PATH "ZDB build directory")
+
+# Static analysis options
+option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
+option(ENABLE_CPPCHECK "Enable cppcheck static analysis" OFF)
+
+# Configure clang-tidy
+if(ENABLE_CLANG_TIDY)
+  find_program(CLANG_TIDY_EXE NAMES "clang-tidy" DOC "Path to clang-tidy executable")
+  if(NOT CLANG_TIDY_EXE)
+    message(STATUS "clang-tidy not found.")
+  else()
+    message(STATUS "clang-tidy found: ${CLANG_TIDY_EXE}")
+    set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+  endif()
+endif()
 
 set(BUILD_TESTING ON)
 
@@ -54,6 +72,37 @@ target_include_directories(protobuf_generated PRIVATE
 
 add_subdirectory(src)
 add_subdirectory(tst)
+
+# Add clang-tidy target for manual execution
+if(CLANG_TIDY_EXE)
+  file(GLOB_RECURSE ALL_SOURCE_FILES 
+    ${CMAKE_SOURCE_DIR}/src/*.cpp 
+    ${CMAKE_SOURCE_DIR}/src/*.hpp
+  )
+  
+  add_custom_target(clang-tidy
+    COMMAND ${CLANG_TIDY_EXE}
+    -p ${CMAKE_BINARY_DIR}
+    --format-style=file
+    --quiet
+    ${ALL_SOURCE_FILES}
+    COMMENT "Running clang-tidy on source files"
+    VERBATIM
+  )
+endif()
+
+# Add run-clang-tidy target for parallel execution (if available)
+find_program(RUN_CLANG_TIDY_EXE NAMES "run-clang-tidy" DOC "Path to run-clang-tidy script")
+if(RUN_CLANG_TIDY_EXE)
+  add_custom_target(run-clang-tidy
+    COMMAND ${RUN_CLANG_TIDY_EXE}
+    -p ${CMAKE_BINARY_DIR}
+    -quiet
+    ${CMAKE_SOURCE_DIR}/src/
+    COMMENT "Running clang-tidy in parallel on source files"
+    VERBATIM
+  )
+endif()
 
 # --- Installation ---
 install(TARGETS zdb
