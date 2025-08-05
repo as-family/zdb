@@ -437,14 +437,27 @@ EOF
         local current_message=""
         
         while IFS= read -r line; do
-            if [[ $line =~ ^([^:]+):([0-9]+):([0-9]+):[[:space:]]+(error|warning|note):[[:space:]]+(.+)[[:space:]]+\[([^\]]+)\] ]]; then
-                # New issue found
+            # Match errors and warnings with check names
+            if [[ $line =~ ^([^:]+):([0-9]+):([0-9]+):[[:space:]]+(error|warning):[[:space:]]+(.+)[[:space:]]+\[([^\]]+)\] ]]; then
+                # New issue found with check name
                 local file_path="${BASH_REMATCH[1]}"
                 local line_num="${BASH_REMATCH[2]}"
                 local col_num="${BASH_REMATCH[3]}"
                 local issue_type="${BASH_REMATCH[4]}"
                 local message="${BASH_REMATCH[5]}"
                 local check_name="${BASH_REMATCH[6]}"
+            # Match notes (which don't have check names in brackets)
+            elif [[ $line =~ ^([^:]+):([0-9]+):([0-9]+):[[:space:]]+note:[[:space:]]+(.+)$ ]]; then
+                # New note found without check name
+                local file_path="${BASH_REMATCH[1]}"
+                local line_num="${BASH_REMATCH[2]}"
+                local col_num="${BASH_REMATCH[3]}"
+                local issue_type="note"
+                local message="${BASH_REMATCH[4]}"
+                local check_name=""
+            else
+                continue
+            fi
                 
                 # Skip issues from external libraries
                 if [[ "$file_path" =~ (vcpkg|spdlog|fmt|grpc|gtest|protobuf) ]]; then
@@ -461,11 +474,14 @@ EOF
                     <span class="issue-type $issue_type">$issue_type</span>
                 </div>
             </div>
-            <div class="check-name">[$check_name]</div>
+EOF
+                if [ -n "$check_name" ]; then
+                    echo "            <div class=\"check-name\">[$check_name]</div>" >> "$html_file"
+                fi
+                cat >> "$html_file" << EOF
             <div class="message">$message</div>
         </div>
 EOF
-            fi
         done < "$text_file"
     fi
 
