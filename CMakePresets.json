@@ -8,51 +8,51 @@
             "binaryDir": "${sourceDir}/out/build/gcc-13",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "/usr/bin/gcc-13",
-                "CMAKE_CXX_COMPILER": "/usr/bin/g++-13",
+                "CMAKE_C_COMPILER": "gcc-13",
+                "CMAKE_CXX_COMPILER": "g++-13",
                 "CMAKE_CXX_STANDARD": "23",
                 "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
             },
             "environment": {
-                "CC": "/usr/bin/gcc-13",
-                "CXX": "/usr/bin/g++-13"
+                "CC": "gcc-13",
+                "CXX": "g++-13"
             }
         },
         {
-            "name": "llvm-21-config",
-            "displayName": "LLVM 21 Preset",
+            "name": "llvm-18-config",
+            "displayName": "LLVM 18 Preset",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/out/build/llvm-21",
+            "binaryDir": "${sourceDir}/out/build/llvm-18",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "/usr/local/llvm-21.1/bin/clang",
-                "CMAKE_CXX_COMPILER": "/usr/local/llvm-21.1/bin/clang++",
+                "CMAKE_C_COMPILER": "clang-18",
+                "CMAKE_CXX_COMPILER": "clang++-18",
                 "CMAKE_CXX_FLAGS": "-stdlib=libc++",
-                "CMAKE_EXE_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld -Wl,-rpath,/usr/local/llvm-21.1/lib/x86_64-unknown-linux-gnu",
-                "CMAKE_SHARED_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld -Wl,-rpath,/usr/local/llvm-21.1/lib/x86_64-unknown-linux-gnu",
+                "CMAKE_EXE_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld",
+                "CMAKE_SHARED_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld",
                 "CMAKE_CXX_STANDARD": "17",
                 "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
             },
             "environment": {
-                "CC": "/usr/local/llvm-21.1/bin/clang",
-                "CXX": "/usr/local/llvm-21.1/bin/clang++"
+                "CC": "clang-18",
+                "CXX": "clang++-18"
             }
         },
         {
-            "name": "gcc-15-config",
+            "name": "gcc-14-config",
             "displayName": "GCC 15 Config",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/out/build/gcc-15",
+            "binaryDir": "${sourceDir}/out/build/gcc-14",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "gcc-15",
-                "CMAKE_CXX_COMPILER": "g++-15",
+                "CMAKE_C_COMPILER": "gcc-14",
+                "CMAKE_CXX_COMPILER": "g++-14",
                 "CMAKE_CXX_STANDARD": "23",
                 "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
             },
             "environment": {
-                "CC": "gcc-15",
-                "CXX": "g++-15"
+                "CC": "gcc-14",
+                "CXX": "g++-14"
             }
         }
     ],
@@ -62,20 +62,32 @@
             "configurePreset": "gcc-13-config"
         },
         {
-            "name": "llvm-21-build",
-            "configurePreset": "llvm-21-config"
+            "name": "llvm-18-build",
+            "configurePreset": "llvm-18-config"
         },
         {
-            "name": "gcc-15-build",
-            "configurePreset": "gcc-15-config"
+            "name": "gcc-14-build",
+            "configurePreset": "gcc-14-config"
         }
     ],
     "testPresets": [
         {
-            "name": "gcc-15-test",
+            "name": "gcc-13-test",
             "description": "",
             "displayName": "",
-            "configurePreset": "gcc-15-config"
+            "configurePreset": "gcc-13-config"
+        },
+        {
+            "name": "gcc-14-test",
+            "description": "",
+            "displayName": "",
+            "configurePreset": "gcc-14-config"
+        },
+        {
+            "name": "llvm-18-test",
+            "description": "",
+            "displayName": "",
+            "configurePreset": "llvm-18-config"
         }
     ]
 }

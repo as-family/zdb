@@ -30,22 +30,22 @@ jobs:
           pkg-config
 
     - name: Configure CMake using preset
-      # Use the gcc-15-config preset from CMakePresets.json
-      run: cmake --preset gcc-15-config
+      # Use the gcc-14-config preset from CMakePresets.json
+      run: cmake --preset gcc-14-config
 
     - name: Get build directory from CMake
       id: build-dir
       run: |
-        BUILD_DIR=$(cmake -L --preset gcc-15-config | grep ZDB_BUILD_DIR | cut -d= -f2)
+        BUILD_DIR=$(cmake -L --preset gcc-14-config | grep ZDB_BUILD_DIR | cut -d= -f2)
         if [ -z "$BUILD_DIR" ]; then
-          BUILD_DIR="${{github.workspace}}/out/build/gcc-15"
+          BUILD_DIR="${{github.workspace}}/out/build/gcc-14"
         fi
         echo "build_dir=$BUILD_DIR" >> $GITHUB_OUTPUT
         echo "Build directory: $BUILD_DIR"
 
     - name: Build using preset
-      # Build using the gcc-15-build preset
-      run: cmake --build --preset gcc-15-build
+      # Build using the gcc-14-build preset
+      run: cmake --build --preset gcc-14-build
 
     - name: Test
       working-directory: ${{ steps.build-dir.outputs.build_dir }}
@@ -87,21 +87,21 @@ jobs:
           --xml --xml-version=2 src/ 2> cppcheck-report.xml
 
     - name: Configure CMake for static analysis using preset
-      run: cmake --preset gcc-15-config
+      run: cmake --preset gcc-14-config
 
     - name: Get build directory for static analysis
       id: build-dir-analysis
       run: |
-        BUILD_DIR=$(cmake -L --preset gcc-15-config | grep ZDB_BUILD_DIR | cut -d= -f2)
+        BUILD_DIR=$(cmake -L --preset gcc-14-config | grep ZDB_BUILD_DIR | cut -d= -f2)
         if [ -z "$BUILD_DIR" ]; then
-          BUILD_DIR="${{github.workspace}}/out/build/gcc-15"
+          BUILD_DIR="${{github.workspace}}/out/build/gcc-14"
         fi
         echo "build_dir=$BUILD_DIR" >> $GITHUB_OUTPUT
         echo "Build directory: $BUILD_DIR"
 
     - name: Run clang-tidy
       run: |
-        cmake --build --preset gcc-15-build
+        cmake --build --preset gcc-14-build
         find src/ -name "*.cpp" -o -name "*.hpp" | xargs clang-tidy -p ${{ steps.build-dir-analysis.outputs.build_dir }}
 
     - name: Upload static analysis reports
