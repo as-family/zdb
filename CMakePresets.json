@@ -2,7 +2,7 @@
     "version": 3,
     "configurePresets": [
         {
-            "name": "gcc-13-preset",
+            "name": "gcc-13-config",
             "displayName": "GCC 13 Preset",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/gcc-13",
@@ -19,7 +19,7 @@
             }
         },
         {
-            "name": "llvm-21-preset",
+            "name": "llvm-21-config",
             "displayName": "LLVM 21 Preset",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/llvm-21",
@@ -39,46 +39,43 @@
             }
         },
         {
-            "name": "gcc-16-preset",
-            "displayName": "GCC 16 Preset",
+            "name": "gcc-config",
+            "displayName": "GCC Config",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/out/build/gcc-16",
+            "binaryDir": "${sourceDir}/out/build/gcc",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "/usr/local/gcc-15.1/bin/gcc",
-                "CMAKE_CXX_COMPILER": "/usr/local/gcc-15.1/bin/g++",
-                "CMAKE_EXE_LINKER_FLAGS": "-Wl,-rpath,/usr/local/gcc-15.1/lib64",
-                "CMAKE_SHARED_LINKER_FLAGS": "-Wl,-rpath,/usr/local/gcc-15.1/lib64",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++",
                 "CMAKE_CXX_STANDARD": "23",
                 "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
             },
             "environment": {
-                "CC": "/usr/local/gcc-15.1/bin/gcc",
-                "CXX": "/usr/local/gcc-15.1/bin/g++",
-                "LD_LIBRARY_PATH": "/usr/local/gcc-15.1/lib64"
+                "CC": "gcc",
+                "CXX": "g++"
             }
         }
     ],
     "buildPresets": [
         {
-            "name": "gcc-13",
-            "configurePreset": "gcc-13-preset"
+            "name": "gcc-13-build",
+            "configurePreset": "gcc-13-config"
         },
         {
-            "name": "llvm-21",
-            "configurePreset": "llvm-21-preset"
+            "name": "llvm-21-build",
+            "configurePreset": "llvm-21-config"
         },
         {
-            "name": "gcc-16",
-            "configurePreset": "gcc-16-preset"
+            "name": "gcc-build",
+            "configurePreset": "gcc-config"
         }
     ],
     "testPresets": [
         {
-            "name": "Test",
+            "name": "gcc-test",
             "description": "",
             "displayName": "",
-            "configurePreset": "gcc-16-preset"
+            "configurePreset": "gcc-config"
         }
     ]
 }
