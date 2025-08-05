@@ -1,5 +1,7 @@
 #include "RetryPolicy.hpp"
 #include <spdlog/spdlog.h>
+#include <stdexcept>
+#include <chrono>
 
 namespace zdb {
 
@@ -8,7 +10,8 @@ RetryPolicy::RetryPolicy(
     std::chrono::microseconds max,
     std::chrono::microseconds reset,
     int threshold,
-    int services) {
+    int services) 
+    : baseDelay(base), maxDelay(max), resetTimeout(reset), failureThreshold(threshold), servicesToTry(services) {
     if (threshold < 0) {
         spdlog::error("RetryPolicy: Failure threshold must be >= zero. Throwing invalid_argument.");
         throw std::invalid_argument("Failure threshold must be >= zero.");
@@ -33,11 +36,6 @@ RetryPolicy::RetryPolicy(
         spdlog::error("RetryPolicy: Max delay must be >= base delay. Throwing invalid_argument.");
         throw std::invalid_argument("Max delay must be >= base delay.");
     }
-    baseDelay = base;
-    maxDelay = max;
-    resetTimeout = reset;
-    failureThreshold = threshold;
-    servicesToTry = services;
 }
 
 } // namespace zdb

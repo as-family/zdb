@@ -1,9 +1,16 @@
 #include "InMemoryKVStore.hpp"
+#include <expected>
+#include <optional>
+#include <string>
+#include <shared_mutex>
+#include <mutex>
+#include <cstddef>
+#include "common/Error.hpp"
 
 namespace zdb {
 
-std::expected<std::optional<std::string>, Error> InMemoryKVStore::get(const std::string key) const {
-    std::shared_lock l {m};
+std::expected<std::optional<std::string>, Error> InMemoryKVStore::get(const std::string& key) const {
+    const std::shared_lock LOCK {m};
     auto i = store.find(key);
     if (i == store.end()) {
         return std::nullopt;
@@ -11,14 +18,14 @@ std::expected<std::optional<std::string>, Error> InMemoryKVStore::get(const std:
     return i->second;
 }
 
-std::expected<void, Error> InMemoryKVStore::set(const std::string key, const std::string value) {
-    std::unique_lock l {m};
+std::expected<void, Error> InMemoryKVStore::set(const std::string& key, const std::string& value) {
+    const std::unique_lock LOCK {m};
     store[key] = value;
     return {};
 }
 
-std::expected<std::optional<std::string>, Error> InMemoryKVStore::erase(const std::string key) {
-    std::unique_lock l {m};
+std::expected<std::optional<std::string>, Error> InMemoryKVStore::erase(const std::string& key) {
+    const std::unique_lock LOCK {m};
     auto i = store.find(key);
     if (i == store.end()) {
         return std::nullopt;
@@ -29,7 +36,7 @@ std::expected<std::optional<std::string>, Error> InMemoryKVStore::erase(const st
 }
 
 size_t InMemoryKVStore::size() const {
-    std::shared_lock l {m};
+    const std::shared_lock LOCK {m};
     return store.size();
 }
 

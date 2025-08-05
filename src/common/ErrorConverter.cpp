@@ -1,6 +1,9 @@
 #include "ErrorConverter.hpp"
 #include "proto/error.pb.h"
 #include <spdlog/spdlog.h>
+#include <grpcpp/grpcpp.h>
+#include <google/protobuf/any.pb.h>
+#include <stdexcept>
 
 namespace zdb {
 
@@ -19,9 +22,9 @@ grpc::Status toGrpcStatus(const Error& error) {
     protoError::ErrorDetails details;
     details.set_code(static_cast<protoError::ErrorCode>(error.code));
     details.set_what(error.what);
-    google::protobuf::Any any_detail;
-    any_detail.PackFrom(details);
-    return grpc::Status(toGrpcStatusCode(error.code), toString(error.code), any_detail.SerializeAsString());
+    google::protobuf::Any anyDetail;
+    anyDetail.PackFrom(details);
+    return grpc::Status(toGrpcStatusCode(error.code), toString(error.code), anyDetail.SerializeAsString());
 }
 
 Error toError(grpc::Status status) {

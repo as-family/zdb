@@ -1,5 +1,8 @@
 #include "Error.hpp"
 #include <utility>
+#include <string>
+#include <ostream>
+#include <unordered_set>
 
 namespace zdb {
 
@@ -15,12 +18,13 @@ std::string toString(ErrorCode code) {
         case ErrorCode::NotFound: return "Not Found";
         case ErrorCode::InvalidArg: return "Invalid Argument";
         case ErrorCode::ServiceTemporarilyUnavailable: return "Service Temporarily Unavailable";
+        case ErrorCode::AllServicesUnavailable: return "All Services Unavailable";
     }
     std::unreachable();
 }
 
 std::unordered_set<ErrorCode> retriableErrorCodes() {
-    return {ErrorCode::Unknown, ErrorCode::ServiceTemporarilyUnavailable};
+    return {ErrorCode::Unknown, ErrorCode::ServiceTemporarilyUnavailable, ErrorCode::AllServicesUnavailable};
 }
 
 bool isRetriable(ErrorCode code) {
@@ -28,7 +32,7 @@ bool isRetriable(ErrorCode code) {
 }
 
 
-Error::Error(ErrorCode c, std::string w) : code {c}, what {w} {}
+Error::Error(ErrorCode c, std::string w) : code {c}, what {std::move(w)} {}
 Error::Error(ErrorCode c) : code {c}, what {toString(c)} {}
 
 } // namespace zdb

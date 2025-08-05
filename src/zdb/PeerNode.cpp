@@ -2,10 +2,18 @@
 #include <thread>
 #include <chrono>
 #include <iostream>
+#include <string>
+#include <vector>
+#include <memory>
+#include <grpcpp/grpcpp.h>
+#include <grpcpp/client_context.h>
+#include <grpcpp/server.h>
+#include <grpcpp/server_builder.h>
+#include <grpcpp/server_context.h>
+#include <grpcpp/create_channel.h>
+#include <grpcpp/security/credentials.h>
 
-using grpc::Channel;
 using grpc::ClientContext;
-using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
@@ -17,31 +25,32 @@ using peer::PingRequest;
 
 PeerNode::PeerServiceImpl::PeerServiceImpl(PeerNode *n) : node(n) {}
 
-Status PeerNode::PeerServiceImpl::Ping(ServerContext *context,
+Status PeerNode::PeerServiceImpl::Ping(ServerContext * /*context*/,
                                        const PingRequest *request,
                                        PingReply *reply) {
     std::cout << "[" << node->peer_id << "] Received: "
               << request->message() << " from "
               << request->from_peer()
-              << std::endl;
+              << '\n';
 
     reply->set_from_peer(node->peer_id);
     reply->set_message("PONG");
     return Status::OK;
 }
 
-PeerNode::PeerNode(const std::string &p_id, const std::string &l_address,
-                   const std::vector<std::string> &p_addresses)
-    : peer_id(p_id), listen_address(l_address),
-      peer_addresses(p_addresses), service(std::make_unique<PeerServiceImpl>(this)) {
-        for (const auto &peer_addr : peer_addresses) {
-            if (peer_addr == listen_address)
+PeerNode::PeerNode(const std::string &peerId, const std::string &listenAddress,
+                   const std::vector<std::string> &peerAddresses)
+    : peer_id(peerId), listen_address(listenAddress),
+      peer_addresses(peerAddresses), service(std::make_unique<PeerServiceImpl>(this)) {
+        for (const auto &peerAddr : peer_addresses) {
+            if (peerAddr == listen_address) {
                 continue; // Skip self
+            }
 
-            auto channel = grpc::CreateChannel(peer_addr,
+            auto channel = grpc::CreateChannel(peerAddr,
                                             grpc::InsecureChannelCredentials());
             auto stub = PeerService::NewStub(channel);
-            stubs[peer_addr] = std::move(stub);
+            stubs[peerAddr] = std::move(stub);
         }
       }
 
@@ -54,14 +63,14 @@ void PeerNode::startServer() {
 
     server = builder.BuildAndStart();
     std::cout << "[" << peer_id << "] Server listening on "
-              << listen_address << std::endl;
+              << listen_address << '\n';
 }
 
 void PeerNode::pingPong() {
-    std::cout << "[" << peer_id << "] Starting ping-pong..." << std::endl;
+    std::cout << "[" << peer_id << "] Starting ping-pong..." << '\n';
 
     while (true) {
-        for (const auto& [peer_addr, stub] : stubs) {
+        for (const auto& [peerAddr, stub] : stubs) {
             PingRequest request;
             request.set_from_peer(peer_id);
             request.set_message("PING");
@@ -69,16 +78,16 @@ void PeerNode::pingPong() {
             PingReply reply;
             ClientContext context;
 
-            Status status = stub->Ping(&context, request, &reply);
+            const Status status = stub->Ping(&context, request, &reply);
 
             if (status.ok()) {
                 std::cout << "[" << peer_id << "] Sent PING to "
-                          << peer_addr << ", got " << reply.message()
-                          << " from " << reply.from_peer() << std::endl;
+                          << peerAddr << ", got " << reply.message()
+                          << " from " << reply.from_peer() << '\n';
             }
             else {
                 std::cout << "[" << peer_id << "] Failed to ping "
-                          << peer_addr << std::endl;
+                          << peerAddr << '\n';
             }
         }
 

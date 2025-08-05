@@ -25,8 +25,8 @@ private:
     };
 
 public:
-    PeerNode(const std::string& peer_id, const std::string& listen_address,
-             const std::vector<std::string>& peer_addresses);
+    PeerNode(const std::string& peerId, const std::string& listenAddress,
+             const std::vector<std::string>& peerAddresses);
 
     void startServer();
     void pingPong();
