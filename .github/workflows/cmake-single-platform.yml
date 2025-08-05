@@ -20,14 +20,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install dependencies
+    - name: Setup vcpkg
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          cmake \
-          ninja-build \
-          pkg-config
+        chmod +x setup-vcpkg.sh
+        ./setup-vcpkg.sh
 
     - name: Configure CMake using preset
       # Use the gcc-14-config preset from CMakePresets.json
@@ -74,12 +70,13 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          build-essential \
-          cmake \
-          ninja-build \
-          pkg-config \
           cppcheck \
           clang-tidy
+
+    - name: Setup vcpkg
+      run: |
+        chmod +x setup-vcpkg.sh
+        ./setup-vcpkg.sh
 
     - name: Run cppcheck
       run: |
