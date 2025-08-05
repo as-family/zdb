@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.0.0)
+cmake_minimum_required(VERSION 3.31.0)
 
 project(zdb
   VERSION 0.0.1
@@ -12,54 +12,39 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(BUILD_TESTING ON)
 
-include(FetchContent)
 include(CTest)
 
-set(FETCHCONTENT_QUIET OFF)
-
-set(gRPC_BUILD_TESTS OFF CACHE BOOL "Build gRPC tests" FORCE)
-set(RE2_BUILD_TESTING OFF CACHE BOOL "Build re tests" FORCE)
-set(gRPC_INSTALL ON CACHE BOOL "Install gRPC" FORCE)
-set(gRPC_BUILD_GRPC_CPP_PLUGIN ON CACHE BOOL "Build grpc_cpp_plugin" FORCE)
-FetchContent_Declare(
-  grpc
-  GIT_REPOSITORY https://github.com/grpc/grpc.git
-  GIT_TAG v1.73.1
-  GIT_SHALLOW ON
-)
-FetchContent_MakeAvailable(grpc)
-include("${grpc_BINARY_DIR}/third_party/protobuf/cmake/protobuf/protobuf-generate.cmake")
-
-set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "Build spdlog examples" FORCE)
-set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "Build spdlog tests" FORCE)
-FetchContent_Declare(
-  spdlog
-  GIT_REPOSITORY https://github.com/gabime/spdlog.git
-  GIT_TAG v1.15.3
-  GIT_SHALLOW ON
-)
-FetchContent_MakeAvailable(spdlog)
+# Find packages using vcpkg
+find_package(Protobuf CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 add_library(protobuf_generated STATIC)
-target_link_libraries(protobuf_generated PRIVATE
-  protobuf::libprotobuf
-  grpc++
-)
 target_sources(protobuf_generated PRIVATE
   ${CMAKE_SOURCE_DIR}/proto/error.proto
   ${CMAKE_SOURCE_DIR}/proto/kvStore.proto
   ${CMAKE_SOURCE_DIR}/proto/peer.proto
 )
+
+# Generate protobuf C++ files
 protobuf_generate(
   TARGET protobuf_generated
 )
+
+# Generate gRPC C++ files
 protobuf_generate(
   TARGET protobuf_generated
   LANGUAGE grpc
-  PLUGIN protoc-gen-grpc=$<TARGET_FILE:grpc_cpp_plugin>
+  PLUGIN protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
   PLUGIN_OPTIONS generate_mock_code=true
   GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
 )
+
+target_link_libraries(protobuf_generated PRIVATE
+  protobuf::libprotobuf
+  gRPC::grpc++
+)
+
 target_include_directories(protobuf_generated PRIVATE
   ${CMAKE_BINARY_DIR}
 )
