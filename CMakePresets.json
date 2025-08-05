@@ -12,14 +12,13 @@
                 "CMAKE_C_COMPILER": "gcc-13",
                 "CMAKE_CXX_COMPILER": "g++-13",
                 "CMAKE_CXX_STANDARD": "23",
-                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
             },
             "environment": {
                 "CC": "gcc-13",
                 "CXX": "g++-13",
-                "VCPKG_ROOT": "${sourceDir}/vcpkg",
-                "VCPKG_DEFAULT_TRIPLET": "x64-linux-debug",
-                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets"
+                "VCPKG_ROOT": "${sourceDir}/vcpkg"
             }
         },
         {
@@ -36,14 +35,13 @@
                 "CMAKE_EXE_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld",
                 "CMAKE_SHARED_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld",
                 "CMAKE_CXX_STANDARD": "17",
-                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
             },
             "environment": {
                 "CC": "clang-18",
                 "CXX": "clang++-18",
-                "VCPKG_ROOT": "${sourceDir}/vcpkg",
-                "VCPKG_DEFAULT_TRIPLET": "x64-linux-debug",
-                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets"
+                "VCPKG_ROOT": "${sourceDir}/vcpkg"
             }
         },
         {
@@ -57,14 +55,13 @@
                 "CMAKE_C_COMPILER": "gcc-14",
                 "CMAKE_CXX_COMPILER": "g++-14",
                 "CMAKE_CXX_STANDARD": "23",
-                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
             },
             "environment": {
                 "CC": "gcc-14",
                 "CXX": "g++-14",
-                "VCPKG_ROOT": "${sourceDir}/vcpkg",
-                "VCPKG_DEFAULT_TRIPLET": "x64-linux-debug",
-                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets"
+                "VCPKG_ROOT": "${sourceDir}/vcpkg"
             }
         }
     ],
