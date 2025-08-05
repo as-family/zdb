@@ -18,7 +18,8 @@
                 "CC": "gcc-13",
                 "CXX": "g++-13",
                 "VCPKG_ROOT": "${sourceDir}/vcpkg",
-                "VCPKG_DEFAULT_TRIPLET": "x64-linux-debug"
+                "VCPKG_DEFAULT_TRIPLET": "x64-linux-debug",
+                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets"
             }
         },
         {
@@ -41,7 +42,8 @@
                 "CC": "clang-18",
                 "CXX": "clang++-18",
                 "VCPKG_ROOT": "${sourceDir}/vcpkg",
-                "VCPKG_DEFAULT_TRIPLET": "x64-linux-debug"
+                "VCPKG_DEFAULT_TRIPLET": "x64-linux-debug",
+                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets"
             }
         },
         {
@@ -61,7 +63,8 @@
                 "CC": "gcc-14",
                 "CXX": "g++-14",
                 "VCPKG_ROOT": "${sourceDir}/vcpkg",
-                "VCPKG_DEFAULT_TRIPLET": "x64-linux-debug"
+                "VCPKG_DEFAULT_TRIPLET": "x64-linux-debug",
+                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets"
             }
         }
     ],
