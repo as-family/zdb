@@ -61,6 +61,7 @@ jobs:
         retention-days: 30
 
   static-analysis:
+    needs: [build]
     runs-on: ubuntu-latest
     
     steps:
