@@ -6,6 +6,7 @@
             "displayName": "GCC 13 Preset",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/gcc-13",
+            "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_C_COMPILER": "gcc-13",
@@ -15,7 +16,8 @@
             },
             "environment": {
                 "CC": "gcc-13",
-                "CXX": "g++-13"
+                "CXX": "g++-13",
+                "VCPKG_ROOT": "${sourceDir}/vcpkg"
             }
         },
         {
@@ -23,6 +25,7 @@
             "displayName": "LLVM 18 Preset",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/llvm-18",
+            "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_C_COMPILER": "clang-18",
@@ -35,14 +38,16 @@
             },
             "environment": {
                 "CC": "clang-18",
-                "CXX": "clang++-18"
+                "CXX": "clang++-18",
+                "VCPKG_ROOT": "${sourceDir}/vcpkg"
             }
         },
         {
             "name": "gcc-14-config",
-            "displayName": "GCC 15 Config",
+            "displayName": "GCC 14 Config",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/gcc-14",
+            "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_C_COMPILER": "gcc-14",
@@ -52,7 +57,8 @@
             },
             "environment": {
                 "CC": "gcc-14",
-                "CXX": "g++-14"
+                "CXX": "g++-14",
+                "VCPKG_ROOT": "${sourceDir}/vcpkg"
             }
         }
     ],
@@ -72,22 +78,10 @@
     ],
     "testPresets": [
         {
-            "name": "gcc-13-test",
-            "description": "",
-            "displayName": "",
-            "configurePreset": "gcc-13-config"
-        },
-        {
             "name": "gcc-14-test",
             "description": "",
             "displayName": "",
             "configurePreset": "gcc-14-config"
-        },
-        {
-            "name": "llvm-18-test",
-            "description": "",
-            "displayName": "",
-            "configurePreset": "llvm-18-config"
         }
     ]
 }

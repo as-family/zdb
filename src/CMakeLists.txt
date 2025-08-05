@@ -48,7 +48,7 @@ target_sources(zdb PRIVATE
 
 target_link_libraries(zdb PRIVATE
   protobuf::libprotobuf
-  grpc++
+  gRPC::grpc++
   spdlog::spdlog
   protobuf_generated
 )

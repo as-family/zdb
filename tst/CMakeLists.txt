@@ -1,17 +1,5 @@
 if(${BUILD_TESTING})
-  FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG v1.17.0
-    GIT_SHALLOW ON
-  )
-
-  # For Windows: Prevent overriding parent project's compiler/linker settings
-  set(gtest_force_shared_crt ON CACHE BOOL "Force shared CRT" FORCE)
-  set(BUILD_GMOCK ON CACHE BOOL "Build GMock" FORCE)
-  set(INSTALL_GTEST OFF CACHE BOOL "Install GTest" FORCE)
-
-  FetchContent_MakeAvailable(googletest)
+  find_package(GTest CONFIG REQUIRED)
   include(GoogleTest)
 
   add_executable(tests)
@@ -53,7 +41,7 @@ if(${BUILD_TESTING})
   target_link_libraries(tests PRIVATE
     GTest::gtest_main
     GTest::gmock_main
-    grpc++
+    gRPC::grpc++
     protobuf::libprotobuf
     protobuf_generated
     spdlog::spdlog

@@ -1,0 +1,10 @@
+{
+  "name": "zdb",
+  "version": "0.0.1",
+  "description": "ZDB. Z for Zoza!",
+  "dependencies": [
+    "grpc",
+    "spdlog",
+    "gtest"
+  ]
+}
