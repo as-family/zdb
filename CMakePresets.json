@@ -17,7 +17,8 @@
             "environment": {
                 "CC": "gcc-13",
                 "CXX": "g++-13",
-                "VCPKG_ROOT": "${sourceDir}/vcpkg"
+                "VCPKG_ROOT": "${sourceDir}/vcpkg",
+                "VCPKG_BUILD_TYPE": "debug"
             }
         },
         {
@@ -39,7 +40,8 @@
             "environment": {
                 "CC": "clang-18",
                 "CXX": "clang++-18",
-                "VCPKG_ROOT": "${sourceDir}/vcpkg"
+                "VCPKG_ROOT": "${sourceDir}/vcpkg",
+                "VCPKG_BUILD_TYPE": "debug"
             }
         },
         {
@@ -58,7 +60,8 @@
             "environment": {
                 "CC": "gcc-14",
                 "CXX": "g++-14",
-                "VCPKG_ROOT": "${sourceDir}/vcpkg"
+                "VCPKG_ROOT": "${sourceDir}/vcpkg",
+                "VCPKG_BUILD_TYPE": "debug"
             }
         }
     ],
