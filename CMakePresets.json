@@ -39,20 +39,20 @@
             }
         },
         {
-            "name": "gcc-config",
-            "displayName": "GCC Config",
+            "name": "gcc-15-config",
+            "displayName": "GCC 15 Config",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/out/build/gcc",
+            "binaryDir": "${sourceDir}/out/build/gcc-15",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "gcc",
-                "CMAKE_CXX_COMPILER": "g++",
+                "CMAKE_C_COMPILER": "gcc-15",
+                "CMAKE_CXX_COMPILER": "g++-15",
                 "CMAKE_CXX_STANDARD": "23",
                 "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
             },
             "environment": {
-                "CC": "gcc",
-                "CXX": "g++"
+                "CC": "gcc-15",
+                "CXX": "g++-15"
             }
         }
     ],
@@ -66,16 +66,16 @@
             "configurePreset": "llvm-21-config"
         },
         {
-            "name": "gcc-build",
-            "configurePreset": "gcc-config"
+            "name": "gcc-15-build",
+            "configurePreset": "gcc-15-config"
         }
     ],
     "testPresets": [
         {
-            "name": "gcc-test",
+            "name": "gcc-15-test",
             "description": "",
             "displayName": "",
-            "configurePreset": "gcc-config"
+            "configurePreset": "gcc-15-config"
         }
     ]
 }
