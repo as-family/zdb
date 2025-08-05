@@ -20,6 +20,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install dependencies and static analysis tools
+      run: |
+        sudo apt-get update
+        sudo apt-get upgrade -y
+        sudo apt-get install -y \
+          cppcheck \
+          clang-tidy
+
     - name: Setup vcpkg
       run: |
         chmod +x setup-vcpkg.sh
@@ -43,6 +51,15 @@ jobs:
       # Build using the gcc-14-build preset
       run: cmake --build --preset gcc-14-build
 
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=all --std=c++23 --suppress=missingIncludeSystem \
+          --xml --xml-version=2 src/ 2> cppcheck-report.xml
+
+    - name: Run clang-tidy
+      run: |
+        find src/ -name "*.cpp" -o -name "*.hpp" | xargs clang-tidy -p ${{ steps.build-dir.outputs.build_dir }}
+
     - name: Test
       working-directory: ${{ steps.build-dir.outputs.build_dir }}
       # Execute tests defined by the CMake configuration using ctest
@@ -58,55 +75,6 @@ jobs:
         name: zdb-${{env.BUILD_TYPE}}-${{runner.os}}
         path: |
           ${{github.workspace}}/install/
-        retention-days: 30
-
-  static-analysis:
-    needs: [build]
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Install dependencies and static analysis tools
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          cppcheck \
-          clang-tidy
-
-    - name: Setup vcpkg
-      run: |
-        chmod +x setup-vcpkg.sh
-        ./setup-vcpkg.sh
-
-    - name: Run cppcheck
-      run: |
-        cppcheck --enable=all --std=c++23 --suppress=missingIncludeSystem \
-          --xml --xml-version=2 src/ 2> cppcheck-report.xml
-
-    - name: Configure CMake for static analysis using preset
-      run: cmake --preset gcc-14-config
-
-    - name: Get build directory for static analysis
-      id: build-dir-analysis
-      run: |
-        BUILD_DIR=$(cmake -L --preset gcc-14-config | grep ZDB_BUILD_DIR | cut -d= -f2)
-        if [ -z "$BUILD_DIR" ]; then
-          BUILD_DIR="${{github.workspace}}/out/build/gcc-14"
-        fi
-        echo "build_dir=$BUILD_DIR" >> $GITHUB_OUTPUT
-        echo "Build directory: $BUILD_DIR"
-
-    - name: Run clang-tidy
-      run: |
-        cmake --build --preset gcc-14-build
-        find src/ -name "*.cpp" -o -name "*.hpp" | xargs clang-tidy -p ${{ steps.build-dir-analysis.outputs.build_dir }}
-
-    - name: Upload static analysis reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: static-analysis-reports
-        path: |
           cppcheck-report.xml
         retention-days: 30
 
