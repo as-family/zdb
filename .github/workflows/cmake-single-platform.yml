@@ -105,6 +105,7 @@ jobs:
         mkdir -p .clang-tidy-cache
         
         # Method 1: Direct clang-tidy with compile_commands.json (most reliable)
+        # Only analyze .cpp files directly; .hpp files are analyzed via HeaderFilterRegex when included
         find src/ -name "*.cpp" | xargs -I {} clang-tidy {} -p ${{ steps.build-dir.outputs.build_dir }} --format-style=file --quiet
         
         # Method 2: Alternative using CMake target (uncomment to use)
