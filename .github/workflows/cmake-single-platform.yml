@@ -20,16 +20,13 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Cache vcpkg
+    - name: Cache vcpkg binary cache
       uses: actions/cache@v4
       with:
-        path: |
-          vcpkg
-          !vcpkg/buildtrees
-          !vcpkg/downloads
-        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        path: ~/.cache/vcpkg
+        key: vcpkg-binary-cache-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
-          vcpkg-${{ runner.os }}-
+          vcpkg-binary-cache-${{ runner.os }}-
 
     - name: Cache vcpkg downloads
       uses: actions/cache@v4
