@@ -101,14 +101,6 @@ jobs:
           --max-configs=1 \
           src/ 2> cppcheck-report.xml
 
-    - name: Cache clang-tidy analysis
-      uses: actions/cache@v4
-      with:
-        path: .clang-tidy-cache
-        key: clang-tidy-${{ runner.os }}-${{ hashFiles('src/**/*.cpp', 'src/**/*.hpp', '.clang-tidy') }}
-        restore-keys: |
-          clang-tidy-${{ runner.os }}-
-
     - name: Run enhanced clang-tidy analysis
       run: |
         # Make the clang-tidy script executable
