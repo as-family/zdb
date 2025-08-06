@@ -52,7 +52,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y \
           cppcheck \
-          libc++18-dev \
           clang-tools-18 \
           libc++-18-dev
 
