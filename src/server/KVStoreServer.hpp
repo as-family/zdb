@@ -37,7 +37,7 @@ public:
     void wait();
     void shutdown();
 private:
-    const std::string& addr;
+    std::string addr;
     KVStoreServiceImpl& service;
     std::unique_ptr<grpc::Server> server;
 };

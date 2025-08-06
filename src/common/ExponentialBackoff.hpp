@@ -13,7 +13,7 @@ public:
     std::optional<std::chrono::microseconds> nextDelay();
     void reset();
 private:
-    const RetryPolicy policy;
+    RetryPolicy policy;
     int attempt{0};
 };
 

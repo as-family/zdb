@@ -25,7 +25,7 @@ std::string toString(const ErrorCode& code);
 
 struct Error {
     ErrorCode code;
-    const std::string what;
+    std::string what;
 
     Error(const ErrorCode& c, std::string w);
     explicit Error(const ErrorCode& c);

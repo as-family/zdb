@@ -146,8 +146,8 @@ jobs:
     - name: Create Release Archive
       run: |
         mkdir -p release
-        cp -r artifacts-gcc/install/* release/ 2>/dev/null || true
-        cp artifacts-gcc/zdb release/zdb 2>/dev/null || true
+        cp -r artifacts-gcc/install/* release/ 2>/dev/null
+        cp artifacts-gcc/zdb release/zdb 2>/dev/null
         tar -czf zdb-release.tar.gz -C release .
 
     - name: Upload Release Archive
