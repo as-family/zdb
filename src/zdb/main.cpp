@@ -14,10 +14,10 @@ using namespace zdb;
 
 int main(int /*argc*/, char** /*argv*/) {
     spdlog::info("ZDB! Starting...");
-    const std::string Port {"50051"};
-    const std::string ListenAddress {"localhost:" + Port};
-    spdlog::info("Listening on: {}", ListenAddress);
-    const std::vector<std::string> PeerAddresses {
+    const std::string port {"50051"};
+    const std::string listenAddress {"localhost:" + port};
+    spdlog::info("Listening on: {}", listenAddress);
+    const std::vector<std::string> peerAddresses {
         "localhost:50051",
         "localhost:50052",
         "localhost:50053"
@@ -25,12 +25,12 @@ int main(int /*argc*/, char** /*argv*/) {
 
     InMemoryKVStore kvStore {};
     KVStoreServiceImpl s{kvStore};
-    const KVStoreServer Server {ListenAddress, s};
+    const KVStoreServer server {listenAddress, s};
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    const RetryPolicy Policy {std::chrono::microseconds(100), std::chrono::milliseconds(500), std::chrono::seconds(5), 3, 3};
-    Config config {PeerAddresses, Policy};
-    const KVStoreClient Client {config};
-    std::cout << Client.get("hello").error().what << '\n';
+    const RetryPolicy policy {std::chrono::microseconds(100), std::chrono::milliseconds(500), std::chrono::seconds(5), 3, 3};
+    Config config {peerAddresses, policy};
+    const KVStoreClient client {config};
+    std::cout << client.get("hello").error().what << '\n';
     return 0;
 }

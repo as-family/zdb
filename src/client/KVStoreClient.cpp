@@ -1,4 +1,4 @@
-#include "KVStoreClient.hpp"
+#include "client/KVStoreClient.hpp"
 #include <spdlog/spdlog.h>
 #include "client/Config.hpp"
 #include <expected>
@@ -65,11 +65,11 @@ std::expected<std::string, Error> KVStoreClient::erase(const std::string& key) {
 }
 
 std::expected<size_t, Error> KVStoreClient::size() const {
-    const kvStore::SizeRequest Request;
+    const kvStore::SizeRequest request;
     kvStore::SizeReply reply;
     auto t = call(
         &kvStore::KVStoreService::Stub::size,
-        Request,
+        request,
         reply
     );
     if (t.has_value()) {

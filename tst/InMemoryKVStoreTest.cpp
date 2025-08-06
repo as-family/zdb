@@ -125,10 +125,10 @@ TEST_F(InMemoryKVStoreTest, MultipleKeys) {
 }
 
 TEST_F(InMemoryKVStoreTest, ThreadSafetySetAndGet) {
-    const int N = 100;
+    const int n = 100;
     std::atomic<bool> failed{false};
     auto writer = [&]() {
-        for (int i = 0; i < N; ++i) {
+        for (int i = 0; i < n; ++i) {
             auto res = kv.set("key" + std::to_string(i), std::to_string(i));
             if (!res.has_value()) {
                 failed = true;
@@ -136,7 +136,7 @@ TEST_F(InMemoryKVStoreTest, ThreadSafetySetAndGet) {
         }
     };
     auto reader = [&]() {
-        for (int i = 0; i < N; ++i) {
+        for (int i = 0; i < n; ++i) {
             auto res = kv.get("key" + std::to_string(i));
             if (!res.has_value()) {
                 failed = true;
@@ -152,8 +152,8 @@ TEST_F(InMemoryKVStoreTest, ThreadSafetySetAndGet) {
     t3.join();
     t4.join();
     EXPECT_FALSE(failed);
-    EXPECT_EQ(kv.size(), N);
-    for (int i = 0; i < N; ++i) {
+    EXPECT_EQ(kv.size(), n);
+    for (int i = 0; i < n; ++i) {
         auto res = kv.get("key" + std::to_string(i));
         ASSERT_TRUE(res.has_value());
         ASSERT_TRUE(res.value().has_value());
@@ -162,14 +162,14 @@ TEST_F(InMemoryKVStoreTest, ThreadSafetySetAndGet) {
 }
 
 TEST_F(InMemoryKVStoreTest, ThreadSafetyErase) {
-    const int N = 100;
-    for (int i = 0; i < N; ++i) {
+    const int n = 100;
+    for (int i = 0; i < n; ++i) {
         auto setResult = kv.set("key" + std::to_string(i), "v");
         EXPECT_TRUE(setResult.has_value());
     }
     std::atomic<int> erased{0};
     auto eraser = [&]() {
-        for (int i = 0; i < N; ++i) {
+        for (int i = 0; i < n; ++i) {
             auto res = kv.erase("key" + std::to_string(i));
             if (res.has_value() && res.value().has_value()) {
                 ++erased;
@@ -180,15 +180,15 @@ TEST_F(InMemoryKVStoreTest, ThreadSafetyErase) {
     std::thread t2(eraser);
     t1.join();
     t2.join();
-    EXPECT_EQ(erased, N);
+    EXPECT_EQ(erased, n);
     EXPECT_EQ(kv.size(), 0);
 }
 
 TEST_F(InMemoryKVStoreTest, StressTestConcurrentSetGetErase) {
-    const int N = 1000;
+    const int n = 1000;
     std::atomic<bool> failed{false};
     auto worker = [&](int /*tid*/) {
-        for (int i = 0; i < N; ++i) {
+        for (int i = 0; i < n; ++i) {
             const std::string key = "k" + std::to_string(i);
             auto setResult = kv.set(key, std::to_string(i));
             if (!setResult.has_value()) {

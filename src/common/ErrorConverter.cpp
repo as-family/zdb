@@ -1,4 +1,4 @@
-#include "ErrorConverter.hpp"
+#include "common/ErrorConverter.hpp"
 #include "proto/error.pb.h"
 #include <spdlog/spdlog.h>
 #include <google/protobuf/any.pb.h>
@@ -8,8 +8,8 @@
 
 namespace zdb {
 
-grpc::StatusCode toGrpcStatusCode(const ErrorCode& Code) {
-    switch (Code) {
+grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
+    switch (code) {
         case ErrorCode::NotFound:
             return grpc::StatusCode::NOT_FOUND;
         case ErrorCode::InvalidArg:
@@ -19,21 +19,21 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& Code) {
     }
 }
 
-grpc::Status toGrpcStatus(const Error& Error) {
+grpc::Status toGrpcStatus(const Error& error) {
     protoError::ErrorDetails details;
-    details.set_code(static_cast<protoError::ErrorCode>(Error.code));
-    details.set_what(Error.what);
+    details.set_code(static_cast<protoError::ErrorCode>(error.code));
+    details.set_what(error.what);
     google::protobuf::Any anyDetail;
     anyDetail.PackFrom(details);
-    return grpc::Status(toGrpcStatusCode(Error.code), toString(Error.code), anyDetail.SerializeAsString());
+    return grpc::Status(toGrpcStatusCode(error.code), toString(error.code), anyDetail.SerializeAsString());
 }
 
 Error toError(const grpc::Status& status) {
     ErrorCode code;
     switch (status.error_code()) {
         case grpc::StatusCode::OK:
-            spdlog::error("Attempted to convert OK gRPC status to Error. Throwing logic_error.");
-            throw std::logic_error("Cannot convert OK status to Error");
+            spdlog::error("Attempted to convert OK gRPC status to error. Throwing logic_error.");
+            throw std::logic_error("Cannot convert OK status to error");
         case grpc::StatusCode::NOT_FOUND:
             code = ErrorCode::NotFound;
             break;

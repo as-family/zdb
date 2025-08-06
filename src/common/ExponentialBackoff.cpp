@@ -7,17 +7,17 @@
 
 namespace zdb {
 
-ExponentialBackoff::ExponentialBackoff(const RetryPolicy& P)
-    : Policy(P), attempt(0) {}
+ExponentialBackoff::ExponentialBackoff(const RetryPolicy& p)
+    : policy(p), attempt(0) {}
 
 std::optional<std::chrono::microseconds> ExponentialBackoff::nextDelay() {
-    if (attempt >= Policy.failureThreshold) {
+    if (attempt >= policy.failureThreshold) {
         return std::nullopt;
     }
-    auto baseCount = static_cast<unsigned long>(Policy.baseDelay.count());
+    auto baseCount = static_cast<unsigned long>(policy.baseDelay.count());
     auto delay = baseCount * (1UL << static_cast<unsigned int>(attempt));
     attempt++;
-    return std::chrono::microseconds(std::min(delay, static_cast<unsigned long>(Policy.maxDelay.count())));
+    return std::chrono::microseconds(std::min(delay, static_cast<unsigned long>(policy.maxDelay.count())));
 }
 
 void ExponentialBackoff::reset() {

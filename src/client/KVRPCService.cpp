@@ -12,9 +12,9 @@
 
 namespace zdb {
 
-KVRPCService::KVRPCService(const std::string& address, const RetryPolicy& P) 
+KVRPCService::KVRPCService(const std::string& address, const RetryPolicy& p) 
     : addr {address},
-    circuitBreaker {P} {}
+    circuitBreaker {p} {}
 
 std::expected<void, Error> KVRPCService::connect() {
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());

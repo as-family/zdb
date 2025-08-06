@@ -128,9 +128,9 @@ TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
     
     auto result = Config.currentService();
     ASSERT_TRUE(result.has_value());
-    const KVRPCService* Service = result.value();
-    EXPECT_TRUE(Service->connected());
-    EXPECT_TRUE(Service->available());
+    const KVRPCService* service = result.value();
+    EXPECT_TRUE(service->connected());
+    EXPECT_TRUE(service->available());
 }
 
 // Test nextService() when current service is available
@@ -140,14 +140,14 @@ TEST_F(ConfigTest, NextServiceWhenCurrentServiceAvailable) {
     
     auto currentResult = config.currentService();
     ASSERT_TRUE(currentResult.has_value());
-    const KVRPCService* CurrentSvc = currentResult.value();
+    const KVRPCService* currentSvc = currentResult.value();
     
     auto nextResult = config.nextService();
     ASSERT_TRUE(nextResult.has_value());
-    const KVRPCService* NextSvc = nextResult.value();
+    const KVRPCService* nextSvc = nextResult.value();
     
     // Should return the same service if it's still available
-    EXPECT_EQ(CurrentSvc, NextSvc);
+    EXPECT_EQ(currentSvc, nextSvc);
 }
 
 // Test nextService() switching to another service

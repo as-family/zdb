@@ -10,8 +10,8 @@
 
 namespace zdb {
 
-Repeater::Repeater(const RetryPolicy& P)
-    : backoff {P} {}
+Repeater::Repeater(const RetryPolicy& p)
+    : backoff {p} {}
 
 grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
     while (true) {

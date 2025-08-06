@@ -32,8 +32,8 @@ TEST(ErrorConverterTest, ToGrpcStatus_UnknownError) {
 TEST(ErrorConverterTest, ToGrpcStatus_FromExpected) {
     std::expected<int, Error> ok = 42;
     std::expected<int, Error> err = std::unexpected(Error(ErrorCode::InvalidArg, "bad arg"));
-    EXPECT_EQ(toGrpcStatus(std::move(ok)).error_code(), grpc::StatusCode::OK);
-    const grpc::Status status = toGrpcStatus(std::move(err));
+    EXPECT_EQ(toGrpcStatus(ok).error_code(), grpc::StatusCode::OK);
+    const grpc::Status status = toGrpcStatus(err);
     EXPECT_EQ(status.error_code(), grpc::StatusCode::INVALID_ARGUMENT);
     EXPECT_EQ(status.error_message(), toString(ErrorCode::InvalidArg));
 }
@@ -43,18 +43,18 @@ TEST(ErrorConverterTest, ToError_AllGrpcCodes) {
     const grpc::Status Invalid(grpc::StatusCode::INVALID_ARGUMENT, "inv");
     const grpc::Status Unavailable(grpc::StatusCode::UNAVAILABLE, "unavail");
     const grpc::Status Unknown(grpc::StatusCode::UNKNOWN, "unk");
-    const Error E1 = toError(NotFound);
-    const Error E2 = toError(Invalid);
-    const Error E3 = toError(Unavailable);
-    const Error E4 = toError(Unknown);
-    EXPECT_EQ(E1.code, ErrorCode::NotFound);
-    EXPECT_EQ(E2.code, ErrorCode::InvalidArg);
-    EXPECT_EQ(E3.code, ErrorCode::ServiceTemporarilyUnavailable);
-    EXPECT_EQ(E4.code, ErrorCode::Unknown);
-    EXPECT_EQ(E1.what, "nf");
-    EXPECT_EQ(E2.what, "inv");
-    EXPECT_EQ(E3.what, "unavail");
-    EXPECT_EQ(E4.what, "unk");
+    const Error e1 = toError(NotFound);
+    const Error e2 = toError(Invalid);
+    const Error e3 = toError(Unavailable);
+    const Error e4 = toError(Unknown);
+    EXPECT_EQ(e1.code, ErrorCode::NotFound);
+    EXPECT_EQ(e2.code, ErrorCode::InvalidArg);
+    EXPECT_EQ(e3.code, ErrorCode::ServiceTemporarilyUnavailable);
+    EXPECT_EQ(e4.code, ErrorCode::Unknown);
+    EXPECT_EQ(e1.what, "nf");
+    EXPECT_EQ(e2.what, "inv");
+    EXPECT_EQ(e3.what, "unavail");
+    EXPECT_EQ(e4.what, "unk");
 }
 
 TEST(ErrorConverterTest, ToExpected_ValueAndError) {

@@ -13,12 +13,12 @@ class Config {
 public:
     using map = std::unordered_map<std::string, KVRPCService>;
     using iterator = map::iterator;
-    Config(const std::vector<std::string>& addresses, const RetryPolicy& Policy);
+    Config(const std::vector<std::string>& addresses, const RetryPolicy& policy);
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
     std::expected<KVRPCService*, Error> currentService() const;
     std::expected<KVRPCService*, Error> nextService();
-    const RetryPolicy& Policy;
+    const RetryPolicy& policy;
 private:
     iterator nextActiveServiceIterator();
     map services;

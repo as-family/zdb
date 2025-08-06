@@ -12,7 +12,7 @@
 
 using namespace zdb;
 
-const std::string SERVER_ADDR = "localhost:50052";
+const std::string serverAddr = "localhost:50052";
 
 class KVStoreClientTest : public ::testing::Test {
 protected:
@@ -21,10 +21,10 @@ protected:
     std::unique_ptr<KVStoreServer> server;
     std::thread serverThread;
     RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2};
-    std::vector<std::string> addresses{SERVER_ADDR};
+    std::vector<std::string> addresses{serverAddr};
 
     void SetUp() override {
-        server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
+        server = std::make_unique<KVStoreServer>(serverAddr, serviceImpl);
         serverThread = std::thread([this]() { server->wait(); });
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
@@ -102,9 +102,9 @@ TEST_F(KVStoreClientTest, SizeReflectsSetAndErase) {
     ASSERT_TRUE(size_result.has_value());
     EXPECT_EQ(size_result.value(), 2);
     client.erase("a");
-    size_result = client.size();
-    ASSERT_TRUE(size_result.has_value());
-    EXPECT_EQ(size_result.value(), 1);
+    auto size_result2 = client.size();
+    ASSERT_TRUE(size_result2.has_value());
+    EXPECT_EQ(size_result2.value(), 1);
 }
 
 TEST_F(KVStoreClientTest, FailureToConnectThrows) {
@@ -211,17 +211,17 @@ TEST_F(KVStoreClientTest, ServicesToTryOneTriesOnlyOnce) {
 // Test with multiple services and different servicesToTry values
 TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     // Set up additional server
-    const std::string SERVER_ADDR2 = "localhost:50053";
+    const std::string serverAddr2 = "localhost:50053";
     InMemoryKVStore kvStore2;
     KVStoreServiceImpl serviceImpl2{kvStore2};
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread2;
     
-    server2 = std::make_unique<KVStoreServer>(SERVER_ADDR2, serviceImpl2);
+    server2 = std::make_unique<KVStoreServer>(serverAddr2, serviceImpl2);
     serverThread2 = std::thread([&server2]() { server2->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    std::vector<std::string> multiAddresses{SERVER_ADDR, SERVER_ADDR2};
+    std::vector<std::string> multiAddresses{serverAddr, serverAddr2};
     
     // Test with servicesToTry = 1 (should work with first available service)
     RetryPolicy oneServicePolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 1};
@@ -274,7 +274,7 @@ TEST_F(KVStoreClientTest, ServicesToTryWithServiceFailure) {
 
 // Test edge case: servicesToTry larger than available services
 TEST_F(KVStoreClientTest, ServicesToTryLargerThanAvailableServices) {
-    // Policy tries 5 services but only 1 is available
+    // policy tries 5 services but only 1 is available
     RetryPolicy excessiveRetryPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 5};
     Config c{addresses, excessiveRetryPolicy};
     KVStoreClient client{c};
@@ -294,9 +294,9 @@ TEST_F(KVStoreClientTest, ConfigExposesRetryPolicy) {
     Config c{addresses, customPolicy};
     
     // Verify the policy is properly stored and accessible
-    EXPECT_EQ(c.Policy.baseDelay, std::chrono::microseconds(200));
-    EXPECT_EQ(c.Policy.maxDelay, std::chrono::microseconds(2000));
-    EXPECT_EQ(c.Policy.resetTimeout, std::chrono::microseconds(10000));
-    EXPECT_EQ(c.Policy.failureThreshold, 5);
-    EXPECT_EQ(c.Policy.servicesToTry, 3);
+    EXPECT_EQ(c.policy.baseDelay, std::chrono::microseconds(200));
+    EXPECT_EQ(c.policy.maxDelay, std::chrono::microseconds(2000));
+    EXPECT_EQ(c.policy.resetTimeout, std::chrono::microseconds(10000));
+    EXPECT_EQ(c.policy.failureThreshold, 5);
+    EXPECT_EQ(c.policy.servicesToTry, 3);
 }

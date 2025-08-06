@@ -17,18 +17,18 @@ enum class ErrorCode {
 };
 
 std::unordered_set<ErrorCode> retriableErrorCodes();
-bool isRetriable(ErrorCode code);
+bool isRetriable(const ErrorCode& code);
 
-std::ostream& operator<<(std::ostream& os, ErrorCode code);
+std::ostream& operator<<(std::ostream& os, const ErrorCode& code);
 
-std::string toString(ErrorCode code);
+std::string toString(const ErrorCode& code);
 
 struct Error {
     ErrorCode code;
-    std::string what;
+    const std::string what;
 
-    Error(ErrorCode c, std::string w);
-    explicit Error(ErrorCode c);
+    Error(const ErrorCode& c, const std::string& w);
+    explicit Error(const ErrorCode& c);
 };
 
 } // namespace zdb

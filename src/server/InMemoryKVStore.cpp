@@ -10,7 +10,7 @@
 namespace zdb {
 
 std::expected<std::optional<std::string>, Error> InMemoryKVStore::get(const std::string& key) const {
-    const std::shared_lock LOCK {m};
+    const std::shared_lock lock {m};
     auto i = store.find(key);
     if (i == store.end()) {
         return std::nullopt;
@@ -19,13 +19,13 @@ std::expected<std::optional<std::string>, Error> InMemoryKVStore::get(const std:
 }
 
 std::expected<void, Error> InMemoryKVStore::set(const std::string& key, const std::string& value) {
-    const std::unique_lock LOCK {m};
+    const std::unique_lock lock {m};
     store[key] = value;
     return {};
 }
 
 std::expected<std::optional<std::string>, Error> InMemoryKVStore::erase(const std::string& key) {
-    const std::unique_lock LOCK {m};
+    const std::unique_lock lock {m};
     auto i = store.find(key);
     if (i == store.end()) {
         return std::nullopt;
@@ -36,7 +36,7 @@ std::expected<std::optional<std::string>, Error> InMemoryKVStore::erase(const st
 }
 
 size_t InMemoryKVStore::size() const {
-    const std::shared_lock LOCK {m};
+    const std::shared_lock lock {m};
     return store.size();
 }
 

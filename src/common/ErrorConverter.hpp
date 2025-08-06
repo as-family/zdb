@@ -1,20 +1,19 @@
 #ifndef ERROR_CONVERTER_H
 #define ERROR_CONVERTER_H
 
-#include "Error.hpp"
-#include <grpcpp/grpcpp.h>
-#include <google/protobuf/any.pb.h>
+#include "common/Error.hpp"
+#include <grpcpp/support/status.h>
 #include <expected>
 #include <optional>
 
 namespace zdb {
 
-grpc::StatusCode toGrpcStatusCode(const ErrorCode& Code);
+grpc::StatusCode toGrpcStatusCode(const ErrorCode& code);
 
-grpc::Status toGrpcStatus(const Error& Error);
+grpc::Status toGrpcStatus(const Error& error);
 
 template<typename T>
-grpc::Status toGrpcStatus(std::expected<T, Error>&& v) {
+grpc::Status toGrpcStatus(const std::expected<T, Error>& v) {
     if (v.has_value()) {
         return grpc::Status::OK;
     }

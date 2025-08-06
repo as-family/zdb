@@ -1,4 +1,4 @@
-#include "KVStoreServer.hpp"
+#include "server/KVStoreServer.hpp"
 #include "common/ErrorConverter.hpp"
 #include "common/Error.hpp"
 #include "server/InMemoryKVStore.hpp"
@@ -38,7 +38,7 @@ grpc::Status KVStoreServiceImpl::set(
     std::ignore = context;
     std::ignore = reply;
     auto v = kvStore.set(request->key(), request->value());
-    return toGrpcStatus(std::move(v));
+    return toGrpcStatus(v);
 }
 
 grpc::Status KVStoreServiceImpl::erase(

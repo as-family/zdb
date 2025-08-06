@@ -9,7 +9,7 @@ namespace zdb {
 class FullJitter {
 public:
     FullJitter();
-    std::chrono::microseconds jitter(std::chrono::microseconds v);
+    std::chrono::microseconds jitter(const std::chrono::microseconds v);
 private:
     std::default_random_engine rng;
 };

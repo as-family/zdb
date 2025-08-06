@@ -11,23 +11,22 @@
 #include <memory>
 #include <functional>
 
-
 namespace zdb {
 
 class KVRPCService {
 public:
-    KVRPCService(const std::string& address, const RetryPolicy& P);
+    KVRPCService(const std::string& address, const RetryPolicy& p);
     KVRPCService(const KVRPCService&) = delete;
     KVRPCService& operator=(const KVRPCService&) = delete;
     std::expected<void, Error> connect();
     template<typename Req, typename Rep>
     std::expected<void, Error> call(
         grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
-        const Req& Request,
+        const Req& request,
         Rep& reply) {
-        auto bound = [this, f, &Request, &reply] {
+        auto bound = [this, f, &request, &reply] {
             auto c = grpc::ClientContext();
-            return (stub.get()->*f)(&c, Request, &reply);
+            return (stub.get()->*f)(&c, request, &reply);
         };
         auto status = circuitBreaker.call(bound);
         if (status.ok()) {

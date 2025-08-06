@@ -9,11 +9,11 @@ namespace zdb {
 
 class ExponentialBackoff {
 public:
-    ExponentialBackoff(const RetryPolicy& Policy);
+    ExponentialBackoff(const RetryPolicy& policy);
     std::optional<std::chrono::microseconds> nextDelay();
     void reset();
 private:
-    const RetryPolicy& Policy;
+    const RetryPolicy& policy;
     int attempt;
 };
 

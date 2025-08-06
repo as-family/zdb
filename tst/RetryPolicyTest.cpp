@@ -6,18 +6,18 @@
 using namespace zdb;
 
 TEST(RetryPolicyTest, ValidConstruction) {
-    const RetryPolicy POLICY(
+    const RetryPolicy policy(
         std::chrono::microseconds(100),
         std::chrono::microseconds(1000),
         std::chrono::microseconds(5000),
         3,
         2
     );
-    EXPECT_EQ(POLICY.baseDelay, std::chrono::microseconds(100));
-    EXPECT_EQ(POLICY.maxDelay, std::chrono::microseconds(1000));
-    EXPECT_EQ(POLICY.resetTimeout, std::chrono::microseconds(5000));
-    EXPECT_EQ(POLICY.failureThreshold, 3);
-    EXPECT_EQ(POLICY.servicesToTry, 2);
+    EXPECT_EQ(policy.baseDelay, std::chrono::microseconds(100));
+    EXPECT_EQ(policy.maxDelay, std::chrono::microseconds(1000));
+    EXPECT_EQ(policy.resetTimeout, std::chrono::microseconds(5000));
+    EXPECT_EQ(policy.failureThreshold, 3);
+    EXPECT_EQ(policy.servicesToTry, 2);
 }
 
 TEST(RetryPolicyTest, NegativeThresholdThrows) {
@@ -86,18 +86,18 @@ TEST(RetryPolicyTest, MaxDelayLessThanBaseDelayThrows) {
 }
 
 TEST(RetryPolicyTest, ZeroValuesAreAccepted) {
-    const RetryPolicy POLICY(
+    const RetryPolicy policy(
         std::chrono::microseconds(0),
         std::chrono::microseconds(0),
         std::chrono::microseconds(0),
         0,
         0
     );
-    EXPECT_EQ(POLICY.baseDelay, std::chrono::microseconds(0));
-    EXPECT_EQ(POLICY.maxDelay, std::chrono::microseconds(0));
-    EXPECT_EQ(POLICY.resetTimeout, std::chrono::microseconds(0));
-    EXPECT_EQ(POLICY.failureThreshold, 0);
-    EXPECT_EQ(POLICY.servicesToTry, 0);
+    EXPECT_EQ(policy.baseDelay, std::chrono::microseconds(0));
+    EXPECT_EQ(policy.maxDelay, std::chrono::microseconds(0));
+    EXPECT_EQ(policy.resetTimeout, std::chrono::microseconds(0));
+    EXPECT_EQ(policy.failureThreshold, 0);
+    EXPECT_EQ(policy.servicesToTry, 0);
 }
 
 TEST(RetryPolicyTest, NegativeServicesToTryThrows) {

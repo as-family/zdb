@@ -5,16 +5,16 @@
 #include <optional>
 #include <thread>
 #include <chrono>
-#include <grpcpp/grpcpp.h>
 #include "RetryPolicy.hpp"
 #include "ExponentialBackoff.hpp"
 #include "FullJitter.hpp"
+#include <grpcpp/support/status.h>
 
 namespace zdb {
 
 class Repeater {
 public:
-    Repeater(const RetryPolicy& P);
+    Repeater(const RetryPolicy& p);
     grpc::Status attempt(const std::function<grpc::Status()>& rpc);
 private:
     ExponentialBackoff backoff;

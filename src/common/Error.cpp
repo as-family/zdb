@@ -6,12 +6,12 @@
 
 namespace zdb {
 
-std::ostream& operator<<(std::ostream& os, ErrorCode code) {
+std::ostream& operator<<(std::ostream& os, const ErrorCode& code) {
     os << toString(code);
     return os;
 }
 
-std::string toString(ErrorCode code) {
+std::string toString(const ErrorCode& code) {
     switch (code)
     {
         case ErrorCode::Unknown: return "Unknown";
@@ -27,12 +27,12 @@ std::unordered_set<ErrorCode> retriableErrorCodes() {
     return {ErrorCode::Unknown, ErrorCode::ServiceTemporarilyUnavailable, ErrorCode::AllServicesUnavailable};
 }
 
-bool isRetriable(ErrorCode code) {
+bool isRetriable(const ErrorCode& code) {
     return retriableErrorCodes().contains(code);
 }
 
 
-Error::Error(ErrorCode c, std::string w) : code {c}, what {std::move(w)} {}
-Error::Error(ErrorCode c) : code {c}, what {toString(c)} {}
+Error::Error(const ErrorCode& c, const std::string& w) : code {c}, what {w} {}
+Error::Error(const ErrorCode& c) : code {c}, what {toString(c)} {}
 
 } // namespace zdb
