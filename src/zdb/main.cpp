@@ -10,7 +10,12 @@
 #include "common/RetryPolicy.hpp"
 #include <spdlog/spdlog.h>
 
-using namespace zdb;
+using zdb::InMemoryKVStore;
+using zdb::KVStoreServiceImpl;
+using zdb::KVStoreServer;
+using zdb::KVStoreClient;
+using zdb::Config;
+using zdb::RetryPolicy;
 
 int main(int /*argc*/, char** /*argv*/) {
     spdlog::info("ZDB! Starting...");

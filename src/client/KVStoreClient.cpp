@@ -1,7 +1,6 @@
 #include "client/KVStoreClient.hpp"
 #include <spdlog/spdlog.h>
 #include "client/Config.hpp"
-#include <expected>
 #include <string>
 #include "proto/kvStore.pb.h"
 #include "proto/kvStore.grpc.pb.h"

@@ -12,7 +12,14 @@
 #include "client/Config.hpp"
 #include <stdexcept>
 
-using namespace zdb;
+using zdb::Config;
+using zdb::InMemoryKVStore;
+using zdb::KVStoreServiceImpl;
+using zdb::KVStoreServer;
+using zdb::KVStoreClient;
+using zdb::KVRPCService;
+using zdb::RetryPolicy;
+using zdb::ErrorCode;
 
 const std::string SERVER_ADDR = "localhost:50052";
 

@@ -32,7 +32,7 @@ bool isRetriable(const ErrorCode& code) {
 }
 
 
-Error::Error(const ErrorCode& c, const std::string& w) : code {c}, what {w} {}
+Error::Error(const ErrorCode& c, std::string w) : code {c}, what {std::move(w)} {}
 Error::Error(const ErrorCode& c) : code {c}, what {toString(c)} {}
 
 } // namespace zdb

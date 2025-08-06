@@ -6,7 +6,8 @@
 #include "common/ExponentialBackoff.hpp"
 #include "common/RetryPolicy.hpp"
 
-using namespace zdb;
+using zdb::ExponentialBackoff;
+using zdb::RetryPolicy;
 
 class ExponentialBackoffTest : public ::testing::Test {
 protected:

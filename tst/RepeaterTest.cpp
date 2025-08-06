@@ -4,7 +4,8 @@
 #include "common/RetryPolicy.hpp"
 #include <grpcpp/support/status.h>
 
-using namespace zdb;
+using zdb::Repeater;
+using zdb::RetryPolicy;
 
 namespace {
 grpc::Status retriableError() {
@@ -20,7 +21,7 @@ grpc::Status nonRetriableError() {
 grpc::Status okStatus() {
     return grpc::Status::OK;
 }
-}
+} // namespace // namespace
 
 TEST(RepeaterTest, SuccessOnFirstAttempt) {
     const RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 3, 0};

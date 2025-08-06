@@ -27,7 +27,7 @@ struct Error {
     ErrorCode code;
     const std::string what;
 
-    Error(const ErrorCode& c, const std::string& w);
+    Error(const ErrorCode& c, std::string w);
     explicit Error(const ErrorCode& c);
 };
 

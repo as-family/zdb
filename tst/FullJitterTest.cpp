@@ -2,8 +2,9 @@
 #include "common/FullJitter.hpp"
 #include <chrono>
 #include <set>
+#include <cstdint>
 
-using namespace zdb;
+using zdb::FullJitter;
 
 TEST(FullJitterTest, ReturnsValueWithinRange) {
     FullJitter jitter;
@@ -27,7 +28,7 @@ TEST(FullJitterTest, ZeroInputAlwaysReturnsZero) {
 TEST(FullJitterTest, DistributionIsUniformEnough) {
     FullJitter jitter;
     auto input = std::chrono::microseconds(10);
-    std::set<long> seen;
+    std::set<int64_t> seen;
     for (int i = 0; i < 1000; ++i) {
         auto result = jitter.jitter(input);
         seen.insert(result.count());

@@ -14,7 +14,7 @@ public:
     void reset();
 private:
     const RetryPolicy policy;
-    int attempt;
+    int attempt{0};
 };
 
 } // namespace zdb

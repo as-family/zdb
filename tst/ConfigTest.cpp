@@ -13,7 +13,12 @@
 #include <type_traits>
 #include <atomic>
 
-using namespace zdb;
+using zdb::Config;
+using zdb::KVRPCService;
+using zdb::RetryPolicy;
+using zdb::InMemoryKVStore;
+using zdb::KVStoreServiceImpl;
+using zdb::KVStoreServer;
 
 class ConfigTest : public ::testing::Test {
 protected:

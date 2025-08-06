@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include "common/RetryPolicy.hpp"
 
-using namespace zdb;
+using zdb::RetryPolicy;
 
 TEST(RetryPolicyTest, ValidConstruction) {
     const RetryPolicy policy(

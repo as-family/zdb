@@ -1,11 +1,11 @@
 #include "InMemoryKVStore.hpp"
-#include <expected>
 #include <optional>
 #include <string>
 #include <shared_mutex>
 #include <mutex>
 #include <cstddef>
 #include "common/Error.hpp"
+#include <expected>
 
 namespace zdb {
 

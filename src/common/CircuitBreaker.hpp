@@ -19,7 +19,7 @@ public:
     grpc::Status call(const std::function<grpc::Status()>& rpc);
     [[nodiscard]] bool open() const;
 private:
-    State state;
+    State state{State::Closed};
     const RetryPolicy policy;
     Repeater repeater;
     std::chrono::steady_clock::time_point lastFailureTime;

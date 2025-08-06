@@ -5,7 +5,7 @@
 #include <vector>
 #include "server/InMemoryKVStore.hpp"
 
-using namespace zdb;
+using zdb::InMemoryKVStore;
 
 class InMemoryKVStoreTest : public ::testing::Test {
 protected:

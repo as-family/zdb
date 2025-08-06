@@ -4,7 +4,6 @@
 #include <spdlog/spdlog.h>
 #include <string>
 #include "common/RetryPolicy.hpp"
-#include <expected>
 #include "common/Error.hpp"
 #include <grpcpp/grpcpp.h>
 #include "proto/kvStore.grpc.pb.h"

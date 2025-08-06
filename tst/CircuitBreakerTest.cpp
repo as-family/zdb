@@ -6,7 +6,8 @@
 #include "common/CircuitBreaker.hpp"
 #include "common/RetryPolicy.hpp"
 
-using namespace zdb;
+using zdb::CircuitBreaker;
+using zdb::RetryPolicy;
 
 class CircuitBreakerTest : public ::testing::Test {
 protected:
