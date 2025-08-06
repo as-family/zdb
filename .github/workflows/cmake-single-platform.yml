@@ -20,6 +20,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Cache vcpkg installation
+      uses: actions/cache@v4
+      with:
+        path: vcpkg
+        key: vcpkg-installation-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-installation-${{ runner.os }}-
+
     - name: Cache vcpkg binary cache
       uses: actions/cache@v4
       with:
@@ -27,14 +35,6 @@ jobs:
         key: vcpkg-binary-cache-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
           vcpkg-binary-cache-${{ runner.os }}-
-
-    - name: Cache vcpkg downloads
-      uses: actions/cache@v4
-      with:
-        path: vcpkg/downloads
-        key: vcpkg-downloads-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
-        restore-keys: |
-          vcpkg-downloads-${{ runner.os }}-
 
     - name: Cache apt packages
       uses: actions/cache@v4
@@ -59,6 +59,11 @@ jobs:
       run: |
         chmod +x setup-vcpkg.sh
         ./setup-vcpkg.sh
+
+    - name: Verify vcpkg installation
+      run: |
+        ./vcpkg/vcpkg version
+        ls -la vcpkg/
 
     - name: Cache CMake build
       uses: actions/cache@v4
