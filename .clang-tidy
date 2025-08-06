@@ -1,11 +1,12 @@
 ---
+# Enhanced clang-tidy configuration for comprehensive code quality
+# Focuses on modern C++, security, performance, and maintainability
 Checks: >
   *,
   -abseil-*,
   -altera-*,
   -android-*,
   -fuchsia-*,
-  -google-*,
   -llvm*,
   -zircon-*,
   -readability-else-after-return,
@@ -22,16 +23,43 @@ Checks: >
   -cppcoreguidelines-pro-bounds-constant-array-index,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
   -hicpp-no-array-decay,
-  -cppcoreguidelines-avoid-magic-numbers,
-  -readability-magic-numbers,
   -cert-err58-cpp,
   -hicpp-special-member-functions,
-  -cppcoreguidelines-special-member-functions
+  -cppcoreguidelines-special-member-functions,
+  # Performance-focused checks
+  performance-*,
+  # Security-focused checks  
+  cert-*,
+  clang-analyzer-security.*,
+  # Modern C++ practices
+  modernize-*,
+  # Bug detection
+  bugprone-*,
+  clang-analyzer-*,
+  # Code style and readability
+  readability-*,
+  # Core guidelines compliance
+  cppcoreguidelines-*,
+  # HICPP compliance
+  hicpp-*,
+  # Concurrency safety
+  concurrency-*,
+  # Miscellaneous useful checks
+  misc-*
 
-WarningsAsErrors: ''
-HeaderFilterRegex: '^.*/(src|tst)/.*\.(h|hpp)$'
+# Treat specific categories as errors for critical issues
+WarningsAsErrors: >
+  cert-*,
+  clang-analyzer-security.*,
+  bugprone-use-after-move,
+  bugprone-dangling-handle,
+  bugprone-infinite-loop,
+  performance-move-const-arg,
+  performance-unnecessary-copy-initialization
+HeaderFilterRegex: '^.*/(src|tst|include)/.*\.(h|hpp|hxx)$'
 FormatStyle: none
 CheckOptions:
+  # Naming conventions
   - key: readability-identifier-naming.NamespaceCase
     value: lower_case
   - key: readability-identifier-naming.ClassCase
@@ -54,5 +82,91 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.GlobalConstantCase
     value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.TypedefCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+
+  # Function and class size limits for maintainability
   - key: readability-function-size.LineThreshold
     value: 80
+  - key: readability-function-size.StatementThreshold
+    value: 50
+  - key: readability-function-size.BranchThreshold
+    value: 15
+  - key: readability-function-size.ParameterThreshold
+    value: 8
+  - key: readability-function-size.NestingThreshold
+    value: 5
+
+  # Performance optimizations
+  - key: performance-unnecessary-value-param.AllowedTypes
+    value: 'std::shared_ptr;std::unique_ptr;std::function'
+  - key: performance-move-const-arg.CheckTriviallyCopyableMove
+    value: true
+  - key: performance-inefficient-string-concatenation.StrictMode
+    value: true
+
+  # Modern C++ features
+  - key: modernize-use-auto.MinTypeNameLength
+    value: 8
+  - key: modernize-use-auto.RemoveStars
+    value: false
+  - key: modernize-loop-convert.MinConfidence
+    value: reasonable
+  - key: modernize-loop-convert.NamingStyle
+    value: CamelCase
+  - key: modernize-use-nullptr.NullMacros
+    value: 'NULL'
+  - key: modernize-use-override.AllowOverrideAndFinal
+    value: false
+  - key: modernize-use-override.FinalSpelling
+    value: 'final'
+  - key: modernize-use-override.OverrideSpelling
+    value: 'override'
+
+  # Security and safety
+  - key: cert-str34-c.DiagnoseSuspiciousStringCompare
+    value: true
+  - key: bugprone-assert-side-effect.AssertMacros
+    value: 'assert,NSAssert,NSCAssert'
+  - key: bugprone-suspicious-string-compare.WarnOnImplicitComparison
+    value: true
+  - key: bugprone-suspicious-string-compare.WarnOnLogicalNotComparison
+    value: true
+
+  # Code complexity and readability
+  - key: readability-magic-numbers.IgnoredIntegerValues
+    value: '0;1;2;3;4;8;16;32;64;100;1024'
+  - key: readability-magic-numbers.IgnoredFloatingPointValues
+    value: '0.0;1.0;2.0;0.5'
+  - key: readability-braces-around-statements.ShortStatementLines
+    value: 2
+  - key: readability-simplify-boolean-expr.ChainedConditionalReturn
+    value: true
+  - key: readability-simplify-boolean-expr.ChainedConditionalAssignment
+    value: true
+
+  # Core Guidelines compliance
+  - key: cppcoreguidelines-avoid-magic-numbers.IgnoredIntegerValues
+    value: '0;1;2;3;4;8;16;32;64;100;1024'
+  - key: cppcoreguidelines-avoid-magic-numbers.IgnoredFloatingPointValues
+    value: '0.0;1.0;2.0;0.5'
+  - key: cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value: true
+  - key: cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions
+    value: false
+
+  # Concurrency safety
+  - key: concurrency-mt-unsafe.FunctionSet
+    value: 'any'
+
+  # HICPP compliance
+  - key: hicpp-use-auto.RemoveStars
+    value: false
+  - key: hicpp-member-init.UseAssignment
+    value: false
+  - key: hicpp-member-init.IgnoreArrays
+    value: false

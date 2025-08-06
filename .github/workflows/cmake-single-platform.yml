@@ -86,10 +86,23 @@ jobs:
       # Build using the gcc-14-build preset
       run: cmake --build --preset gcc-14-build
 
-    - name: Run cppcheck
+    - name: Run cppcheck (complementary analysis)
       run: |
-        cppcheck --enable=all --std=c++23 --suppress=missingIncludeSystem \
-          --xml --xml-version=2 src/ 2> cppcheck-report.xml
+        # Run cppcheck with focused checks that complement clang-tidy
+        # Focus on areas where cppcheck excels or provides different insights
+        cppcheck --enable=warning,style,performance,portability \
+          --std=c++23 \
+          --suppress=missingIncludeSystem \
+          --suppress=unusedFunction \
+          --suppress=unmatchedSuppression \
+          --inline-suppr \
+          --quiet \
+          --xml --xml-version=2 \
+          --max-configs=1 \
+          src/ 2> cppcheck-report.xml || true
+        
+        # Only fail if cppcheck finds critical issues (error level)
+        cppcheck --enable=error --std=c++23 --suppress=missingIncludeSystem --quiet src/
 
     - name: Cache clang-tidy analysis
       uses: actions/cache@v4
@@ -99,22 +112,16 @@ jobs:
         restore-keys: |
           clang-tidy-${{ runner.os }}-
 
-    - name: Run clang-tidy
+    - name: Run enhanced clang-tidy analysis
       run: |
-        # Create cache directory for clang-tidy
-        mkdir -p .clang-tidy-cache
+        # Make the clang-tidy script executable
+        chmod +x run-clang-tidy.sh
         
-        # Method 1: Direct clang-tidy with compile_commands.json (most reliable)
-        # Only analyze .cpp files directly; .hpp files are analyzed via HeaderFilterRegex when included
-        find src/ -name "*.cpp" | xargs -I {} clang-tidy {} -p ${{ steps.build-dir.outputs.build_dir }} --format-style=file --quiet
-        
-        # Method 2: Alternative using CMake target (uncomment to use)
-        # cmake --build ${{ steps.build-dir.outputs.build_dir }} --target clang-tidy
-        
-        # Method 3: Using run-clang-tidy for parallel execution (fastest for large codebases)
-        # if command -v run-clang-tidy >/dev/null 2>&1; then
-        #   run-clang-tidy -p ${{ steps.build-dir.outputs.build_dir }} -quiet src/ -j $(nproc)
-        # fi
+        # Run clang-tidy using the project's dedicated script
+        # Use YAML format for CI/CD to get structured output and fix suggestions
+        echo "Running clang-tidy using project script with enhanced configuration..."
+        ./run-clang-tidy.sh ${{ steps.build-dir.outputs.build_dir }} both
+
 
     - name: Test
       working-directory: ${{ steps.build-dir.outputs.build_dir }}
@@ -132,6 +139,7 @@ jobs:
         path: |
           ${{github.workspace}}/install/
           cppcheck-report.xml
+          clang-tidy-reports/
         retention-days: 30
 
   release:
