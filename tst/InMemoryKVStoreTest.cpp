@@ -81,13 +81,13 @@ TEST_F(InMemoryKVStoreTest, EmptyValue) {
 }
 
 TEST_F(InMemoryKVStoreTest, LargeValue) {
-    const std::string Large(100000, 'x');
-    auto setResult = kv.set("bigkey", Large);
+    const std::string large(100000, 'x');
+    auto setResult = kv.set("bigkey", large);
     EXPECT_TRUE(setResult.has_value());
     auto getResult = kv.get("bigkey");
     ASSERT_TRUE(getResult.has_value());
     ASSERT_TRUE(getResult.value().has_value());
-    EXPECT_EQ(getResult.value().value(), Large);
+    EXPECT_EQ(getResult.value().value(), large);
 }
 
 TEST_F(InMemoryKVStoreTest, SpecialCharactersInKey) {

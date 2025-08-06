@@ -14,14 +14,16 @@ using namespace zdb;
 // Helper to start a real gRPC server for integration tests
 class TestKVServer {
 public:
-    TestKVServer(const std::string& addr) : kvStore{}, serviceImpl{kvStore}, server{nullptr}, address{addr} {
+    explicit TestKVServer(std::string addr) : kvStore{}, serviceImpl{kvStore}, server{nullptr}, address{std::move(addr)} {
         grpc::ServerBuilder builder;
         builder.AddListeningPort(address, grpc::InsecureServerCredentials());
         builder.RegisterService(&serviceImpl);
         server = builder.BuildAndStart();
     }
     void reset() {
-        if (server) server->Shutdown();
+        if (server) {
+            server->Shutdown();
+        }
     }
 private:
     InMemoryKVStore kvStore;
@@ -129,7 +131,7 @@ TEST_F(KVRPCServiceTest, CallSizeSuccess) {
     setReq.set_value("bar");
     kvStore::SetReply setRep;
     service.call(&kvStore::KVStoreService::Stub::set, setReq, setRep);
-    kvStore::SizeRequest req;
+    const kvStore::SizeRequest req;
     kvStore::SizeReply rep;
     auto result = service.call(&kvStore::KVStoreService::Stub::size, req, rep);
     EXPECT_TRUE(result.has_value());

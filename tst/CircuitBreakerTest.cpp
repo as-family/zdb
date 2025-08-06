@@ -115,7 +115,7 @@ TEST_F(CircuitBreakerTest, HalfOpenNonRetriableFailureClosesBreaker) {
 
 TEST_F(CircuitBreakerTest, MultipleFailuresTriggerOpen) {
     int failCount = 0;
-    std::function<grpc::Status()> rpc = [&failCount] {
+    const std::function<grpc::Status()> rpc = [&failCount] {
         ++failCount;
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
@@ -139,6 +139,6 @@ TEST_F(CircuitBreakerTest, RapidCallsRespectTimeout) {
 
 // Edge case: call with nullptr
 TEST_F(CircuitBreakerTest, NullptrCallThrows) {
-    std::function<grpc::Status()> rpc = nullptr;
+    const std::function<grpc::Status()> rpc = nullptr;
     EXPECT_THROW(breaker.call(rpc), std::bad_function_call);
 }

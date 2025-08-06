@@ -11,7 +11,7 @@
 
 using namespace zdb;
 
-const std::string serverAddr = "localhost:50051";
+const std::string SERVER_ADDR = "localhost:50051";
 
 class KVStoreServerTest : public ::testing::Test {
 protected:
@@ -21,7 +21,7 @@ protected:
     std::thread serverThread;
 
     void SetUp() override {
-        server = std::make_unique<KVStoreServer>(serverAddr, serviceImpl);
+        server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
         serverThread = std::thread([this]() { server->wait(); });
         // Wait for server to start
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -39,7 +39,7 @@ protected:
 };
 
 TEST_F(KVStoreServerTest, SetAndGetSuccess) {
-    auto channel = grpc::CreateChannel(serverAddr, grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
     std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
 
     kvStore::SetRequest setReq;
@@ -60,7 +60,7 @@ TEST_F(KVStoreServerTest, SetAndGetSuccess) {
 }
 
 TEST_F(KVStoreServerTest, GetNotFound) {
-    auto channel = grpc::CreateChannel(serverAddr, grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
     std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
 
     kvStore::GetRequest getReq;
@@ -73,7 +73,7 @@ TEST_F(KVStoreServerTest, GetNotFound) {
 }
 
 TEST_F(KVStoreServerTest, SetOverwrite) {
-    auto channel = grpc::CreateChannel(serverAddr, grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
     std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
 
     kvStore::SetRequest setReq;
@@ -99,7 +99,7 @@ TEST_F(KVStoreServerTest, SetOverwrite) {
 }
 
 TEST_F(KVStoreServerTest, EraseSuccess) {
-    auto channel = grpc::CreateChannel(serverAddr, grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
     std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
 
     kvStore::SetRequest setReq;
@@ -128,7 +128,7 @@ TEST_F(KVStoreServerTest, EraseSuccess) {
 }
 
 TEST_F(KVStoreServerTest, EraseNotFound) {
-    auto channel = grpc::CreateChannel(serverAddr, grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
     std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
 
     kvStore::EraseRequest eraseReq;
@@ -141,10 +141,10 @@ TEST_F(KVStoreServerTest, EraseNotFound) {
 }
 
 TEST_F(KVStoreServerTest, SizeEmpty) {
-    auto channel = grpc::CreateChannel(serverAddr, grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
     std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
 
-    kvStore::SizeRequest sizeReq;
+    const kvStore::SizeRequest sizeReq;
     kvStore::SizeReply sizeRep;
     grpc::ClientContext ctx;
     auto status = stub->size(&ctx, sizeReq, &sizeRep);
@@ -153,7 +153,7 @@ TEST_F(KVStoreServerTest, SizeEmpty) {
 }
 
 TEST_F(KVStoreServerTest, SizeNonEmpty) {
-    auto channel = grpc::CreateChannel(serverAddr, grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
     std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
 
     kvStore::SetRequest setReq;
@@ -170,7 +170,7 @@ TEST_F(KVStoreServerTest, SizeNonEmpty) {
     status = stub->set(&ctx2, setReq, &setRep);
     ASSERT_TRUE(status.ok());
 
-    kvStore::SizeRequest sizeReq;
+    const kvStore::SizeRequest sizeReq;
     kvStore::SizeReply sizeRep;
     grpc::ClientContext ctx3;
     status = stub->size(&ctx3, sizeReq, &sizeRep);
@@ -179,7 +179,7 @@ TEST_F(KVStoreServerTest, SizeNonEmpty) {
 }
 
 TEST_F(KVStoreServerTest, SetEmptyKeyValue) {
-    auto channel = grpc::CreateChannel(serverAddr, grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
     std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
 
     kvStore::SetRequest setReq;
@@ -193,7 +193,7 @@ TEST_F(KVStoreServerTest, SetEmptyKeyValue) {
 }
 
 TEST_F(KVStoreServerTest, GetEmptyKey) {
-    auto channel = grpc::CreateChannel(serverAddr, grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
     std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
 
     kvStore::GetRequest getReq;
@@ -207,7 +207,7 @@ TEST_F(KVStoreServerTest, GetEmptyKey) {
 }
 
 TEST_F(KVStoreServerTest, EraseEmptyKey) {
-    auto channel = grpc::CreateChannel(serverAddr, grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
     std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
 
     kvStore::EraseRequest eraseReq;

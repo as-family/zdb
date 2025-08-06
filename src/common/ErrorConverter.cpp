@@ -29,7 +29,7 @@ grpc::Status toGrpcStatus(const Error& error) {
 }
 
 Error toError(const grpc::Status& status) {
-    ErrorCode code;
+    ErrorCode code = ErrorCode::Unknown;
     switch (status.error_code()) {
         case grpc::StatusCode::OK:
             spdlog::error("Attempted to convert OK gRPC status to error. Throwing logic_error.");

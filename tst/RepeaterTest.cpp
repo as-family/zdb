@@ -1,23 +1,24 @@
 #include <gtest/gtest.h>
 #include <chrono>
-#include <grpcpp/grpcpp.h>
 #include "common/Repeater.hpp"
 #include "common/RetryPolicy.hpp"
 
 using namespace zdb;
 
-static grpc::Status retriableError() {
+namespace {
+grpc::Status retriableError() {
     // Simulate a retriable error (e.g., UNAVAILABLE)
     return grpc::Status(grpc::StatusCode::UNAVAILABLE, "Retriable");
 }
 
-static grpc::Status nonRetriableError() {
+grpc::Status nonRetriableError() {
     // Simulate a non-retriable error (e.g., INVALID_ARGUMENT)
     return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Non-retriable");
 }
 
-static grpc::Status okStatus() {
+grpc::Status okStatus() {
     return grpc::Status::OK;
+}
 }
 
 TEST(RepeaterTest, SuccessOnFirstAttempt) {
