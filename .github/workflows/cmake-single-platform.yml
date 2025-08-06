@@ -36,21 +36,16 @@ jobs:
         restore-keys: |
           vcpkg-binary-cache-${{ runner.os }}-
 
-    - name: Cache apt packages
-      uses: actions/cache@v4
-      with:
-        path: /var/cache/apt
-        key: apt-packages-${{ runner.os }}
-        restore-keys: |
-          apt-packages-${{ runner.os }}
-
     - name: Install dependencies and static analysis tools
       run: |
-        wget https://apt.llvm.org/llvm.sh
+        # Install LLVM 18
+        wget -q https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 18
-        sudo apt-get update
-        sudo apt-get install -y \
+        
+        # Install other dependencies
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
           cppcheck \
           clang-tools-18 \
           libc++-18-dev
