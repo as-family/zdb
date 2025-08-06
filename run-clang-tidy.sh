@@ -593,3 +593,22 @@ echo "📄 Available reports:"
 [ -f "$TEXT_OUTPUT" ] && echo "   📝 Text: $TEXT_OUTPUT"
 [ -f "$YAML_OUTPUT" ] && echo "   📋 YAML: $YAML_OUTPUT"
 [ -f "$HTML_OUTPUT" ] && echo "   🌐 HTML: $HTML_OUTPUT"
+
+# Exit with error count to fail CI when there are errors
+if [ -f "$TEXT_OUTPUT" ]; then
+    errors=$(grep ": error:" "$TEXT_OUTPUT" 2>/dev/null | grep -v -E "(vcpkg|spdlog|fmt|grpc|gtest|protobuf)" | wc -l || echo "0")
+    if [ "$errors" -gt 0 ]; then
+        echo ""
+        echo "❌ Exiting with code $errors due to clang-tidy errors found."
+        echo "   Fix the errors above and re-run the analysis."
+        exit "$errors"
+    else
+        echo ""
+        echo "✅ No errors found. Analysis completed successfully."
+        exit 0
+    fi
+else
+    echo ""
+    echo "⚠️  No output file found. Analysis may have failed."
+    exit 1
+fi
