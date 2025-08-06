@@ -31,7 +31,6 @@ target_compile_options(zdb PUBLIC
 
 target_sources(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src/zdb/main.cpp
-  ${CMAKE_SOURCE_DIR}/src/zdb/PeerNode.cpp
   ${CMAKE_SOURCE_DIR}/src/server/InMemoryKVStore.cpp
   ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp
   ${CMAKE_SOURCE_DIR}/src/client/KVStoreClient.cpp

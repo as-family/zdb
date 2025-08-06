@@ -16,7 +16,7 @@ namespace zdb {
 
 class KVRPCService {
 public:
-    KVRPCService(const std::string s_address, const RetryPolicy& p);
+    KVRPCService(const std::string& address, const RetryPolicy& p);
     KVRPCService(const KVRPCService&) = delete;
     KVRPCService& operator=(const KVRPCService&) = delete;
     std::expected<void, Error> connect();
@@ -40,7 +40,7 @@ public:
     bool connected() const;
     std::string address() const;
 private:
-    std::string addr;
+    const std::string& addr;
     CircuitBreaker circuitBreaker;
     std::shared_ptr<grpc::Channel> channel;
     std::unique_ptr<kvStore::KVStoreService::Stub> stub;

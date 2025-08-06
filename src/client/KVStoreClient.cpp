@@ -1,13 +1,19 @@
 #include "KVStoreClient.hpp"
-#include "common/ErrorConverter.hpp"
-#include <stdexcept>
 #include <spdlog/spdlog.h>
+#include "client/Config.hpp"
+#include <expected>
+#include <string>
+#include "proto/kvStore.pb.h"
+#include "proto/kvStore.grpc.pb.h"
+#include "common/Error.hpp"
+#include <cstddef>
+
 
 namespace zdb {
 
 KVStoreClient::KVStoreClient(Config& c) : config(c) {}
 
-std::expected<std::string, Error> KVStoreClient::get(const std::string key) const {
+std::expected<std::string, Error> KVStoreClient::get(const std::string& key) const {
     kvStore::GetRequest request;
     request.set_key(key);
     kvStore::GetReply reply;
@@ -24,7 +30,7 @@ std::expected<std::string, Error> KVStoreClient::get(const std::string key) cons
     }
 }
 
-std::expected<void, Error> KVStoreClient::set(const std::string key, const std::string value) {
+std::expected<void, Error> KVStoreClient::set(const std::string& key, const std::string& value) {
     kvStore::SetRequest request;
     request.set_key(key);
     request.set_value(value);
@@ -42,7 +48,7 @@ std::expected<void, Error> KVStoreClient::set(const std::string key, const std::
     }
 }
 
-std::expected<std::string, Error> KVStoreClient::erase(const std::string key) {
+std::expected<std::string, Error> KVStoreClient::erase(const std::string& key) {
     kvStore::EraseRequest request;
     request.set_key(key);
     kvStore::EraseReply reply;
@@ -60,11 +66,11 @@ std::expected<std::string, Error> KVStoreClient::erase(const std::string key) {
 }
 
 std::expected<size_t, Error> KVStoreClient::size() const {
-    kvStore::SizeRequest request;
+    const kvStore::SizeRequest Request;
     kvStore::SizeReply reply;
     auto t = call(
         &kvStore::KVStoreService::Stub::size,
-        request,
+        Request,
         reply
     );
     if (t.has_value()) {

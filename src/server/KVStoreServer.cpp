@@ -1,6 +1,13 @@
 #include "KVStoreServer.hpp"
 #include "common/ErrorConverter.hpp"
 #include "common/Error.hpp"
+#include "server/InMemoryKVStore.hpp"
+#include <grpcpp/support/status.h>
+#include <grpcpp/grpcpp.h>
+#include "proto/kvStore.pb.h"
+#include <utility>
+#include <grpcpp/security/server_credentials.h>
+
 
 namespace zdb {
 
@@ -11,7 +18,7 @@ grpc::Status KVStoreServiceImpl::get(
     grpc::ServerContext *context,
     const kvStore::GetRequest *request,
     kvStore::GetReply *reply) {
-
+    std::ignore = context;
     auto v = kvStore.get(request->key());
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
@@ -25,9 +32,11 @@ grpc::Status KVStoreServiceImpl::get(
 }
 
 grpc::Status KVStoreServiceImpl::set(
-    grpc::ServerContext* context,
+    grpc::ServerContext *context,
     const kvStore::SetRequest* request,
-    kvStore::SetReply* reply) {
+    kvStore::SetReply *reply) {
+    std::ignore = context;
+    std::ignore = reply;
     auto v = kvStore.set(request->key(), request->value());
     return toGrpcStatus(std::move(v));
 }
@@ -36,6 +45,7 @@ grpc::Status KVStoreServiceImpl::erase(
     grpc::ServerContext* context,
     const kvStore::EraseRequest* request,
     kvStore::EraseReply* reply) {
+    std::ignore = context;
     auto v = kvStore.erase(request->key());
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
@@ -49,17 +59,19 @@ grpc::Status KVStoreServiceImpl::erase(
 }
 
 grpc::Status KVStoreServiceImpl::size(
-    grpc::ServerContext* context,
-    const kvStore::SizeRequest* request,
-    kvStore::SizeReply* reply) {
+    grpc::ServerContext *context,
+    const kvStore::SizeRequest *request,
+    kvStore::SizeReply *reply) {
+    std::ignore = context;
+    std::ignore = request;
     reply->set_size(kvStore.size());
     return grpc::Status::OK;
 }
 
-KVStoreServer::KVStoreServer(const std::string l_address, KVStoreServiceImpl& s)
-    : listen_address{l_address}, service {s} {
+KVStoreServer::KVStoreServer(const std::string& address, KVStoreServiceImpl& s)
+    : addr{address}, service {s} {
     grpc::ServerBuilder sb{};
-    sb.AddListeningPort(listen_address, grpc::InsecureServerCredentials());
+    sb.AddListeningPort(addr, grpc::InsecureServerCredentials());
     sb.RegisterService(&service);
     server = sb.BuildAndStart();
 }

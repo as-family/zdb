@@ -1,5 +1,13 @@
 #include "client/Config.hpp"
 #include <spdlog/spdlog.h>
+#include <vector>
+#include <string>
+#include "common/RetryPolicy.hpp"
+#include <utility>
+#include <stdexcept>
+#include <expected>
+#include "common/Error.hpp"
+#include <tuple>
 
 namespace zdb {
 

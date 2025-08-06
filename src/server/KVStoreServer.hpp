@@ -33,11 +33,11 @@ private:
 
 class KVStoreServer {
 public:
-    KVStoreServer(const std::string, KVStoreServiceImpl&);
+    KVStoreServer(const std::string& l_address, KVStoreServiceImpl& s);
     void wait();
     void shutdown();
 private:
-    std::string listen_address;
+    const std::string& addr;
     KVStoreServiceImpl& service;
     std::unique_ptr<grpc::Server> server;
 };

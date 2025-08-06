@@ -2,11 +2,16 @@
 #include "Error.hpp"
 #include "ErrorConverter.hpp"
 #include <spdlog/spdlog.h>
+#include "common/RetryPolicy.hpp"
+#include <grpcpp/support/status.h>
+#include <functional>
+#include <chrono>
+#include <utility>
 
 namespace zdb {
 
 CircuitBreaker::CircuitBreaker(const RetryPolicy& p)
-    : state {State::Closed}, policy{p}, repeater {p}, lastFailureTime{} {}
+    : state {State::Closed}, policy{p}, repeater {p} {}
 
 grpc::Status CircuitBreaker::call(std::function<grpc::Status()>& rpc) {
     if (rpc == nullptr) {

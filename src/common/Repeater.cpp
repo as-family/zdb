@@ -2,11 +2,11 @@
 #include "Error.hpp"
 #include "ErrorConverter.hpp"
 #include "RetryPolicy.hpp"
-#include <grpcpp/grpcpp.h>
 #include <functional>
 #include <optional>
 #include <chrono>
 #include <thread>
+#include <grpcpp/support/status.h>
 
 namespace zdb {
 

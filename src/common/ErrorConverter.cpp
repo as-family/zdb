@@ -1,13 +1,14 @@
 #include "ErrorConverter.hpp"
 #include "proto/error.pb.h"
 #include <spdlog/spdlog.h>
-#include <grpcpp/grpcpp.h>
 #include <google/protobuf/any.pb.h>
 #include <stdexcept>
+#include <grpcpp/support/status.h>
+#include "common/Error.hpp"
 
 namespace zdb {
 
-grpc::StatusCode toGrpcStatusCode(ErrorCode code) {
+grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
     switch (code) {
         case ErrorCode::NotFound:
             return grpc::StatusCode::NOT_FOUND;
@@ -27,7 +28,7 @@ grpc::Status toGrpcStatus(const Error& error) {
     return grpc::Status(toGrpcStatusCode(error.code), toString(error.code), anyDetail.SerializeAsString());
 }
 
-Error toError(grpc::Status status) {
+Error toError(const grpc::Status& status) {
     ErrorCode code;
     switch (status.error_code()) {
         case grpc::StatusCode::OK:

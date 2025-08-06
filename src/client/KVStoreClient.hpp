@@ -19,9 +19,9 @@ public:
     KVStoreClient(Config& c);
     KVStoreClient(const KVStoreClient&) = delete;
     KVStoreClient& operator=(const KVStoreClient&) = delete;
-    std::expected<std::string, Error> get(const std::string key) const;
-    std::expected<void, Error> set(const std::string key, const std::string value);
-    std::expected<std::string, Error> erase(const std::string key);
+    std::expected<std::string, Error> get(const std::string& key) const;
+    std::expected<void, Error> set(const std::string& key, const std::string& value);
+    std::expected<std::string, Error> erase(const std::string& key);
     std::expected<size_t, Error> size() const;
 private:
     template<typename Req, typename Rep>

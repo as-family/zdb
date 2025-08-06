@@ -564,15 +564,6 @@ if [ "$OUTPUT_FORMAT" = "html" ] || [ "$OUTPUT_FORMAT" = "both" ]; then
     echo "Generating HTML report..."
     generate_html_report "$TEXT_OUTPUT" "$HTML_OUTPUT" "$START_TIME" "$END_TIME"
     echo "HTML report saved to: $HTML_OUTPUT"
-    
-    # Try to open the HTML report in the default browser
-    if command -v xdg-open >/dev/null 2>&1; then
-        echo "Opening HTML report in browser..."
-        xdg-open "$HTML_OUTPUT" 2>/dev/null &
-    elif command -v open >/dev/null 2>&1; then
-        echo "Opening HTML report in browser..."
-        open "$HTML_OUTPUT" 2>/dev/null &
-    fi
 fi
 
 echo ""
