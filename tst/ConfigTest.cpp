@@ -124,13 +124,13 @@ TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
 // Test currentService() returns valid service after successful construction
 TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
     const std::vector<std::string> addresses{validServerAddr};
-    const Config config(addresses, policy);
+    const Config Config(addresses, policy);
     
-    auto result = config.currentService();
+    auto result = Config.currentService();
     ASSERT_TRUE(result.has_value());
-    const KVRPCService* service = result.value();
-    EXPECT_TRUE(service->connected());
-    EXPECT_TRUE(service->available());
+    const KVRPCService* Service = result.value();
+    EXPECT_TRUE(Service->connected());
+    EXPECT_TRUE(Service->available());
 }
 
 // Test nextService() when current service is available
@@ -140,14 +140,14 @@ TEST_F(ConfigTest, NextServiceWhenCurrentServiceAvailable) {
     
     auto currentResult = config.currentService();
     ASSERT_TRUE(currentResult.has_value());
-    const KVRPCService* currentSvc = currentResult.value();
+    const KVRPCService* CurrentSvc = currentResult.value();
     
     auto nextResult = config.nextService();
     ASSERT_TRUE(nextResult.has_value());
-    const KVRPCService* nextSvc = nextResult.value();
+    const KVRPCService* NextSvc = nextResult.value();
     
     // Should return the same service if it's still available
-    EXPECT_EQ(currentSvc, nextSvc);
+    EXPECT_EQ(CurrentSvc, NextSvc);
 }
 
 // Test nextService() switching to another service
@@ -171,14 +171,14 @@ TEST_F(ConfigTest, NextServiceSwitchesToAnotherService) {
 // Test copy constructor is deleted
 TEST_F(ConfigTest, CopyConstructorIsDeleted) {
     const std::vector<std::string> addresses{validServerAddr};
-    const Config config(addresses, policy);
+    const Config Config(addresses, policy);
     
     // This should not compile - testing that copy constructor is deleted
     // Config config2(config); // Uncommenting this line should cause compilation error
     
     // Instead, we'll verify that the copy constructor is indeed deleted by
     // checking that std::is_copy_constructible returns false
-    EXPECT_FALSE(std::is_copy_constructible_v<Config>);
+    EXPECT_FALSE(std::is_copy_constructible_v<zdb::Config>);
 }
 
 // Test assignment operator is deleted

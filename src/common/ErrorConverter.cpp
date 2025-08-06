@@ -8,8 +8,8 @@
 
 namespace zdb {
 
-grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
-    switch (code) {
+grpc::StatusCode toGrpcStatusCode(const ErrorCode& Code) {
+    switch (Code) {
         case ErrorCode::NotFound:
             return grpc::StatusCode::NOT_FOUND;
         case ErrorCode::InvalidArg:
@@ -19,13 +19,13 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
     }
 }
 
-grpc::Status toGrpcStatus(const Error& error) {
+grpc::Status toGrpcStatus(const Error& Error) {
     protoError::ErrorDetails details;
-    details.set_code(static_cast<protoError::ErrorCode>(error.code));
-    details.set_what(error.what);
+    details.set_code(static_cast<protoError::ErrorCode>(Error.code));
+    details.set_what(Error.what);
     google::protobuf::Any anyDetail;
     anyDetail.PackFrom(details);
-    return grpc::Status(toGrpcStatusCode(error.code), toString(error.code), anyDetail.SerializeAsString());
+    return grpc::Status(toGrpcStatusCode(Error.code), toString(Error.code), anyDetail.SerializeAsString());
 }
 
 Error toError(const grpc::Status& status) {

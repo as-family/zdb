@@ -27,11 +27,11 @@ Config::iterator Config::nextActiveServiceIterator() {
     return services.end();
 }
 
-Config::Config(const std::vector<std::string>& addresses, const RetryPolicy& p) :policy {p} {
+Config::Config(const std::vector<std::string>& addresses, const RetryPolicy& P) : Policy{P} {
     for (auto address : addresses) {
         services.emplace(std::piecewise_construct, 
                         std::forward_as_tuple(address), 
-                        std::forward_as_tuple(address, p));
+                        std::forward_as_tuple(address, P));
     }
     cService = services.end();
     cService = nextActiveServiceIterator();

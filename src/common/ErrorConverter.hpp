@@ -9,9 +9,9 @@
 
 namespace zdb {
 
-grpc::StatusCode toGrpcStatusCode(const ErrorCode& code);
+grpc::StatusCode toGrpcStatusCode(const ErrorCode& Code);
 
-grpc::Status toGrpcStatus(const Error& error);
+grpc::Status toGrpcStatus(const Error& Error);
 
 template<typename T>
 grpc::Status toGrpcStatus(std::expected<T, Error>&& v) {

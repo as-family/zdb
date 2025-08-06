@@ -49,7 +49,7 @@ CheckOptions:
   - key: readability-identifier-naming.EnumConstantCase
     value: CamelCase
   - key: readability-identifier-naming.ConstantCase
-    value: CamelCase
+    value: camelBack
   - key: readability-identifier-naming.StaticConstantCase
     value: CamelCase
   - key: readability-identifier-naming.GlobalConstantCase

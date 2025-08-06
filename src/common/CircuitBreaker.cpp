@@ -10,8 +10,8 @@
 
 namespace zdb {
 
-CircuitBreaker::CircuitBreaker(const RetryPolicy& p)
-    : state {State::Closed}, policy{p}, repeater {p} {}
+CircuitBreaker::CircuitBreaker(const RetryPolicy& P)
+    : state {State::Closed}, Policy{P}, repeater {P} {}
 
 grpc::Status CircuitBreaker::call(const std::function<grpc::Status()>& rpc) {
     if (rpc == nullptr) {
@@ -20,7 +20,7 @@ grpc::Status CircuitBreaker::call(const std::function<grpc::Status()>& rpc) {
     }
     switch (state) {
         case State::Open:
-            if (std::chrono::steady_clock::now() - lastFailureTime < policy.resetTimeout) {
+            if (std::chrono::steady_clock::now() - lastFailureTime < Policy.resetTimeout) {
                 return grpc::Status(grpc::StatusCode::UNAVAILABLE, "Circuit breaker is open");
             }
             state = State::HalfOpen;

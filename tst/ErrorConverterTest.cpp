@@ -15,16 +15,16 @@ TEST(ErrorConverterTest, ToGrpcStatusCode_AllCodes) {
 }
 
 TEST(ErrorConverterTest, ToGrpcStatus_ValidError) {
-    const Error err(ErrorCode::NotFound, "not found");
-    const grpc::Status status = toGrpcStatus(err);
+    const Error Err(ErrorCode::NotFound, "not found");
+    const grpc::Status status = toGrpcStatus(Err);
     EXPECT_EQ(status.error_code(), grpc::StatusCode::NOT_FOUND);
     EXPECT_EQ(status.error_message(), toString(ErrorCode::NotFound));
     EXPECT_FALSE(status.ok());
 }
 
 TEST(ErrorConverterTest, ToGrpcStatus_UnknownError) {
-    const Error err(ErrorCode::Unknown, "unknown error");
-    const grpc::Status status = toGrpcStatus(err);
+    const Error Err(ErrorCode::Unknown, "unknown error");
+    const grpc::Status status = toGrpcStatus(Err);
     EXPECT_EQ(status.error_code(), grpc::StatusCode::UNKNOWN);
     EXPECT_EQ(status.error_message(), toString(ErrorCode::Unknown));
 }

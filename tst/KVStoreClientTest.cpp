@@ -294,9 +294,9 @@ TEST_F(KVStoreClientTest, ConfigExposesRetryPolicy) {
     Config c{addresses, customPolicy};
     
     // Verify the policy is properly stored and accessible
-    EXPECT_EQ(c.policy.baseDelay, std::chrono::microseconds(200));
-    EXPECT_EQ(c.policy.maxDelay, std::chrono::microseconds(2000));
-    EXPECT_EQ(c.policy.resetTimeout, std::chrono::microseconds(10000));
-    EXPECT_EQ(c.policy.failureThreshold, 5);
-    EXPECT_EQ(c.policy.servicesToTry, 3);
+    EXPECT_EQ(c.Policy.baseDelay, std::chrono::microseconds(200));
+    EXPECT_EQ(c.Policy.maxDelay, std::chrono::microseconds(2000));
+    EXPECT_EQ(c.Policy.resetTimeout, std::chrono::microseconds(10000));
+    EXPECT_EQ(c.Policy.failureThreshold, 5);
+    EXPECT_EQ(c.Policy.servicesToTry, 3);
 }

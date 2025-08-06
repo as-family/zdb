@@ -27,12 +27,12 @@ private:
     template<typename Req, typename Rep>
     std::expected<void, Error> call(
         grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
-        const Req& request,
+        const Req& Request,
         Rep& reply) const {
-        for (int i = 0; i < config.policy.servicesToTry; ++i) {
+        for (int i = 0; i < config.Policy.servicesToTry; ++i) {
             auto serviceResult = config.currentService();
             if (serviceResult.has_value()) {
-                auto callResult = serviceResult.value()->call(f, request, reply);
+                auto callResult = serviceResult.value()->call(f, Request, reply);
                 if (callResult.has_value()) {
                     return {};
                 } else {
