@@ -74,7 +74,7 @@ TEST_F(ConfigTest, ConstructorWithSingleValidAddress) {
 
 // Test successful construction with multiple valid addresses
 TEST_F(ConfigTest, ConstructorWithMultipleValidAddresses) {
-    std::vector<std::string> addresses{validServerAddr, validServerAddr2};
+    const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     
     ASSERT_NO_THROW({
         Config config(addresses, policy);
@@ -103,7 +103,7 @@ TEST_F(ConfigTest, ConstructorWithAllInvalidAddresses) {
 
 // Test construction failure with mix of valid and invalid addresses but no successful connections
 TEST_F(ConfigTest, ConstructorWithMixedAddressesButNoConnections) {
-    std::vector<std::string> addresses{invalidServerAddr, "invalid:12345"};
+    const std::vector<std::string> addresses{invalidServerAddr, "invalid:12345"};
     
     EXPECT_THROW({
         Config config(addresses, policy);
@@ -112,7 +112,7 @@ TEST_F(ConfigTest, ConstructorWithMixedAddressesButNoConnections) {
 
 // Test construction with some valid and some invalid addresses (should succeed)
 TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
-    std::vector<std::string> addresses{invalidServerAddr, validServerAddr};
+    const std::vector<std::string> addresses{invalidServerAddr, validServerAddr};
     
     ASSERT_NO_THROW({
         Config config(addresses, policy);
@@ -123,28 +123,28 @@ TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
 
 // Test currentService() returns valid service after successful construction
 TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
-    std::vector<std::string> addresses{validServerAddr};
-    Config config(addresses, policy);
+    const std::vector<std::string> addresses{validServerAddr};
+    const Config config(addresses, policy);
     
     auto result = config.currentService();
     ASSERT_TRUE(result.has_value());
-    KVRPCService* service = result.value();
+    const KVRPCService* service = result.value();
     EXPECT_TRUE(service->connected());
     EXPECT_TRUE(service->available());
 }
 
 // Test nextService() when current service is available
 TEST_F(ConfigTest, NextServiceWhenCurrentServiceAvailable) {
-    std::vector<std::string> addresses{validServerAddr};
+    const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
     auto currentResult = config.currentService();
     ASSERT_TRUE(currentResult.has_value());
-    KVRPCService* currentSvc = currentResult.value();
+    const KVRPCService* currentSvc = currentResult.value();
     
     auto nextResult = config.nextService();
     ASSERT_TRUE(nextResult.has_value());
-    KVRPCService* nextSvc = nextResult.value();
+    const KVRPCService* nextSvc = nextResult.value();
     
     // Should return the same service if it's still available
     EXPECT_EQ(currentSvc, nextSvc);
@@ -170,8 +170,8 @@ TEST_F(ConfigTest, NextServiceSwitchesToAnotherService) {
 
 // Test copy constructor is deleted
 TEST_F(ConfigTest, CopyConstructorIsDeleted) {
-    std::vector<std::string> addresses{validServerAddr};
-    Config config(addresses, policy);
+    const std::vector<std::string> addresses{validServerAddr};
+    const Config config(addresses, policy);
     
     // This should not compile - testing that copy constructor is deleted
     // Config config2(config); // Uncommenting this line should cause compilation error
@@ -183,7 +183,7 @@ TEST_F(ConfigTest, CopyConstructorIsDeleted) {
 
 // Test assignment operator is deleted
 TEST_F(ConfigTest, AssignmentOperatorIsDeleted) {
-    std::vector<std::string> addresses{validServerAddr};
+    const std::vector<std::string> addresses{validServerAddr};
     Config config1(addresses, policy);
     Config config2(addresses, policy);
     
@@ -196,7 +196,7 @@ TEST_F(ConfigTest, AssignmentOperatorIsDeleted) {
 
 // Test behavior when all services become unavailable
 TEST_F(ConfigTest, NextServiceWhenAllServicesUnavailable) {
-    std::vector<std::string> addresses{validServerAddr};
+    const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
     // First verify we have a working service
@@ -216,7 +216,7 @@ TEST_F(ConfigTest, NextServiceWhenAllServicesUnavailable) {
 
 // Test with malformed addresses
 TEST_F(ConfigTest, ConstructorWithMalformedAddresses) {
-    std::vector<std::string> addresses{"", "   ", "malformed_address", ":"};
+    const std::vector<std::string> addresses{"", "   ", "malformed_address", ":"};
     
     EXPECT_THROW({
         Config config(addresses, policy);
@@ -227,7 +227,7 @@ TEST_F(ConfigTest, ConstructorWithMalformedAddresses) {
 TEST_F(ConfigTest, ConstructorWithVeryLongAddresses) {
     std::string longAddress(1000, 'a');
     longAddress += ":12345";
-    std::vector<std::string> addresses{longAddress};
+    const std::vector<std::string> addresses{longAddress};
     
     EXPECT_THROW({
         Config config(addresses, policy);
@@ -241,7 +241,7 @@ TEST_F(ConfigTest, CurrentServiceThrowsWhenNoServicesAvailable) {
     // For now, we'll test the basic contract that currentService should throw
     // when no service is available by testing the error message
     
-    std::vector<std::string> addresses{"invalid:99999"};
+    const std::vector<std::string> addresses{"invalid:99999"};
     
     EXPECT_THROW({
         Config config(addresses, policy);
@@ -250,26 +250,27 @@ TEST_F(ConfigTest, CurrentServiceThrowsWhenNoServicesAvailable) {
 
 // Test with different retry policies
 TEST_F(ConfigTest, ConstructorWithDifferentRetryPolicies) {
-    std::vector<std::string> addresses{validServerAddr};
+    const std::vector<std::string> addresses{validServerAddr};
     
     // Test with very short delays
-    RetryPolicy shortPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(100), 1, 1};
+    const RetryPolicy ShortPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(100), 1, 1};
     ASSERT_NO_THROW({
-        Config config(addresses, shortPolicy);
+        Config config(addresses, ShortPolicy);
     });
     
     // Test with very long delays
-    RetryPolicy longPolicy{std::chrono::microseconds(1000), std::chrono::microseconds(10000), std::chrono::microseconds(100000), 5, 1};
+    const RetryPolicy LongPolicy{std::chrono::microseconds(1000), std::chrono::microseconds(10000), std::chrono::microseconds(100000), 5, 1};
     ASSERT_NO_THROW({
-        Config config(addresses, longPolicy);
+        Config config(addresses, LongPolicy);
     });
     
     // Test with zero threshold
-    RetryPolicy zeroThresholdPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 0, 1};
+    const RetryPolicy ZeroThresholdPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 0, 1};
     ASSERT_NO_THROW({
-        Config config(addresses, zeroThresholdPolicy);
+        Config config(addresses, ZeroThresholdPolicy);
     });
 }
+
 
 // Test that services map is properly populated
 TEST_F(ConfigTest, ServicesMapIsProperlyPopulated) {

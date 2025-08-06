@@ -39,42 +39,42 @@ TEST(ErrorConverterTest, ToGrpcStatus_FromExpected) {
 }
 
 TEST(ErrorConverterTest, ToError_AllGrpcCodes) {
-    const grpc::Status notFound(grpc::StatusCode::NOT_FOUND, "nf");
-    const grpc::Status invalid(grpc::StatusCode::INVALID_ARGUMENT, "inv");
-    const grpc::Status unavailable(grpc::StatusCode::UNAVAILABLE, "unavail");
-    const grpc::Status unknown(grpc::StatusCode::UNKNOWN, "unk");
-    const Error e1 = toError(notFound);
-    const Error e2 = toError(invalid);
-    const Error e3 = toError(unavailable);
-    const Error e4 = toError(unknown);
-    EXPECT_EQ(e1.code, ErrorCode::NotFound);
-    EXPECT_EQ(e2.code, ErrorCode::InvalidArg);
-    EXPECT_EQ(e3.code, ErrorCode::ServiceTemporarilyUnavailable);
-    EXPECT_EQ(e4.code, ErrorCode::Unknown);
-    EXPECT_EQ(e1.what, "nf");
-    EXPECT_EQ(e2.what, "inv");
-    EXPECT_EQ(e3.what, "unavail");
-    EXPECT_EQ(e4.what, "unk");
+    const grpc::Status NotFound(grpc::StatusCode::NOT_FOUND, "nf");
+    const grpc::Status Invalid(grpc::StatusCode::INVALID_ARGUMENT, "inv");
+    const grpc::Status Unavailable(grpc::StatusCode::UNAVAILABLE, "unavail");
+    const grpc::Status Unknown(grpc::StatusCode::UNKNOWN, "unk");
+    const Error E1 = toError(NotFound);
+    const Error E2 = toError(Invalid);
+    const Error E3 = toError(Unavailable);
+    const Error E4 = toError(Unknown);
+    EXPECT_EQ(E1.code, ErrorCode::NotFound);
+    EXPECT_EQ(E2.code, ErrorCode::InvalidArg);
+    EXPECT_EQ(E3.code, ErrorCode::ServiceTemporarilyUnavailable);
+    EXPECT_EQ(E4.code, ErrorCode::Unknown);
+    EXPECT_EQ(E1.what, "nf");
+    EXPECT_EQ(E2.what, "inv");
+    EXPECT_EQ(E3.what, "unavail");
+    EXPECT_EQ(E4.what, "unk");
 }
 
 TEST(ErrorConverterTest, ToExpected_ValueAndError) {
-    const grpc::Status ok(grpc::StatusCode::OK, "");
-    const grpc::Status err(grpc::StatusCode::INVALID_ARGUMENT, "bad");
-    auto v = toExpected(ok, 123);
+    const grpc::Status Ok(grpc::StatusCode::OK, "");
+    const grpc::Status Err(grpc::StatusCode::INVALID_ARGUMENT, "bad");
+    auto v = toExpected(Ok, 123);
     EXPECT_TRUE(v.has_value());
     EXPECT_EQ(v.value(), 123);
-    auto e = toExpected(err, 123);
+    auto e = toExpected(Err, 123);
     EXPECT_FALSE(e.has_value());
     EXPECT_EQ(e.error().code, ErrorCode::InvalidArg);
     EXPECT_EQ(e.error().what, "bad");
 }
 
 TEST(ErrorConverterTest, ToExpectedVoid) {
-    const grpc::Status ok(grpc::StatusCode::OK, "");
-    const grpc::Status err(grpc::StatusCode::NOT_FOUND, "nf");
-    auto v = toExpected<void>(ok);
+    const grpc::Status Ok(grpc::StatusCode::OK, "");
+    const grpc::Status Err(grpc::StatusCode::NOT_FOUND, "nf");
+    auto v = toExpected<void>(Ok);
     EXPECT_TRUE(v.has_value());
-    auto e = toExpected<void>(err);
+    auto e = toExpected<void>(Err);
     EXPECT_FALSE(e.has_value());
     EXPECT_EQ(e.error().code, ErrorCode::NotFound);
     EXPECT_EQ(e.error().what, "nf");

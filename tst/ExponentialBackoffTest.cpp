@@ -2,6 +2,7 @@
 #include <chrono>
 #include <stdexcept>
 #include <vector>
+#include <cstddef>  // for size_t
 #include "common/ExponentialBackoff.hpp"
 #include "common/RetryPolicy.hpp"
 
@@ -22,33 +23,39 @@ TEST_F(ExponentialBackoffTest, InitialDelayIsBaseDelay) {
     ExponentialBackoff backoff(defaultPolicy);
     auto delay = backoff.nextDelay();
     ASSERT_TRUE(delay.has_value());
-    EXPECT_EQ(delay.value(), std::chrono::microseconds(100));
+    if (delay.has_value()) {
+        EXPECT_EQ(delay.value(), std::chrono::microseconds(100));
+    }
 }
 
 TEST_F(ExponentialBackoffTest, DelayDoublesEachAttempt) {
     ExponentialBackoff backoff(defaultPolicy);
     std::vector<unsigned int> expected = {100, 200, 400, 800, 1000}; // capped at maxDelay
-    for (size_t i = 0; i < static_cast<size_t>(defaultPolicy.failureThreshold); ++i) {
+    for (int i = 0; i < defaultPolicy.failureThreshold; ++i) {
         auto delay = backoff.nextDelay();
         ASSERT_TRUE(delay.has_value());
-        EXPECT_EQ(delay.value(), std::chrono::microseconds(expected[i]));
+        if (delay.has_value()) {
+            EXPECT_EQ(delay.value(), std::chrono::microseconds(expected[static_cast<size_t>(i)]));
+        }
     }
 }
 
 TEST_F(ExponentialBackoffTest, DelayIsCappedAtMaxDelay) {
-    const RetryPolicy policy{
+    const RetryPolicy Policy{
         std::chrono::microseconds(300),
         std::chrono::microseconds(500),
         std::chrono::microseconds(0),
         4,
         0
     };
-    ExponentialBackoff backoff(policy);
+    ExponentialBackoff backoff(Policy);
     std::vector<unsigned int> expected = {300, 500, 500, 500};
-    for (size_t i = 0; i < static_cast<size_t>(policy.failureThreshold); ++i) {
+    for (int i = 0; i < Policy.failureThreshold; ++i) {
         auto delay = backoff.nextDelay();
         ASSERT_TRUE(delay.has_value());
-        EXPECT_EQ(delay.value(), std::chrono::microseconds(expected[i]));
+        if (delay.has_value()) {
+            EXPECT_EQ(delay.value(), std::chrono::microseconds(expected[static_cast<size_t>(i)]));
+        }
     }
 }
 
@@ -70,18 +77,20 @@ TEST_F(ExponentialBackoffTest, ResetRestartsAttempts) {
     backoff.reset();
     auto delay = backoff.nextDelay();
     EXPECT_TRUE(delay.has_value());
-    EXPECT_EQ(delay.value(), std::chrono::microseconds(100));
+    if (delay.has_value()) {
+        EXPECT_EQ(delay.value(), std::chrono::microseconds(100));
+    }
 }
 
 TEST_F(ExponentialBackoffTest, ZeroThresholdReturnsNulloptImmediately) {
-    const RetryPolicy policy{
+    const RetryPolicy Policy{
         std::chrono::microseconds(100),
         std::chrono::microseconds(1000),
         std::chrono::microseconds(0),
         0,
         0
     };
-    ExponentialBackoff backoff(policy);
+    ExponentialBackoff backoff(Policy);
     auto delay = backoff.nextDelay();
     EXPECT_FALSE(delay.has_value());
 }
@@ -101,17 +110,19 @@ TEST_F(ExponentialBackoffTest, MaxDelayLessThanBaseDelayThrows) {
 }
 
 TEST_F(ExponentialBackoffTest, LargeAttemptDoesNotOverflow) {
-    const RetryPolicy policy{
+    const RetryPolicy Policy{
         std::chrono::microseconds(1),
         std::chrono::microseconds(1000000),
         std::chrono::microseconds(0),
         30, // 1 << 30 is large
         0
     };
-    ExponentialBackoff backoff(policy);
-    for (int i = 0; i < policy.failureThreshold; ++i) {
+    ExponentialBackoff backoff(Policy);
+    for (int i = 0; i < Policy.failureThreshold; ++i) {
         auto delay = backoff.nextDelay();
         ASSERT_TRUE(delay.has_value());
-        EXPECT_LE(delay.value(), std::chrono::microseconds(1000000));
+        if (delay.has_value()) {
+            EXPECT_LE(delay.value(), std::chrono::microseconds(1000000));
+        }
     }
 }
