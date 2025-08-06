@@ -1,11 +1,12 @@
 #include <gtest/gtest.h>
-#include "common/RetryPolicy.hpp"
+#include <chrono>
 #include <stdexcept>
+#include "common/RetryPolicy.hpp"
 
 using namespace zdb;
 
 TEST(RetryPolicyTest, ValidConstruction) {
-    RetryPolicy policy(
+    const RetryPolicy policy(
         std::chrono::microseconds(100),
         std::chrono::microseconds(1000),
         std::chrono::microseconds(5000),
@@ -85,7 +86,7 @@ TEST(RetryPolicyTest, MaxDelayLessThanBaseDelayThrows) {
 }
 
 TEST(RetryPolicyTest, ZeroValuesAreAccepted) {
-    RetryPolicy policy(
+    const RetryPolicy policy(
         std::chrono::microseconds(0),
         std::chrono::microseconds(0),
         std::chrono::microseconds(0),

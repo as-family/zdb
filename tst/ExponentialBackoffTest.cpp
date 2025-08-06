@@ -1,4 +1,7 @@
 #include <gtest/gtest.h>
+#include <chrono>
+#include <stdexcept>
+#include <vector>
 #include "common/ExponentialBackoff.hpp"
 #include "common/RetryPolicy.hpp"
 
@@ -25,7 +28,7 @@ TEST_F(ExponentialBackoffTest, InitialDelayIsBaseDelay) {
 TEST_F(ExponentialBackoffTest, DelayDoublesEachAttempt) {
     ExponentialBackoff backoff(defaultPolicy);
     std::vector<unsigned int> expected = {100, 200, 400, 800, 1000}; // capped at maxDelay
-    for (int i = 0; i < defaultPolicy.failureThreshold; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(defaultPolicy.failureThreshold); ++i) {
         auto delay = backoff.nextDelay();
         ASSERT_TRUE(delay.has_value());
         EXPECT_EQ(delay.value(), std::chrono::microseconds(expected[i]));
@@ -33,7 +36,7 @@ TEST_F(ExponentialBackoffTest, DelayDoublesEachAttempt) {
 }
 
 TEST_F(ExponentialBackoffTest, DelayIsCappedAtMaxDelay) {
-    RetryPolicy policy{
+    const RetryPolicy policy{
         std::chrono::microseconds(300),
         std::chrono::microseconds(500),
         std::chrono::microseconds(0),
@@ -42,7 +45,7 @@ TEST_F(ExponentialBackoffTest, DelayIsCappedAtMaxDelay) {
     };
     ExponentialBackoff backoff(policy);
     std::vector<unsigned int> expected = {300, 500, 500, 500};
-    for (int i = 0; i < policy.failureThreshold; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(policy.failureThreshold); ++i) {
         auto delay = backoff.nextDelay();
         ASSERT_TRUE(delay.has_value());
         EXPECT_EQ(delay.value(), std::chrono::microseconds(expected[i]));
@@ -71,7 +74,7 @@ TEST_F(ExponentialBackoffTest, ResetRestartsAttempts) {
 }
 
 TEST_F(ExponentialBackoffTest, ZeroThresholdReturnsNulloptImmediately) {
-    RetryPolicy policy{
+    const RetryPolicy policy{
         std::chrono::microseconds(100),
         std::chrono::microseconds(1000),
         std::chrono::microseconds(0),
@@ -98,7 +101,7 @@ TEST_F(ExponentialBackoffTest, MaxDelayLessThanBaseDelayThrows) {
 }
 
 TEST_F(ExponentialBackoffTest, LargeAttemptDoesNotOverflow) {
-    RetryPolicy policy{
+    const RetryPolicy policy{
         std::chrono::microseconds(1),
         std::chrono::microseconds(1000000),
         std::chrono::microseconds(0),

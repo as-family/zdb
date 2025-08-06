@@ -1,32 +1,29 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <grpcpp/grpcpp.h>
 #include "client/Config.hpp"
 #include "client/KVRPCService.hpp"
 #include "common/RetryPolicy.hpp"
-#include "common/Error.hpp"
 #include "server/KVStoreServer.hpp"
 #include "server/InMemoryKVStore.hpp"
-#include "proto/kvStore.grpc.pb.h"
 #include <thread>
 #include <chrono>
 #include <string>
 #include <vector>
 #include <memory>
+#include <stdexcept>
+#include <type_traits>
+#include <atomic>
 
 using namespace zdb;
-using ::testing::_;
-using ::testing::Return;
-using ::testing::Throw;
 
 class ConfigTest : public ::testing::Test {
 protected:
     RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 3};
     
     // Test server setup for positive tests
-    const std::string VALID_SERVER_ADDR = "localhost:50053";
-    const std::string VALID_SERVER_ADDR2 = "localhost:50054";
-    const std::string INVALID_SERVER_ADDR = "localhost:99999";
+    const std::string validServerAddr = "localhost:50053";
+    const std::string validServerAddr2 = "localhost:50054";
+    const std::string invalidServerAddr = "localhost:99999";
     
     InMemoryKVStore kvStore;
     KVStoreServiceImpl serviceImpl{kvStore};
@@ -37,8 +34,8 @@ protected:
     
     void SetUp() override {
         // Start test servers
-        server1 = std::make_unique<KVStoreServer>(VALID_SERVER_ADDR, serviceImpl);
-        server2 = std::make_unique<KVStoreServer>(VALID_SERVER_ADDR2, serviceImpl);
+        server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
+        server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl);
         
         serverThread1 = std::thread([this]() { server1->wait(); });
         serverThread2 = std::thread([this]() { server2->wait(); });
@@ -66,7 +63,7 @@ protected:
 
 // Test successful construction with single valid address
 TEST_F(ConfigTest, ConstructorWithSingleValidAddress) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
+    std::vector<std::string> addresses{validServerAddr};
     
     ASSERT_NO_THROW({
         Config config(addresses, policy);
@@ -77,7 +74,7 @@ TEST_F(ConfigTest, ConstructorWithSingleValidAddress) {
 
 // Test successful construction with multiple valid addresses
 TEST_F(ConfigTest, ConstructorWithMultipleValidAddresses) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR, VALID_SERVER_ADDR2};
+    std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     
     ASSERT_NO_THROW({
         Config config(addresses, policy);
@@ -106,7 +103,7 @@ TEST_F(ConfigTest, ConstructorWithAllInvalidAddresses) {
 
 // Test construction failure with mix of valid and invalid addresses but no successful connections
 TEST_F(ConfigTest, ConstructorWithMixedAddressesButNoConnections) {
-    std::vector<std::string> addresses{INVALID_SERVER_ADDR, "invalid:12345"};
+    std::vector<std::string> addresses{invalidServerAddr, "invalid:12345"};
     
     EXPECT_THROW({
         Config config(addresses, policy);
@@ -115,7 +112,7 @@ TEST_F(ConfigTest, ConstructorWithMixedAddressesButNoConnections) {
 
 // Test construction with some valid and some invalid addresses (should succeed)
 TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
-    std::vector<std::string> addresses{INVALID_SERVER_ADDR, VALID_SERVER_ADDR};
+    std::vector<std::string> addresses{invalidServerAddr, validServerAddr};
     
     ASSERT_NO_THROW({
         Config config(addresses, policy);
@@ -126,7 +123,7 @@ TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
 
 // Test currentService() returns valid service after successful construction
 TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
+    std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
     auto result = config.currentService();
@@ -138,7 +135,7 @@ TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
 
 // Test nextService() when current service is available
 TEST_F(ConfigTest, NextServiceWhenCurrentServiceAvailable) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
+    std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
     auto currentResult = config.currentService();
@@ -155,7 +152,7 @@ TEST_F(ConfigTest, NextServiceWhenCurrentServiceAvailable) {
 
 // Test nextService() switching to another service
 TEST_F(ConfigTest, NextServiceSwitchesToAnotherService) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR, VALID_SERVER_ADDR2};
+    std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, policy);
     
     auto result1 = config.currentService();
@@ -173,7 +170,7 @@ TEST_F(ConfigTest, NextServiceSwitchesToAnotherService) {
 
 // Test copy constructor is deleted
 TEST_F(ConfigTest, CopyConstructorIsDeleted) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
+    std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
     // This should not compile - testing that copy constructor is deleted
@@ -186,7 +183,7 @@ TEST_F(ConfigTest, CopyConstructorIsDeleted) {
 
 // Test assignment operator is deleted
 TEST_F(ConfigTest, AssignmentOperatorIsDeleted) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
+    std::vector<std::string> addresses{validServerAddr};
     Config config1(addresses, policy);
     Config config2(addresses, policy);
     
@@ -199,7 +196,7 @@ TEST_F(ConfigTest, AssignmentOperatorIsDeleted) {
 
 // Test behavior when all services become unavailable
 TEST_F(ConfigTest, NextServiceWhenAllServicesUnavailable) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
+    std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
     // First verify we have a working service
@@ -253,7 +250,7 @@ TEST_F(ConfigTest, CurrentServiceThrowsWhenNoServicesAvailable) {
 
 // Test with different retry policies
 TEST_F(ConfigTest, ConstructorWithDifferentRetryPolicies) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
+    std::vector<std::string> addresses{validServerAddr};
     
     // Test with very short delays
     RetryPolicy shortPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(100), 1, 1};
@@ -276,7 +273,7 @@ TEST_F(ConfigTest, ConstructorWithDifferentRetryPolicies) {
 
 // Test that services map is properly populated
 TEST_F(ConfigTest, ServicesMapIsProperlyPopulated) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR, VALID_SERVER_ADDR2};
+    std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, policy);
     
     // We can't directly access the private services map, but we can verify
@@ -294,7 +291,7 @@ TEST_F(ConfigTest, ServicesMapIsProperlyPopulated) {
 
 // Test rapid successive calls to nextService
 TEST_F(ConfigTest, RapidSuccessiveCallsToNextService) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR, VALID_SERVER_ADDR2};
+    std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, policy);
     
     // Make multiple rapid calls to nextService
@@ -339,7 +336,7 @@ TEST_F(ConfigTest, ConstructorPerformanceWithManyAddresses) {
 
 // Test thread safety aspects (basic test)
 TEST_F(ConfigTest, BasicThreadSafetyTest) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR, VALID_SERVER_ADDR2};
+    std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, policy);
     
     std::atomic<int> successCount{0};

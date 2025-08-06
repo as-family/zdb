@@ -29,7 +29,7 @@ Checks: >
   -cppcoreguidelines-special-member-functions
 
 WarningsAsErrors: ''
-HeaderFilterRegex: '^.*/src/.*'
+HeaderFilterRegex: '^.*/(src|tst)/.*'
 FormatStyle: none
 CheckOptions:
   - key: readability-identifier-naming.NamespaceCase
