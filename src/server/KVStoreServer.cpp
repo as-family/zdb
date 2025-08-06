@@ -6,7 +6,7 @@
 #include <grpcpp/grpcpp.h>
 #include "proto/kvStore.pb.h"
 #include <utility>
-#include <grpcpp/security/server_credentials.h>
+#include <grpcpp/security/credentials.h>
 
 
 namespace zdb {

@@ -2,6 +2,7 @@
 #include <chrono>
 #include "common/Repeater.hpp"
 #include "common/RetryPolicy.hpp"
+#include <grpcpp/support/status.h>
 
 using namespace zdb;
 

@@ -8,6 +8,9 @@
 #include <chrono>
 #include <string>
 #include <memory>
+#include "proto/kvStore.pb.h"
+#include <grpcpp/support/status.h>
+#include <grpcpp/security/credentials.h>
 
 using namespace zdb;
 

@@ -2,6 +2,7 @@
 #include <expected>
 #include "common/ErrorConverter.hpp"
 #include "common/Error.hpp"
+#include <grpcpp/support/status.h>
 
 using namespace zdb;
 

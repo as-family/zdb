@@ -7,6 +7,10 @@
 #include <thread>
 #include <chrono>
 #include <string>
+#include <memory>
+#include <vector>
+#include "client/Config.hpp"
+#include <stdexcept>
 
 using namespace zdb;
 
@@ -209,17 +213,17 @@ TEST_F(KVStoreClientTest, ServicesToTryOneTriesOnlyOnce) {
 // Test with multiple services and different servicesToTry values
 TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     // Set up additional server
-    const std::string SERVER_ADDR2 = "localhost:50053";
+    const std::string serverAddress2 = "localhost:50053";
     InMemoryKVStore kvStore2;
     KVStoreServiceImpl serviceImpl2{kvStore2};
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread2;
     
-    server2 = std::make_unique<KVStoreServer>(SERVER_ADDR2, serviceImpl2);
+    server2 = std::make_unique<KVStoreServer>(serverAddress2, serviceImpl2);
     serverThread2 = std::thread([&server2]() { server2->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    std::vector<std::string> multiAddresses{SERVER_ADDR, SERVER_ADDR2};
+    const std::vector<std::string> multiAddresses{SERVER_ADDR, serverAddress2};
     
     // Test with servicesToTry = 1 (should work with first available service)
     const RetryPolicy oneServicePolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 1};
@@ -289,7 +293,7 @@ TEST_F(KVStoreClientTest, ServicesToTryLargerThanAvailableServices) {
 // Test that Config properly exposes the RetryPolicy
 TEST_F(KVStoreClientTest, ConfigExposesRetryPolicy) {
     const RetryPolicy customPolicy{std::chrono::microseconds(200), std::chrono::microseconds(2000), std::chrono::microseconds(10000), 5, 3};
-    Config c{addresses, customPolicy};
+    const Config c{addresses, customPolicy};
     
     // Verify the policy is properly stored and accessible
     EXPECT_EQ(c.policy.baseDelay, std::chrono::microseconds(200));

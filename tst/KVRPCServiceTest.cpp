@@ -8,6 +8,12 @@
 #include <grpcpp/grpcpp.h>
 #include <thread>
 #include <chrono>
+#include <string>
+#include <utility>
+#include <grpcpp/security/credentials.h>
+#include <memory>
+#include <proto/kvStore.pb.h>
+#include <proto/kvStore.pb.h>
 
 using namespace zdb;
 
@@ -20,7 +26,7 @@ public:
         builder.RegisterService(&serviceImpl);
         server = builder.BuildAndStart();
     }
-    void reset() {
+    void shutdown() {
         if (server) {
             server->Shutdown();
         }
@@ -43,6 +49,7 @@ protected:
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     void TearDown() override {
+        testServer->shutdown();
         testServer.reset();
     }
 };
@@ -68,7 +75,7 @@ TEST_F(KVRPCServiceTest, availableReflectsCircuitBreaker) {
     KVRPCService service{address, policy};
     service.connect();
     EXPECT_TRUE(service.available());
-    testServer->reset(); // Simulate server failure
+    testServer->shutdown(); // Simulate server failure
     kvStore::GetRequest req;
     req.set_key("key");
     kvStore::GetReply rep;
