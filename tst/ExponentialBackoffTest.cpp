@@ -2,7 +2,7 @@
 #include <chrono>
 #include <stdexcept>
 #include <vector>
-#include <cstddef>  // for size_t
+#include <cstddef>
 #include "common/ExponentialBackoff.hpp"
 #include "common/RetryPolicy.hpp"
 

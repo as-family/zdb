@@ -37,7 +37,13 @@ private:
                     return {};
                 } else {
                     if (isRetriable(callResult.error().code)) {
-                        config.nextService();
+                        auto nextService = config.nextService();
+                        if (nextService.has_value()) {
+                            spdlog::warn("Retrying call to {} after error: {}", serviceResult.value()->address(), callResult.error().what);
+                        } else {
+                            spdlog::error("No more services available to retry after error: {}", callResult.error().what);
+                            return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "All services are unavailable")};
+                        }
                     } else {
                         return callResult;
                     }

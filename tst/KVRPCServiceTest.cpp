@@ -73,25 +73,26 @@ TEST_F(KVRPCServiceTest, ConnectFailure) {
 
 TEST_F(KVRPCServiceTest, availableReflectsCircuitBreaker) {
     KVRPCService service{address, policy};
-    service.connect();
+    EXPECT_TRUE(service.connect().has_value());
     EXPECT_TRUE(service.available());
     testServer->shutdown(); // Simulate server failure
     kvStore::GetRequest req;
     req.set_key("key");
     kvStore::GetReply rep;
-    service.call(&kvStore::KVStoreService::Stub::get, req, rep);
+    EXPECT_TRUE(!service.call(&kvStore::KVStoreService::Stub::get, req, rep).has_value());
     EXPECT_FALSE(service.available());
 }
 
 
 TEST_F(KVRPCServiceTest, CallGetSuccess) {
     KVRPCService service{address, policy};
-    service.connect();
+    EXPECT_TRUE(service.connect().has_value());
     kvStore::SetRequest setReq;
     setReq.set_key("foo");
     setReq.set_value("bar");
     kvStore::SetReply setRep;
-    service.call(&kvStore::KVStoreService::Stub::set, setReq, setRep);
+    EXPECT_TRUE(
+        service.call(&kvStore::KVStoreService::Stub::set, setReq, setRep).has_value());
     kvStore::GetRequest req;
     req.set_key("foo");
     kvStore::GetReply rep;
@@ -103,7 +104,7 @@ TEST_F(KVRPCServiceTest, CallGetSuccess) {
 
 TEST_F(KVRPCServiceTest, CallSetSuccess) {
     KVRPCService service{address, policy};
-    service.connect();
+    EXPECT_TRUE(service.connect().has_value());
     kvStore::SetRequest req;
     req.set_key("foo");
     req.set_value("bar");
@@ -115,12 +116,12 @@ TEST_F(KVRPCServiceTest, CallSetSuccess) {
 
 TEST_F(KVRPCServiceTest, CallEraseSuccess) {
     KVRPCService service{address, policy};
-    service.connect();
+    EXPECT_TRUE(service.connect().has_value());
     kvStore::SetRequest setReq;
     setReq.set_key("foo");
     setReq.set_value("bar");
     kvStore::SetReply setRep;
-    service.call(&kvStore::KVStoreService::Stub::set, setReq, setRep);
+    EXPECT_TRUE(service.call(&kvStore::KVStoreService::Stub::set, setReq, setRep).has_value());
     kvStore::EraseRequest req;
     req.set_key("foo");
     kvStore::EraseReply rep;
@@ -132,12 +133,12 @@ TEST_F(KVRPCServiceTest, CallEraseSuccess) {
 
 TEST_F(KVRPCServiceTest, CallSizeSuccess) {
     KVRPCService service{address, policy};
-    service.connect();
+    EXPECT_TRUE(service.connect().has_value());
     kvStore::SetRequest setReq;
     setReq.set_key("foo");
     setReq.set_value("bar");
     kvStore::SetReply setRep;
-    service.call(&kvStore::KVStoreService::Stub::set, setReq, setRep);
+    EXPECT_TRUE(service.call(&kvStore::KVStoreService::Stub::set, setReq, setRep).has_value());
     const kvStore::SizeRequest req;
     kvStore::SizeReply rep;
     auto result = service.call(&kvStore::KVStoreService::Stub::size, req, rep);
@@ -148,7 +149,7 @@ TEST_F(KVRPCServiceTest, CallSizeSuccess) {
 
 TEST_F(KVRPCServiceTest, CallFailureReturnsError) {
     KVRPCService service{address, policy};
-    service.connect();
+    EXPECT_TRUE(service.connect().has_value());
     kvStore::GetRequest req;
     req.set_key("notfound");
     kvStore::GetReply rep;

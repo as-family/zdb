@@ -68,8 +68,8 @@ TEST_F(KVStoreClientTest, GetNonExistentKey) {
 TEST_F(KVStoreClientTest, OverwriteValue) {
     Config c {addresses, policy};
     KVStoreClient client {c};
-    client.set("foo", "bar");
-    client.set("foo", "baz");
+    EXPECT_TRUE(client.set("foo", "bar").has_value());
+    EXPECT_TRUE(client.set("foo", "baz").has_value());
     auto getResult = client.get("foo");
     ASSERT_TRUE(getResult.has_value());
     EXPECT_EQ(getResult.value(), "baz");
@@ -78,7 +78,7 @@ TEST_F(KVStoreClientTest, OverwriteValue) {
 TEST_F(KVStoreClientTest, EraseExistingKey) {
     Config c {addresses, policy};
     KVStoreClient client {c};
-    client.set("foo", "bar");
+    EXPECT_TRUE(client.set("foo", "bar").has_value());
     auto eraseResult = client.erase("foo");
     ASSERT_TRUE(eraseResult.has_value());
     EXPECT_EQ(eraseResult.value(), "bar");
@@ -98,12 +98,12 @@ TEST_F(KVStoreClientTest, EraseNonExistentKey) {
 TEST_F(KVStoreClientTest, SizeReflectsSetAndErase) {
     Config c {addresses, policy};
     KVStoreClient client {c};
-    client.set("a", "1");
-    client.set("b", "2");
+    EXPECT_TRUE(client.set("a", "1").has_value());
+    EXPECT_TRUE(client.set("b", "2").has_value());
     auto sizeResult = client.size();
     ASSERT_TRUE(sizeResult.has_value());
     EXPECT_EQ(sizeResult.value(), 2);
-    client.erase("a");
+    EXPECT_EQ(client.erase("a"), "1");
     auto sizeResult2 = client.size();
     ASSERT_TRUE(sizeResult2.has_value());
     EXPECT_EQ(sizeResult2.value(), 1);
