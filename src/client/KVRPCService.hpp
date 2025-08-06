@@ -25,7 +25,7 @@ public:
         grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
         Rep& reply) {
-        std::function<grpc::Status()> bound = [this, f, request, &reply] {
+        auto bound = [this, f, &request, &reply] {
             auto c = grpc::ClientContext();
             return (stub.get()->*f)(&c, request, &reply);
         };

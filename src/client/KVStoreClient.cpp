@@ -8,7 +8,6 @@
 #include "common/Error.hpp"
 #include <cstddef>
 
-
 namespace zdb {
 
 KVStoreClient::KVStoreClient(Config& c) : config(c) {}

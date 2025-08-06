@@ -32,7 +32,7 @@ bool KVRPCService::available() const {
 }
 
 bool KVRPCService::connected() const {
-    return channel && channel->GetState(false) == grpc_connectivity_state::GRPC_CHANNEL_READY;
+    return channel != nullptr && stub != nullptr;
 }
 
 std::string KVRPCService::address() const {

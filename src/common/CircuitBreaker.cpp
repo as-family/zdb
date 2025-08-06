@@ -13,7 +13,7 @@ namespace zdb {
 CircuitBreaker::CircuitBreaker(const RetryPolicy& p)
     : state {State::Closed}, policy{p}, repeater {p} {}
 
-grpc::Status CircuitBreaker::call(std::function<grpc::Status()>& rpc) {
+grpc::Status CircuitBreaker::call(const std::function<grpc::Status()>& rpc) {
     if (rpc == nullptr) {
         spdlog::error("CircuitBreaker: rpc function is nullptr. Throwing bad_function_call.");
         throw std::bad_function_call {};

@@ -16,7 +16,7 @@ public:
         HalfOpen
     };
     CircuitBreaker(const RetryPolicy& p);
-    grpc::Status call(std::function<grpc::Status()>& rpc);
+    grpc::Status call(const std::function<grpc::Status()>& rpc);
     bool open() const;
 private:
     State state;

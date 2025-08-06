@@ -13,6 +13,9 @@ namespace zdb {
 
 Config::iterator Config::nextActiveServiceIterator() {
     for (auto i = services.begin(); i != services.end(); ++i) {
+        if (i == cService) {
+            continue;
+        }
         if (!i->second.connected()) {
             if (i->second.connect().has_value()) {
                 return i;
@@ -30,6 +33,7 @@ Config::Config(const std::vector<std::string>& addresses, const RetryPolicy& p) 
                         std::forward_as_tuple(address), 
                         std::forward_as_tuple(address, p));
     }
+    cService = services.end();
     cService = nextActiveServiceIterator();
     if (cService == services.end()) {
         spdlog::error("KVStoreClient: Could not connect to any server. Throwing runtime_error.");

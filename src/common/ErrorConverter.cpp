@@ -46,7 +46,6 @@ Error toError(const grpc::Status& status) {
         default:
             code = ErrorCode::Unknown;
     }
-    spdlog::warn("gRPC call failed with status: {} - {}", static_cast<int>(status.error_code()), status.error_message());
     return Error(code, status.error_message());
 }
 
