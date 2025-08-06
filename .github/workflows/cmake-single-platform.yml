@@ -99,7 +99,7 @@ jobs:
           --quiet \
           --xml --xml-version=2 \
           --max-configs=1 \
-          src/ 2> cppcheck-report.xml || true
+          src/ 2> cppcheck-report.xml
         
         # Only fail if cppcheck finds critical issues (error level)
         cppcheck --enable=error --std=c++23 --suppress=missingIncludeSystem --quiet src/
