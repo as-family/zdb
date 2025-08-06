@@ -10,7 +10,7 @@ namespace zdb {
 
 class KVStoreServiceImpl final : public kvStore::KVStoreService::Service {
 public:
-    KVStoreServiceImpl(InMemoryKVStore&);
+    explicit KVStoreServiceImpl(InMemoryKVStore&);
     grpc::Status get(
         grpc::ServerContext* context,
         const kvStore::GetRequest* request,

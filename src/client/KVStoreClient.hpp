@@ -16,7 +16,7 @@ namespace zdb {
 
 class KVStoreClient {
 public:
-    KVStoreClient(Config& c);
+    explicit KVStoreClient(Config& c);
     KVStoreClient(const KVStoreClient&) = delete;
     KVStoreClient& operator=(const KVStoreClient&) = delete;
     std::expected<std::string, Error> get(const std::string& key) const;

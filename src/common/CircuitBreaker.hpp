@@ -10,17 +10,17 @@ namespace zdb {
 
 class CircuitBreaker {
 public:
-    enum class State {
+    enum class State : char {
         Open,
         Closed,
         HalfOpen
     };
-    CircuitBreaker(const RetryPolicy& p);
+    explicit CircuitBreaker(const RetryPolicy& p);
     grpc::Status call(const std::function<grpc::Status()>& rpc);
-    bool open() const;
+    [[nodiscard]] bool open() const;
 private:
     State state;
-    const RetryPolicy& policy;
+    const RetryPolicy policy;
     Repeater repeater;
     std::chrono::steady_clock::time_point lastFailureTime;
 };

@@ -35,9 +35,9 @@ public:
             return std::unexpected {toError(status)};
         }
     }
-    bool available() const;
-    bool connected() const;
-    std::string address() const;
+    [[nodiscard]] bool available() const;
+    [[nodiscard]] bool connected() const;
+    [[nodiscard]] std::string address() const;
 private:
     const std::string& addr;
     CircuitBreaker circuitBreaker;

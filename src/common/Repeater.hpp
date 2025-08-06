@@ -14,7 +14,7 @@ namespace zdb {
 
 class Repeater {
 public:
-    Repeater(const RetryPolicy& p);
+    explicit Repeater(const RetryPolicy& p);
     grpc::Status attempt(const std::function<grpc::Status()>& rpc);
 private:
     ExponentialBackoff backoff;

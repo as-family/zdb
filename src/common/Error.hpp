@@ -8,7 +8,7 @@
 
 namespace zdb {
 
-enum class ErrorCode {
+enum class ErrorCode : char {
     NotFound,
     InvalidArg,
     ServiceTemporarilyUnavailable,
