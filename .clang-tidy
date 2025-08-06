@@ -86,8 +86,6 @@ CheckOptions:
     value: UPPER_CASE
   - key: readability-identifier-naming.TypedefCase
     value: CamelCase
-  - key: readability-identifier-naming.TypeAliasCase
-    value: CamelCase
 
   # Function and class size limits for maintainability
   - key: readability-function-size.LineThreshold

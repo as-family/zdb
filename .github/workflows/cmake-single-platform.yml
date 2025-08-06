@@ -49,8 +49,8 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y \
           cppcheck \
-          clang-tidy \
-          clang-tools
+          libc++18-dev \
+          clang-tools-18
 
     - name: Setup vcpkg
       run: |

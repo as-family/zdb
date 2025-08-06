@@ -28,12 +28,12 @@ OUTPUT FORMATS:
 
 EXAMPLES:
     ./run-clang-tidy.sh                           # HTML report, default build dir
-    ./run-clang-tidy.sh out/build/clang-15        # HTML report, custom build dir
+    ./run-clang-tidy.sh out/build/clang-18        # HTML report, custom build dir
     ./run-clang-tidy.sh out/build/gcc-14 yaml     # YAML fixes file
     ./run-clang-tidy.sh out/build/gcc-14 both     # Both HTML and YAML
 
 REQUIREMENTS:
-    - clang-tidy installed
+    - clang-tidy-18 installed (with run-clang-tidy-18 if available)
     - CMake project with CMAKE_EXPORT_COMPILE_COMMANDS=ON
     - Valid compile_commands.json in build directory
 
@@ -503,32 +503,41 @@ EOF
 # Record start time
 START_TIME=$(date +%s)
 
-# Check if run-clang-tidy is available for parallel execution
-if command -v run-clang-tidy >/dev/null 2>&1; then
+# Check if run-clang-tidy-18 or run-clang-tidy is available for parallel execution
+if command -v run-clang-tidy-18 >/dev/null 2>&1; then
+    RUN_CLANG_TIDY_CMD="run-clang-tidy-18"
+    echo "Using run-clang-tidy-18 for parallel execution..."
+elif command -v run-clang-tidy >/dev/null 2>&1; then
+    RUN_CLANG_TIDY_CMD="run-clang-tidy"
     echo "Using run-clang-tidy for parallel execution..."
+else
+    RUN_CLANG_TIDY_CMD=""
+fi
+
+if [ -n "$RUN_CLANG_TIDY_CMD" ]; then
     
     case "$OUTPUT_FORMAT" in
         "yaml")
             echo "Exporting fixes to YAML format..."
-            run-clang-tidy -p "$BUILD_DIR" -export-fixes "$YAML_OUTPUT" src/ tst/ -j "$(nproc)" -extra-arg=-I"$BUILD_DIR" -extra-arg=-Wno-unknown-argument -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee "$TEXT_OUTPUT"
+            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -export-fixes "$YAML_OUTPUT" src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee "$TEXT_OUTPUT"
             echo "YAML report saved to: $YAML_OUTPUT"
             ;;
         "html")
             echo "Generating text output for HTML conversion..."
-            run-clang-tidy -p "$BUILD_DIR" -quiet src/ tst/ -j "$(nproc)" -extra-arg=-I"$BUILD_DIR" -extra-arg=-Wno-unknown-argument -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee "$TEXT_OUTPUT"
+            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -quiet src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee "$TEXT_OUTPUT"
             ;;
         "both")
             echo "Generating both YAML and HTML formats..."
-            run-clang-tidy -p "$BUILD_DIR" -export-fixes "$YAML_OUTPUT" src/ tst/ -j "$(nproc)" -extra-arg=-I"$BUILD_DIR" -extra-arg=-Wno-unknown-argument -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee "$TEXT_OUTPUT"
+            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -export-fixes "$YAML_OUTPUT" src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee "$TEXT_OUTPUT"
             echo "YAML report saved to: $YAML_OUTPUT"
             ;;
         *)
             echo "Unknown output format: $OUTPUT_FORMAT. Using HTML format."
-            run-clang-tidy -p "$BUILD_DIR" -quiet src/ tst/ -j "$(nproc)" -extra-arg=-I"$BUILD_DIR" -extra-arg=-Wno-unknown-argument -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee "$TEXT_OUTPUT"
+            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -quiet src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee "$TEXT_OUTPUT"
             ;;
     esac
 else
-    echo "Using clang-tidy directly..."
+    echo "Using clang-tidy-18 directly..."
     # Clear the output file
     > "$TEXT_OUTPUT"
     
@@ -536,9 +545,9 @@ else
     for file in $CPP_FILES; do
         echo "Analyzing $file..."
         if [ "$OUTPUT_FORMAT" = "yaml" ] || [ "$OUTPUT_FORMAT" = "both" ]; then
-            clang-tidy "$file" -p "$BUILD_DIR" --format-style=file --export-fixes="${YAML_OUTPUT}.$(basename "$file")" -extra-arg=-I"$BUILD_DIR" -extra-arg=-Wno-unknown-argument -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee -a "$TEXT_OUTPUT"
+            clang-tidy-18 "$file" -p "$BUILD_DIR" --format-style=file --export-fixes="${YAML_OUTPUT}.$(basename "$file")" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee -a "$TEXT_OUTPUT"
         else
-            clang-tidy "$file" -p "$BUILD_DIR" --format-style=file --quiet -extra-arg=-I"$BUILD_DIR" -extra-arg=-Wno-unknown-argument -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee -a "$TEXT_OUTPUT"
+            clang-tidy-18 "$file" -p "$BUILD_DIR" --format-style=file --quiet -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^.*/(src|tst)/.*\.(h|hpp)$' 2>&1 | tee -a "$TEXT_OUTPUT"
         fi
     done
     
