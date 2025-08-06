@@ -20,7 +20,7 @@ public:
     [[nodiscard]] bool open() const;
 private:
     State state{State::Closed};
-    RetryPolicy policy;
+    const RetryPolicy& policy;
     Repeater repeater;
     std::chrono::steady_clock::time_point lastFailureTime;
 };

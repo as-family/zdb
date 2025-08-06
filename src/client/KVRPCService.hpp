@@ -39,7 +39,7 @@ public:
     [[nodiscard]] bool connected() const;
     [[nodiscard]] std::string address() const;
 private:
-    const std::string& addr;
+    const std::string addr;
     CircuitBreaker circuitBreaker;
     std::shared_ptr<grpc::Channel> channel;
     std::unique_ptr<kvStore::KVStoreService::Stub> stub;
