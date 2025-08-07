@@ -16,7 +16,7 @@ public:
     Config(const std::vector<std::string>& addresses, const RetryPolicy& policy);
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
-    std::expected<KVRPCService*, Error> currentService() const;
+    [[nodiscard]] std::expected<KVRPCService*, Error> currentService() const;
     std::expected<KVRPCService*, Error> nextService();
     const RetryPolicy& policy;
 private:
@@ -24,6 +24,6 @@ private:
     map services;
     iterator cService;
 };
-}
+} // namespace zdb
 
 #endif // CONFIG_H

@@ -1,13 +1,13 @@
+#include <gtest/gtest.h>
+#include <chrono>
+#include <functional>
+#include <thread>
+#include <grpcpp/support/status.h>
 #include "common/CircuitBreaker.hpp"
 #include "common/RetryPolicy.hpp"
-#include "common/Error.hpp"
-#include "common/ErrorConverter.hpp"
-#include <gtest/gtest.h>
-#include <grpcpp/grpcpp.h>
-#include <chrono>
-#include <thread>
 
-using namespace zdb;
+using zdb::CircuitBreaker;
+using zdb::RetryPolicy;
 
 class CircuitBreakerTest : public ::testing::Test {
 protected:
@@ -20,14 +20,14 @@ TEST_F(CircuitBreakerTest, InitialStateClosed) {
 }
 
 TEST_F(CircuitBreakerTest, SuccessfulCallKeepsClosed) {
-    std::function<grpc::Status()> rpc = [] { return grpc::Status::OK; };
+    const std::function<grpc::Status()> rpc = [] { return grpc::Status::OK; };
     auto status = breaker.call(rpc);
     EXPECT_TRUE(status.ok());
     EXPECT_FALSE(breaker.open());
 }
 
 TEST_F(CircuitBreakerTest, RetriableFailureOpensBreaker) {
-    std::function<grpc::Status()> rpc = [] {
+    const std::function<grpc::Status()> rpc = [] {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     auto status = breaker.call(rpc);
@@ -36,7 +36,7 @@ TEST_F(CircuitBreakerTest, RetriableFailureOpensBreaker) {
 }
 
 TEST_F(CircuitBreakerTest, NonRetriableFailureKeepsClosed) {
-    std::function<grpc::Status()> rpc = [] {
+    const std::function<grpc::Status()> rpc = [] {
         return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "fail");
     };
     auto status = breaker.call(rpc);
@@ -46,7 +46,7 @@ TEST_F(CircuitBreakerTest, NonRetriableFailureKeepsClosed) {
 
 TEST_F(CircuitBreakerTest, OpenBreakerBlocksCalls) {
     // Open the breaker
-    std::function<grpc::Status()> rpc = [] {
+    const std::function<grpc::Status()> rpc = [] {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     breaker.call(rpc);
@@ -59,7 +59,7 @@ TEST_F(CircuitBreakerTest, OpenBreakerBlocksCalls) {
 
 TEST_F(CircuitBreakerTest, HalfOpenAllowsTestCall) {
     // Open the breaker
-    std::function<grpc::Status()> rpc = [] {
+    const std::function<grpc::Status()> rpc = [] {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     breaker.call(rpc);
@@ -68,7 +68,7 @@ TEST_F(CircuitBreakerTest, HalfOpenAllowsTestCall) {
     std::this_thread::sleep_for(policy.resetTimeout);
     // Should transition to HalfOpen and call rpc
     bool called = false;
-    std::function<grpc::Status()> testRpc = [&called] {
+    const std::function<grpc::Status()> testRpc = [&called] {
         called = true;
         return grpc::Status::OK;
     };
@@ -80,7 +80,7 @@ TEST_F(CircuitBreakerTest, HalfOpenAllowsTestCall) {
 
 TEST_F(CircuitBreakerTest, HalfOpenFailureReopensBreaker) {
     // Open the breaker
-    std::function<grpc::Status()> rpc = [] {
+    const std::function<grpc::Status()> rpc = [] {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     breaker.call(rpc);
@@ -88,7 +88,7 @@ TEST_F(CircuitBreakerTest, HalfOpenFailureReopensBreaker) {
     // Wait for resetTimeout
     std::this_thread::sleep_for(policy.resetTimeout);
     // Should transition to HalfOpen and call rpc
-    std::function<grpc::Status()> failRpc = [] {
+    const std::function<grpc::Status()> failRpc = [] {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail again");
     };
     auto status = breaker.call(failRpc);
@@ -98,7 +98,7 @@ TEST_F(CircuitBreakerTest, HalfOpenFailureReopensBreaker) {
 
 TEST_F(CircuitBreakerTest, HalfOpenNonRetriableFailureClosesBreaker) {
     // Open the breaker
-    std::function<grpc::Status()> rpc = [] {
+    const std::function<grpc::Status()> rpc = [] {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     breaker.call(rpc);
@@ -106,7 +106,7 @@ TEST_F(CircuitBreakerTest, HalfOpenNonRetriableFailureClosesBreaker) {
     // Wait for resetTimeout
     std::this_thread::sleep_for(policy.resetTimeout);
     // Should transition to HalfOpen and call rpc
-    std::function<grpc::Status()> nonRetriableRpc = [] {
+    const std::function<grpc::Status()> nonRetriableRpc = [] {
         return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "fail");
     };
     auto status = breaker.call(nonRetriableRpc);
@@ -116,7 +116,7 @@ TEST_F(CircuitBreakerTest, HalfOpenNonRetriableFailureClosesBreaker) {
 
 TEST_F(CircuitBreakerTest, MultipleFailuresTriggerOpen) {
     int failCount = 0;
-    std::function<grpc::Status()> rpc = [&failCount] {
+    const std::function<grpc::Status()> rpc = [&failCount] {
         ++failCount;
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
@@ -127,7 +127,7 @@ TEST_F(CircuitBreakerTest, MultipleFailuresTriggerOpen) {
 }
 
 TEST_F(CircuitBreakerTest, RapidCallsRespectTimeout) {
-    std::function<grpc::Status()> rpc = [] {
+    const std::function<grpc::Status()> rpc = [] {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     breaker.call(rpc);
@@ -140,6 +140,6 @@ TEST_F(CircuitBreakerTest, RapidCallsRespectTimeout) {
 
 // Edge case: call with nullptr
 TEST_F(CircuitBreakerTest, NullptrCallThrows) {
-    std::function<grpc::Status()> rpc = nullptr;
+    const std::function<grpc::Status()> rpc = nullptr;
     EXPECT_THROW(breaker.call(rpc), std::bad_function_call);
 }

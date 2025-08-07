@@ -1,12 +1,13 @@
 #include <gtest/gtest.h>
-#include <grpcpp/grpcpp.h>
+#include <chrono>
 #include "common/Repeater.hpp"
 #include "common/RetryPolicy.hpp"
-#include "common/Error.hpp"
-#include "common/ErrorConverter.hpp"
+#include <grpcpp/support/status.h>
 
-using namespace zdb;
+using zdb::Repeater;
+using zdb::RetryPolicy;
 
+namespace {
 grpc::Status retriableError() {
     // Simulate a retriable error (e.g., UNAVAILABLE)
     return grpc::Status(grpc::StatusCode::UNAVAILABLE, "Retriable");
@@ -20,9 +21,10 @@ grpc::Status nonRetriableError() {
 grpc::Status okStatus() {
     return grpc::Status::OK;
 }
+} // namespace
 
 TEST(RepeaterTest, SuccessOnFirstAttempt) {
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 3, 0};
+    const RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 3, 0};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -35,7 +37,7 @@ TEST(RepeaterTest, SuccessOnFirstAttempt) {
 }
 
 TEST(RepeaterTest, PermanentFailureNonRetriable) {
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 3, 0};
+    const RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 3, 0};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -49,13 +51,14 @@ TEST(RepeaterTest, PermanentFailureNonRetriable) {
 }
 
 TEST(RepeaterTest, RetriableFailureThenSuccess) {
-    RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 5, 0};
+    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 5, 0};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
         ++callCount;
-        if (callCount < 3)
+        if (callCount < 3) {
             return retriableError();
+        }
         return okStatus();
     };
     auto status = repeater.attempt(rpc);
@@ -64,7 +67,7 @@ TEST(RepeaterTest, RetriableFailureThenSuccess) {
 }
 
 TEST(RepeaterTest, RetriableFailureExceedsThreshold) {
-    RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 2, 0};
+    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 2, 0};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -78,7 +81,7 @@ TEST(RepeaterTest, RetriableFailureExceedsThreshold) {
 }
 
 TEST(RepeaterTest, ZeroThresholdNoRetry) {
-    RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 0, 0};
+    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 0, 0};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -91,13 +94,14 @@ TEST(RepeaterTest, ZeroThresholdNoRetry) {
 }
 
 TEST(RepeaterTest, ZeroDelayNoSleep) {
-    RetryPolicy policy{std::chrono::microseconds(0), std::chrono::microseconds(0), std::chrono::microseconds(0), 2, 0};
+    const RetryPolicy policy{std::chrono::microseconds(0), std::chrono::microseconds(0), std::chrono::microseconds(0), 2, 0};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
         ++callCount;
-        if (callCount < 2)
+        if (callCount < 2) {
             return retriableError();
+        }
         return okStatus();
     };
     auto start = std::chrono::steady_clock::now();

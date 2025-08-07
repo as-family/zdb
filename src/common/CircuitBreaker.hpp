@@ -2,24 +2,24 @@
 #define CIRCUIT_BREAKER_H
 
 #include <functional>
-#include <grpcpp/grpcpp.h>
 #include "RetryPolicy.hpp"
 #include "Repeater.hpp"
+#include <grpcpp/support/status.h>
 
 namespace zdb {
 
 class CircuitBreaker {
 public:
-    enum class State {
+    enum class State : char {
         Open,
         Closed,
         HalfOpen
     };
-    CircuitBreaker(const RetryPolicy& p);
-    grpc::Status call(std::function<grpc::Status()>& rpc);
-    bool open() const;
+    explicit CircuitBreaker(const RetryPolicy& p);
+    grpc::Status call(const std::function<grpc::Status()>& rpc);
+    [[nodiscard]] bool open() const;
 private:
-    State state;
+    State state{State::Closed};
     const RetryPolicy& policy;
     Repeater repeater;
     std::chrono::steady_clock::time_point lastFailureTime;

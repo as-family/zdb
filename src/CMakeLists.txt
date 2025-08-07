@@ -31,7 +31,6 @@ target_compile_options(zdb PUBLIC
 
 target_sources(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src/zdb/main.cpp
-  ${CMAKE_SOURCE_DIR}/src/zdb/PeerNode.cpp
   ${CMAKE_SOURCE_DIR}/src/server/InMemoryKVStore.cpp
   ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp
   ${CMAKE_SOURCE_DIR}/src/client/KVStoreClient.cpp
@@ -48,7 +47,7 @@ target_sources(zdb PRIVATE
 
 target_link_libraries(zdb PRIVATE
   protobuf::libprotobuf
-  grpc++
+  gRPC::grpc++
   spdlog::spdlog
   protobuf_generated
 )

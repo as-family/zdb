@@ -1,32 +1,33 @@
 #include <gtest/gtest.h>
-#include <gmock/gmock.h>
-#include <grpcpp/grpcpp.h>
 #include "client/Config.hpp"
 #include "client/KVRPCService.hpp"
 #include "common/RetryPolicy.hpp"
-#include "common/Error.hpp"
 #include "server/KVStoreServer.hpp"
 #include "server/InMemoryKVStore.hpp"
-#include "proto/kvStore.grpc.pb.h"
 #include <thread>
 #include <chrono>
 #include <string>
 #include <vector>
 #include <memory>
+#include <stdexcept>
+#include <type_traits>
+#include <atomic>
 
-using namespace zdb;
-using ::testing::_;
-using ::testing::Return;
-using ::testing::Throw;
+using zdb::Config;
+using zdb::KVRPCService;
+using zdb::RetryPolicy;
+using zdb::InMemoryKVStore;
+using zdb::KVStoreServiceImpl;
+using zdb::KVStoreServer;
 
 class ConfigTest : public ::testing::Test {
 protected:
     RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 3};
     
     // Test server setup for positive tests
-    const std::string VALID_SERVER_ADDR = "localhost:50053";
-    const std::string VALID_SERVER_ADDR2 = "localhost:50054";
-    const std::string INVALID_SERVER_ADDR = "localhost:99999";
+    const std::string validServerAddr = "localhost:50053";
+    const std::string validServerAddr2 = "localhost:50054";
+    const std::string invalidServerAddr = "localhost:99999";
     
     InMemoryKVStore kvStore;
     KVStoreServiceImpl serviceImpl{kvStore};
@@ -37,8 +38,8 @@ protected:
     
     void SetUp() override {
         // Start test servers
-        server1 = std::make_unique<KVStoreServer>(VALID_SERVER_ADDR, serviceImpl);
-        server2 = std::make_unique<KVStoreServer>(VALID_SERVER_ADDR2, serviceImpl);
+        server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
+        server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl);
         
         serverThread1 = std::thread([this]() { server1->wait(); });
         serverThread2 = std::thread([this]() { server2->wait(); });
@@ -66,10 +67,10 @@ protected:
 
 // Test successful construction with single valid address
 TEST_F(ConfigTest, ConstructorWithSingleValidAddress) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
+    const std::vector<std::string> addresses{validServerAddr};
     
     ASSERT_NO_THROW({
-        Config config(addresses, policy);
+        const Config config(addresses, policy);
         auto result = config.currentService();
         ASSERT_TRUE(result.has_value());
     });
@@ -77,10 +78,10 @@ TEST_F(ConfigTest, ConstructorWithSingleValidAddress) {
 
 // Test successful construction with multiple valid addresses
 TEST_F(ConfigTest, ConstructorWithMultipleValidAddresses) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR, VALID_SERVER_ADDR2};
+    const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     
     ASSERT_NO_THROW({
-        Config config(addresses, policy);
+        const Config config(addresses, policy);
         auto result = config.currentService();
         ASSERT_TRUE(result.has_value());
     });
@@ -88,37 +89,37 @@ TEST_F(ConfigTest, ConstructorWithMultipleValidAddresses) {
 
 // Test construction failure with empty address list
 TEST_F(ConfigTest, ConstructorWithEmptyAddresses) {
-    std::vector<std::string> addresses;
+    const std::vector<std::string> addresses;
     
     EXPECT_THROW({
-        Config config(addresses, policy);
+        const Config config(addresses, policy);
     }, std::runtime_error);
 }
 
 // Test construction failure with all invalid addresses
 TEST_F(ConfigTest, ConstructorWithAllInvalidAddresses) {
-    std::vector<std::string> addresses{"invalid:12345", "another_invalid:67890"};
+    const std::vector<std::string> addresses{"invalid:12345", "another_invalid:67890"};
     
     EXPECT_THROW({
-        Config config(addresses, policy);
+        const Config config(addresses, policy);
     }, std::runtime_error);
 }
 
 // Test construction failure with mix of valid and invalid addresses but no successful connections
 TEST_F(ConfigTest, ConstructorWithMixedAddressesButNoConnections) {
-    std::vector<std::string> addresses{INVALID_SERVER_ADDR, "invalid:12345"};
+    const std::vector<std::string> addresses{invalidServerAddr, "invalid:12345"};
     
     EXPECT_THROW({
-        Config config(addresses, policy);
+        const Config config(addresses, policy);
     }, std::runtime_error);
 }
 
 // Test construction with some valid and some invalid addresses (should succeed)
 TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
-    std::vector<std::string> addresses{INVALID_SERVER_ADDR, VALID_SERVER_ADDR};
+    const std::vector<std::string> addresses{invalidServerAddr, validServerAddr};
     
     ASSERT_NO_THROW({
-        Config config(addresses, policy);
+        const Config config(addresses, policy);
         auto result = config.currentService();
         ASSERT_TRUE(result.has_value());
     });
@@ -126,28 +127,28 @@ TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
 
 // Test currentService() returns valid service after successful construction
 TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
-    Config config(addresses, policy);
+    const std::vector<std::string> addresses{validServerAddr};
+    const Config config(addresses, policy);
     
     auto result = config.currentService();
     ASSERT_TRUE(result.has_value());
-    KVRPCService* service = result.value();
+    const KVRPCService* service = result.value();
     EXPECT_TRUE(service->connected());
     EXPECT_TRUE(service->available());
 }
 
 // Test nextService() when current service is available
 TEST_F(ConfigTest, NextServiceWhenCurrentServiceAvailable) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
+    const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
     auto currentResult = config.currentService();
     ASSERT_TRUE(currentResult.has_value());
-    KVRPCService* currentSvc = currentResult.value();
+    const KVRPCService* currentSvc = currentResult.value();
     
     auto nextResult = config.nextService();
     ASSERT_TRUE(nextResult.has_value());
-    KVRPCService* nextSvc = nextResult.value();
+    const KVRPCService* nextSvc = nextResult.value();
     
     // Should return the same service if it's still available
     EXPECT_EQ(currentSvc, nextSvc);
@@ -155,16 +156,16 @@ TEST_F(ConfigTest, NextServiceWhenCurrentServiceAvailable) {
 
 // Test nextService() switching to another service
 TEST_F(ConfigTest, NextServiceSwitchesToAnotherService) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR, VALID_SERVER_ADDR2};
+    const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, policy);
     
     auto result1 = config.currentService();
     ASSERT_TRUE(result1.has_value());
-    KVRPCService* service1 = result1.value();
+    const KVRPCService* service1 = result1.value();
     
     auto result2 = config.nextService();
     ASSERT_TRUE(result2.has_value());
-    KVRPCService* service2 = result2.value();
+    const KVRPCService* service2 = result2.value();
     
     // Both should be valid services
     EXPECT_TRUE(service1->connected());
@@ -173,22 +174,22 @@ TEST_F(ConfigTest, NextServiceSwitchesToAnotherService) {
 
 // Test copy constructor is deleted
 TEST_F(ConfigTest, CopyConstructorIsDeleted) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
-    Config config(addresses, policy);
+    const std::vector<std::string> addresses{validServerAddr};
+    const Config config(addresses, policy);
     
     // This should not compile - testing that copy constructor is deleted
     // Config config2(config); // Uncommenting this line should cause compilation error
     
     // Instead, we'll verify that the copy constructor is indeed deleted by
     // checking that std::is_copy_constructible returns false
-    EXPECT_FALSE(std::is_copy_constructible_v<Config>);
+    EXPECT_FALSE(std::is_copy_constructible_v<zdb::Config>);
 }
 
 // Test assignment operator is deleted
 TEST_F(ConfigTest, AssignmentOperatorIsDeleted) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
-    Config config1(addresses, policy);
-    Config config2(addresses, policy);
+    const std::vector<std::string> addresses{validServerAddr};
+    const Config config1(addresses, policy);
+    const Config config2(addresses, policy);
     
     // This should not compile - testing that assignment operator is deleted
     // config1 = config2; // Uncommenting this line should cause compilation error
@@ -199,7 +200,7 @@ TEST_F(ConfigTest, AssignmentOperatorIsDeleted) {
 
 // Test behavior when all services become unavailable
 TEST_F(ConfigTest, NextServiceWhenAllServicesUnavailable) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
+    const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
     // First verify we have a working service
@@ -219,10 +220,10 @@ TEST_F(ConfigTest, NextServiceWhenAllServicesUnavailable) {
 
 // Test with malformed addresses
 TEST_F(ConfigTest, ConstructorWithMalformedAddresses) {
-    std::vector<std::string> addresses{"", "   ", "malformed_address", ":"};
+    const std::vector<std::string> addresses{"", "   ", "malformed_address", ":"};
     
     EXPECT_THROW({
-        Config config(addresses, policy);
+        const Config config(addresses, policy);
     }, std::runtime_error);
 }
 
@@ -230,10 +231,10 @@ TEST_F(ConfigTest, ConstructorWithMalformedAddresses) {
 TEST_F(ConfigTest, ConstructorWithVeryLongAddresses) {
     std::string longAddress(1000, 'a');
     longAddress += ":12345";
-    std::vector<std::string> addresses{longAddress};
+    const std::vector<std::string> addresses{longAddress};
     
     EXPECT_THROW({
-        Config config(addresses, policy);
+        const Config config(addresses, policy);
     }, std::runtime_error);
 }
 
@@ -244,74 +245,75 @@ TEST_F(ConfigTest, CurrentServiceThrowsWhenNoServicesAvailable) {
     // For now, we'll test the basic contract that currentService should throw
     // when no service is available by testing the error message
     
-    std::vector<std::string> addresses{"invalid:99999"};
+    const std::vector<std::string> addresses{"invalid:99999"};
     
     EXPECT_THROW({
-        Config config(addresses, policy);
+        const Config config(addresses, policy);
     }, std::runtime_error);
 }
 
 // Test with different retry policies
 TEST_F(ConfigTest, ConstructorWithDifferentRetryPolicies) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR};
+    const std::vector<std::string> addresses{validServerAddr};
     
     // Test with very short delays
-    RetryPolicy shortPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(100), 1, 1};
+    const RetryPolicy shortPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(100), 1, 1};
     ASSERT_NO_THROW({
-        Config config(addresses, shortPolicy);
+        const Config config(addresses, shortPolicy);
     });
     
     // Test with very long delays
-    RetryPolicy longPolicy{std::chrono::microseconds(1000), std::chrono::microseconds(10000), std::chrono::microseconds(100000), 5, 1};
+    const RetryPolicy longPolicy{std::chrono::microseconds(1000), std::chrono::microseconds(10000), std::chrono::microseconds(100000), 5, 1};
     ASSERT_NO_THROW({
-        Config config(addresses, longPolicy);
+        const Config config(addresses, longPolicy);
     });
     
     // Test with zero threshold
-    RetryPolicy zeroThresholdPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 0, 1};
+    const RetryPolicy zeroThresholdPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 0, 1};
     ASSERT_NO_THROW({
-        Config config(addresses, zeroThresholdPolicy);
+        const Config config(addresses, zeroThresholdPolicy);
     });
 }
 
+
 // Test that services map is properly populated
 TEST_F(ConfigTest, ServicesMapIsProperlyPopulated) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR, VALID_SERVER_ADDR2};
+    const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, policy);
     
     // We can't directly access the private services map, but we can verify
     // that we can get services and they work as expected
     auto result1 = config.currentService();
     ASSERT_TRUE(result1.has_value());
-    KVRPCService* service1 = result1.value();
+    const KVRPCService* service1 = result1.value();
     EXPECT_TRUE(service1->connected());
     
     auto result2 = config.nextService();
     ASSERT_TRUE(result2.has_value());
-    KVRPCService* service2 = result2.value();
+    const KVRPCService* service2 = result2.value();
     EXPECT_TRUE(service2->connected());
 }
 
 // Test rapid successive calls to nextService
 TEST_F(ConfigTest, RapidSuccessiveCallsToNextService) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR, VALID_SERVER_ADDR2};
+    const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, policy);
     
     // Make multiple rapid calls to nextService
     for (int i = 0; i < 10; ++i) {
         auto result = config.nextService();
         ASSERT_TRUE(result.has_value());
-        KVRPCService* service = result.value();
+        const KVRPCService* service = result.value();
         EXPECT_TRUE(service->connected());
     }
 }
 
 // Test with addresses containing special characters
 TEST_F(ConfigTest, ConstructorWithSpecialCharacterAddresses) {
-    std::vector<std::string> addresses{"localhost:!@#$", "127.0.0.1:abc"};
+    const std::vector<std::string> addresses{"localhost:!@#$", "127.0.0.1:abc"};
     
     EXPECT_THROW({
-        Config config(addresses, policy);
+        const Config config(addresses, policy);
     }, std::runtime_error);
 }
 
@@ -326,7 +328,7 @@ TEST_F(ConfigTest, ConstructorPerformanceWithManyAddresses) {
     auto start = std::chrono::high_resolution_clock::now();
     
     EXPECT_THROW({
-        Config config(addresses, policy);
+        const Config config(addresses, policy);
     }, std::runtime_error);
     
     auto end = std::chrono::high_resolution_clock::now();
@@ -339,8 +341,8 @@ TEST_F(ConfigTest, ConstructorPerformanceWithManyAddresses) {
 
 // Test thread safety aspects (basic test)
 TEST_F(ConfigTest, BasicThreadSafetyTest) {
-    std::vector<std::string> addresses{VALID_SERVER_ADDR, VALID_SERVER_ADDR2};
-    Config config(addresses, policy);
+    const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
+    const Config config(addresses, policy);
     
     std::atomic<int> successCount{0};
     std::atomic<int> exceptionCount{0};

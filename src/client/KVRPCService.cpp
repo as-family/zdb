@@ -2,11 +2,17 @@
 
 #include<chrono>
 #include <spdlog/spdlog.h>
+#include <string>
+#include "common/RetryPolicy.hpp"
+#include "common/Error.hpp"
+#include <grpcpp/grpcpp.h>
+#include "proto/kvStore.grpc.pb.h"
+#include <grpcpp/security/credentials.h>
 
 namespace zdb {
 
-KVRPCService::KVRPCService(const std::string s_address, const RetryPolicy& p) 
-    : addr {s_address},
+KVRPCService::KVRPCService(const std::string& address, const RetryPolicy& p) 
+    : addr {address},
     circuitBreaker {p} {}
 
 std::expected<void, Error> KVRPCService::connect() {
@@ -25,7 +31,7 @@ bool KVRPCService::available() const {
 }
 
 bool KVRPCService::connected() const {
-    return channel && channel->GetState(false) == grpc_connectivity_state::GRPC_CHANNEL_READY;
+    return channel != nullptr && stub != nullptr;
 }
 
 std::string KVRPCService::address() const {

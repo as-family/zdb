@@ -7,8 +7,22 @@
 #include <thread>
 #include <chrono>
 #include <string>
+#include <memory>
+#include "proto/kvStore.pb.h"
+#include <grpcpp/support/status.h>
+#include <grpcpp/security/credentials.h>
 
-using namespace zdb;
+using zdb::InMemoryKVStore;
+using zdb::KVStoreServiceImpl;
+using zdb::KVStoreServer;
+using zdb::kvStore::GetRequest;
+using zdb::kvStore::GetReply;
+using zdb::kvStore::SetRequest;
+using zdb::kvStore::SetReply;
+using zdb::kvStore::EraseRequest;
+using zdb::kvStore::EraseReply;
+using zdb::kvStore::SizeRequest;
+using zdb::kvStore::SizeReply;
 
 const std::string SERVER_ADDR = "localhost:50051";
 
@@ -39,19 +53,19 @@ protected:
 
 TEST_F(KVStoreServerTest, SetAndGetSuccess) {
     auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
-    std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
+    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub = zdb::kvStore::KVStoreService::NewStub(channel);
 
-    kvStore::SetRequest setReq;
+    SetRequest setReq;
     setReq.set_key("foo");
     setReq.set_value("bar");
-    kvStore::SetReply setRep;
+    SetReply setRep;
     grpc::ClientContext ctx1;
     auto status = stub->set(&ctx1, setReq, &setRep);
     ASSERT_TRUE(status.ok());
 
-    kvStore::GetRequest getReq;
+    GetRequest getReq;
     getReq.set_key("foo");
-    kvStore::GetReply getRep;
+    GetReply getRep;
     auto ctx2 = grpc::ClientContext();
     status = stub->get(&ctx2, getReq, &getRep);
     ASSERT_TRUE(status.ok());
@@ -60,11 +74,11 @@ TEST_F(KVStoreServerTest, SetAndGetSuccess) {
 
 TEST_F(KVStoreServerTest, GetNotFound) {
     auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
-    std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
+    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub = zdb::kvStore::KVStoreService::NewStub(channel);
 
-    kvStore::GetRequest getReq;
+    GetRequest getReq;
     getReq.set_key("missing");
-    kvStore::GetReply getRep;
+    GetReply getRep;
     grpc::ClientContext ctx;
     auto status = stub->get(&ctx, getReq, &getRep);
     ASSERT_FALSE(status.ok());
@@ -73,12 +87,12 @@ TEST_F(KVStoreServerTest, GetNotFound) {
 
 TEST_F(KVStoreServerTest, SetOverwrite) {
     auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
-    std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
+    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub = zdb::kvStore::KVStoreService::NewStub(channel);
 
-    kvStore::SetRequest setReq;
+    SetRequest setReq;
     setReq.set_key("foo");
     setReq.set_value("bar");
-    kvStore::SetReply setRep;
+    SetReply setRep;
     grpc::ClientContext ctx1;
     auto status = stub->set(&ctx1, setReq, &setRep);
     ASSERT_TRUE(status.ok());
@@ -88,9 +102,9 @@ TEST_F(KVStoreServerTest, SetOverwrite) {
     status = stub->set(&ctx2, setReq, &setRep);
     ASSERT_TRUE(status.ok());
 
-    kvStore::GetRequest getReq;
+    GetRequest getReq;
     getReq.set_key("foo");
-    kvStore::GetReply getRep;
+    GetReply getRep;
     grpc::ClientContext ctx3;
     status = stub->get(&ctx3, getReq, &getRep);
     ASSERT_TRUE(status.ok());
@@ -99,27 +113,27 @@ TEST_F(KVStoreServerTest, SetOverwrite) {
 
 TEST_F(KVStoreServerTest, EraseSuccess) {
     auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
-    std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
+    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub = zdb::kvStore::KVStoreService::NewStub(channel);
 
-    kvStore::SetRequest setReq;
+    SetRequest setReq;
     setReq.set_key("foo");
     setReq.set_value("bar");
-    kvStore::SetReply setRep;
+    SetReply setRep;
     grpc::ClientContext ctx1;
     auto status = stub->set(&ctx1, setReq, &setRep);
     ASSERT_TRUE(status.ok());
 
-    kvStore::EraseRequest eraseReq;
+    EraseRequest eraseReq;
     eraseReq.set_key("foo");
-    kvStore::EraseReply eraseRep;
+    EraseReply eraseRep;
     grpc::ClientContext ctx2;
     status = stub->erase(&ctx2, eraseReq, &eraseRep);
     ASSERT_TRUE(status.ok());
     ASSERT_EQ(eraseRep.value(), "bar");
 
-    kvStore::GetRequest getReq;
+    GetRequest getReq;
     getReq.set_key("foo");
-    kvStore::GetReply getRep;
+    GetReply getRep;
     grpc::ClientContext ctx3;
     status = stub->get(&ctx3, getReq, &getRep);
     ASSERT_FALSE(status.ok());
@@ -128,11 +142,11 @@ TEST_F(KVStoreServerTest, EraseSuccess) {
 
 TEST_F(KVStoreServerTest, EraseNotFound) {
     auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
-    std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
+    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub = zdb::kvStore::KVStoreService::NewStub(channel);
 
-    kvStore::EraseRequest eraseReq;
+    EraseRequest eraseReq;
     eraseReq.set_key("missing");
-    kvStore::EraseReply eraseRep;
+    EraseReply eraseRep;
     grpc::ClientContext ctx;
     auto status = stub->erase(&ctx, eraseReq, &eraseRep);
     ASSERT_FALSE(status.ok());
@@ -141,10 +155,10 @@ TEST_F(KVStoreServerTest, EraseNotFound) {
 
 TEST_F(KVStoreServerTest, SizeEmpty) {
     auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
-    std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
+    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub = zdb::kvStore::KVStoreService::NewStub(channel);
 
-    kvStore::SizeRequest sizeReq;
-    kvStore::SizeReply sizeRep;
+    const SizeRequest sizeReq;
+    SizeReply sizeRep;
     grpc::ClientContext ctx;
     auto status = stub->size(&ctx, sizeReq, &sizeRep);
     ASSERT_TRUE(status.ok());
@@ -153,12 +167,12 @@ TEST_F(KVStoreServerTest, SizeEmpty) {
 
 TEST_F(KVStoreServerTest, SizeNonEmpty) {
     auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
-    std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
+    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub = zdb::kvStore::KVStoreService::NewStub(channel);
 
-    kvStore::SetRequest setReq;
+    SetRequest setReq;
     setReq.set_key("foo");
     setReq.set_value("bar");
-    kvStore::SetReply setRep;
+    SetReply setRep;
     grpc::ClientContext ctx1;
     auto status = stub->set(&ctx1, setReq, &setRep);
     ASSERT_TRUE(status.ok());
@@ -169,8 +183,8 @@ TEST_F(KVStoreServerTest, SizeNonEmpty) {
     status = stub->set(&ctx2, setReq, &setRep);
     ASSERT_TRUE(status.ok());
 
-    kvStore::SizeRequest sizeReq;
-    kvStore::SizeReply sizeRep;
+    const SizeRequest sizeReq;
+    SizeReply sizeRep;
     grpc::ClientContext ctx3;
     status = stub->size(&ctx3, sizeReq, &sizeRep);
     ASSERT_TRUE(status.ok());
@@ -179,12 +193,12 @@ TEST_F(KVStoreServerTest, SizeNonEmpty) {
 
 TEST_F(KVStoreServerTest, SetEmptyKeyValue) {
     auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
-    std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
+    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub = zdb::kvStore::KVStoreService::NewStub(channel);
 
-    kvStore::SetRequest setReq;
+    SetRequest setReq;
     setReq.set_key("");
     setReq.set_value("");
-    kvStore::SetReply setRep;
+    SetReply setRep;
     grpc::ClientContext ctx;
     auto status = stub->set(&ctx, setReq, &setRep);
     // Accepts empty key/value unless server enforces otherwise
@@ -193,11 +207,11 @@ TEST_F(KVStoreServerTest, SetEmptyKeyValue) {
 
 TEST_F(KVStoreServerTest, GetEmptyKey) {
     auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
-    std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
+    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub = zdb::kvStore::KVStoreService::NewStub(channel);
 
-    kvStore::GetRequest getReq;
+    GetRequest getReq;
     getReq.set_key("");
-    kvStore::GetReply getRep;
+    GetReply getRep;
     grpc::ClientContext ctx;
     auto status = stub->get(&ctx, getReq, &getRep);
     // Should return NOT_FOUND for empty key
@@ -207,11 +221,11 @@ TEST_F(KVStoreServerTest, GetEmptyKey) {
 
 TEST_F(KVStoreServerTest, EraseEmptyKey) {
     auto channel = grpc::CreateChannel(SERVER_ADDR, grpc::InsecureChannelCredentials());
-    std::unique_ptr<kvStore::KVStoreService::Stub> stub = kvStore::KVStoreService::NewStub(channel);
+    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub = zdb::kvStore::KVStoreService::NewStub(channel);
 
-    kvStore::EraseRequest eraseReq;
+    EraseRequest eraseReq;
     eraseReq.set_key("");
-    kvStore::EraseReply eraseRep;
+    EraseReply eraseRep;
     grpc::ClientContext ctx;
     auto status = stub->erase(&ctx, eraseReq, &eraseRep);
     ASSERT_FALSE(status.ok());

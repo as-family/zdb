@@ -14,9 +14,9 @@ namespace zdb {
 
 class InMemoryKVStore {
 public:
-    std::expected<std::optional<std::string>, Error> get(const std::string key) const;
-    std::expected<void, Error> set(const std::string key, const std::string value);
-    std::expected<std::optional<std::string>, Error> erase(const std::string key);
+    std::expected<std::optional<std::string>, Error> get(const std::string& key) const;
+    std::expected<void, Error> set(const std::string& key, const std::string& value);
+    std::expected<std::optional<std::string>, Error> erase(const std::string& key);
     size_t size() const;
 private:
     std::unordered_map<std::string, std::string> store;

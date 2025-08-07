@@ -1,0 +1,158 @@
+name: CMake on a single platform
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Debug
+
+jobs:
+  build:
+    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
+    # You can convert this to a matrix build if you need cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Cache vcpkg installation
+      uses: actions/cache@v4
+      with:
+        path: vcpkg
+        key: vcpkg-installation-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-installation-${{ runner.os }}-
+
+    - name: Cache vcpkg binary cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/vcpkg
+        key: vcpkg-binary-cache-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-binary-cache-${{ runner.os }}-
+
+    - name: Install dependencies and static analysis tools
+      run: |
+        # Install LLVM 18
+        wget -q https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 18
+        
+        # Install other dependencies
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+          cppcheck \
+          clang-tools-18 \
+          libc++-18-dev
+
+    - name: Setup vcpkg
+      run: |
+        chmod +x setup-vcpkg.sh
+        ./setup-vcpkg.sh
+
+    - name: Verify vcpkg installation
+      run: |
+        ./vcpkg/vcpkg version
+        ls -la vcpkg/
+
+    - name: Cache CMake build
+      uses: actions/cache@v4
+      with:
+        path: out/build/gcc-14
+        key: cmake-build-${{ runner.os }}-gcc-14-${{ hashFiles('**/CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'tst/**/*.cpp', 'vcpkg.json', 'CMakePresets.json') }}
+        restore-keys: |
+          cmake-build-${{ runner.os }}-gcc-14-
+
+    - name: Configure CMake using preset
+      # Use the gcc-14-config preset from CMakePresets.json
+      run: cmake --preset gcc-14-config
+
+    - name: Get build directory from CMake
+      id: build-dir
+      run: |
+        BUILD_DIR=$(cmake -L --preset gcc-14-config | grep ZDB_BUILD_DIR | cut -d= -f2)
+        if [ -z "$BUILD_DIR" ]; then
+          BUILD_DIR="${{github.workspace}}/out/build/gcc-14"
+        fi
+        echo "build_dir=$BUILD_DIR" >> $GITHUB_OUTPUT
+        echo "Build directory: $BUILD_DIR"
+
+    - name: Build using preset
+      # Build using the gcc-14-build preset
+      run: cmake --build --preset gcc-14-build
+
+    - name: Run cppcheck (complementary analysis)
+      run: |
+        # Run cppcheck with focused checks that complement clang-tidy
+        # Focus on areas where cppcheck excels or provides different insights
+        cppcheck --enable=warning,style,performance,portability \
+          --std=c++23 \
+          --suppress=missingIncludeSystem \
+          --suppress=unusedFunction \
+          --suppress=unmatchedSuppression \
+          --inline-suppr \
+          --quiet \
+          --xml --xml-version=2 \
+          --max-configs=1 \
+          src/ 2> cppcheck-report.xml
+
+    - name: Run enhanced clang-tidy analysis
+      run: |
+        # Make the clang-tidy script executable
+        chmod +x run-clang-tidy.sh
+        
+        # Run clang-tidy using the project's dedicated script
+        # Use YAML format for CI/CD to get structured output and fix suggestions
+        echo "Running clang-tidy using project script with enhanced configuration..."
+        ./run-clang-tidy.sh ${{ steps.build-dir.outputs.build_dir }} both
+
+
+    - name: Test
+      working-directory: ${{ steps.build-dir.outputs.build_dir }}
+      # Execute tests defined by the CMake configuration using ctest
+      run: ctest --output-on-failure
+
+    - name: Install
+      # Install the built binaries
+      run: cmake --install ${{ steps.build-dir.outputs.build_dir }} --prefix ${{github.workspace}}/install
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: zdb-${{env.BUILD_TYPE}}-${{runner.os}}
+        path: |
+          ${{github.workspace}}/install/
+          cppcheck-report.xml
+          clang-tidy-reports/
+        retention-days: 30
+
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Download GCC artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: zdb-${{env.BUILD_TYPE}}-${{runner.os}}
+        path: ./artifacts-gcc
+
+    - name: Create Release Archive
+      run: |
+        mkdir -p release
+        cp -r artifacts-gcc/install/* release/ 2>/dev/null
+        cp artifacts-gcc/zdb release/zdb 2>/dev/null
+        tar -czf zdb-release.tar.gz -C release .
+
+    - name: Upload Release Archive
+      uses: actions/upload-artifact@v4
+      with:
+        name: zdb-release-package
+        path: zdb-release.tar.gz
+        retention-days: 90

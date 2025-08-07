@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.0.0)
+cmake_minimum_required(VERSION 3.31.0)
 
 project(zdb
   VERSION 0.0.1
@@ -10,62 +10,99 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Disable C++ modules until clang-tidy supports them
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
+# Store build directory in a cache variable for easy querying
+set(ZDB_BUILD_DIR "${CMAKE_BINARY_DIR}" CACHE PATH "ZDB build directory")
+
+# Static analysis options
+option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
+option(ENABLE_CPPCHECK "Enable cppcheck static analysis" OFF)
+
+# Configure clang-tidy
+if(ENABLE_CLANG_TIDY)
+  find_program(CLANG_TIDY_EXE NAMES "clang-tidy" DOC "Path to clang-tidy executable")
+  if(NOT CLANG_TIDY_EXE)
+    message(STATUS "clang-tidy not found.")
+  else()
+    message(STATUS "clang-tidy found: ${CLANG_TIDY_EXE}")
+    set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+  endif()
+endif()
+
 set(BUILD_TESTING ON)
 
-include(FetchContent)
 include(CTest)
 
-set(FETCHCONTENT_QUIET OFF)
-
-set(gRPC_BUILD_TESTS OFF CACHE BOOL "Build gRPC tests" FORCE)
-set(RE2_BUILD_TESTING OFF CACHE BOOL "Build re tests" FORCE)
-set(gRPC_INSTALL ON CACHE BOOL "Install gRPC" FORCE)
-set(gRPC_BUILD_GRPC_CPP_PLUGIN ON CACHE BOOL "Build grpc_cpp_plugin" FORCE)
-FetchContent_Declare(
-  grpc
-  GIT_REPOSITORY https://github.com/grpc/grpc.git
-  GIT_TAG v1.73.1
-  GIT_SHALLOW ON
-)
-FetchContent_MakeAvailable(grpc)
-include("${grpc_BINARY_DIR}/third_party/protobuf/cmake/protobuf/protobuf-generate.cmake")
-
-set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "Build spdlog examples" FORCE)
-set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "Build spdlog tests" FORCE)
-FetchContent_Declare(
-  spdlog
-  GIT_REPOSITORY https://github.com/gabime/spdlog.git
-  GIT_TAG v1.15.3
-  GIT_SHALLOW ON
-)
-FetchContent_MakeAvailable(spdlog)
+# Find packages using vcpkg
+find_package(Protobuf CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 add_library(protobuf_generated STATIC)
-target_link_libraries(protobuf_generated PRIVATE
-  protobuf::libprotobuf
-  grpc++
-)
 target_sources(protobuf_generated PRIVATE
   ${CMAKE_SOURCE_DIR}/proto/error.proto
   ${CMAKE_SOURCE_DIR}/proto/kvStore.proto
   ${CMAKE_SOURCE_DIR}/proto/peer.proto
 )
+
+# Generate protobuf C++ files
 protobuf_generate(
   TARGET protobuf_generated
 )
+
+# Generate gRPC C++ files
 protobuf_generate(
   TARGET protobuf_generated
   LANGUAGE grpc
-  PLUGIN protoc-gen-grpc=$<TARGET_FILE:grpc_cpp_plugin>
+  PLUGIN protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
   PLUGIN_OPTIONS generate_mock_code=true
   GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
 )
+
+target_link_libraries(protobuf_generated PRIVATE
+  protobuf::libprotobuf
+  gRPC::grpc++
+)
+
 target_include_directories(protobuf_generated PRIVATE
   ${CMAKE_BINARY_DIR}
 )
 
 add_subdirectory(src)
 add_subdirectory(tst)
+
+# Add clang-tidy target for manual execution
+if(CLANG_TIDY_EXE)
+  file(GLOB_RECURSE ALL_SOURCE_FILES 
+    ${CMAKE_SOURCE_DIR}/src/*.cpp 
+    ${CMAKE_SOURCE_DIR}/src/*.hpp
+  )
+  
+  add_custom_target(clang-tidy
+    COMMAND ${CLANG_TIDY_EXE}
+    -p ${CMAKE_BINARY_DIR}
+    --format-style=file
+    --quiet
+    ${ALL_SOURCE_FILES}
+    COMMENT "Running clang-tidy on source files"
+    VERBATIM
+  )
+endif()
+
+# Add run-clang-tidy target for parallel execution (if available)
+find_program(RUN_CLANG_TIDY_EXE NAMES "run-clang-tidy" DOC "Path to run-clang-tidy script")
+if(RUN_CLANG_TIDY_EXE)
+  add_custom_target(run-clang-tidy
+    COMMAND ${RUN_CLANG_TIDY_EXE}
+    -p ${CMAKE_BINARY_DIR}
+    -quiet
+    ${CMAKE_SOURCE_DIR}/src/
+    COMMENT "Running clang-tidy in parallel on source files"
+    VERBATIM
+  )
+endif()
 
 # --- Installation ---
 install(TARGETS zdb

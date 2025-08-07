@@ -1,0 +1,11 @@
+{
+  "name": "zdb",
+  "version": "0.0.1",
+  "description": "ZDB. Z for Zoza!",
+  "dependencies": [
+    "grpc",
+    "spdlog",
+    "gtest"
+  ],
+  "builtin-baseline": "b0190b451303865b89ced9767caaab140c39f980"
+}

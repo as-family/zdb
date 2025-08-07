@@ -2,83 +2,89 @@
     "version": 3,
     "configurePresets": [
         {
-            "name": "gcc-13-preset",
+            "name": "gcc-13-config",
             "displayName": "GCC 13 Preset",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/gcc-13",
+            "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "/usr/bin/gcc-13",
-                "CMAKE_CXX_COMPILER": "/usr/bin/g++-13",
+                "CMAKE_C_COMPILER": "gcc-13",
+                "CMAKE_CXX_COMPILER": "g++-13",
                 "CMAKE_CXX_STANDARD": "23",
-                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
             },
             "environment": {
-                "CC": "/usr/bin/gcc-13",
-                "CXX": "/usr/bin/g++-13"
+                "CC": "gcc-13",
+                "CXX": "g++-13",
+                "VCPKG_ROOT": "${sourceDir}/vcpkg"
             }
         },
         {
-            "name": "llvm-21-preset",
-            "displayName": "LLVM 21 Preset",
+            "name": "llvm-18-config",
+            "displayName": "LLVM 18 Preset",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/out/build/llvm-21",
+            "binaryDir": "${sourceDir}/out/build/llvm-18",
+            "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "/usr/local/llvm-21.1/bin/clang",
-                "CMAKE_CXX_COMPILER": "/usr/local/llvm-21.1/bin/clang++",
+                "CMAKE_C_COMPILER": "clang-18",
+                "CMAKE_CXX_COMPILER": "clang++-18",
                 "CMAKE_CXX_FLAGS": "-stdlib=libc++",
-                "CMAKE_EXE_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld -Wl,-rpath,/usr/local/llvm-21.1/lib/x86_64-unknown-linux-gnu",
-                "CMAKE_SHARED_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld -Wl,-rpath,/usr/local/llvm-21.1/lib/x86_64-unknown-linux-gnu",
+                "CMAKE_EXE_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld",
+                "CMAKE_SHARED_LINKER_FLAGS": "-lc++abi  -fuse-ld=lld",
                 "CMAKE_CXX_STANDARD": "17",
-                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
             },
             "environment": {
-                "CC": "/usr/local/llvm-21.1/bin/clang",
-                "CXX": "/usr/local/llvm-21.1/bin/clang++"
+                "CC": "clang-18",
+                "CXX": "clang++-18",
+                "VCPKG_ROOT": "${sourceDir}/vcpkg"
             }
         },
         {
-            "name": "gcc-16-preset",
-            "displayName": "GCC 16 Preset",
+            "name": "gcc-14-config",
+            "displayName": "GCC 14 Config",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/out/build/gcc-16",
+            "binaryDir": "${sourceDir}/out/build/gcc-14",
+            "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "/usr/local/gcc-15.1/bin/gcc",
-                "CMAKE_CXX_COMPILER": "/usr/local/gcc-15.1/bin/g++",
-                "CMAKE_EXE_LINKER_FLAGS": "-Wl,-rpath,/usr/local/gcc-15.1/lib64",
-                "CMAKE_SHARED_LINKER_FLAGS": "-Wl,-rpath,/usr/local/gcc-15.1/lib64",
+                "CMAKE_C_COMPILER": "gcc-14",
+                "CMAKE_CXX_COMPILER": "g++-14",
                 "CMAKE_CXX_STANDARD": "23",
-                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
             },
             "environment": {
-                "CC": "/usr/local/gcc-15.1/bin/gcc",
-                "CXX": "/usr/local/gcc-15.1/bin/g++",
-                "LD_LIBRARY_PATH": "/usr/local/gcc-15.1/lib64"
+                "CC": "gcc-14",
+                "CXX": "g++-14",
+                "VCPKG_ROOT": "${sourceDir}/vcpkg"
             }
         }
     ],
     "buildPresets": [
         {
-            "name": "gcc-13",
-            "configurePreset": "gcc-13-preset"
+            "name": "gcc-13-build",
+            "configurePreset": "gcc-13-config"
         },
         {
-            "name": "llvm-21",
-            "configurePreset": "llvm-21-preset"
+            "name": "llvm-18-build",
+            "configurePreset": "llvm-18-config"
         },
         {
-            "name": "gcc-16",
-            "configurePreset": "gcc-16-preset"
+            "name": "gcc-14-build",
+            "configurePreset": "gcc-14-config"
         }
     ],
     "testPresets": [
         {
-            "name": "Test",
+            "name": "gcc-14-test",
             "description": "",
             "displayName": "",
-            "configurePreset": "gcc-16-preset"
+            "configurePreset": "gcc-14-config"
         }
     ]
 }

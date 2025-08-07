@@ -16,13 +16,13 @@ namespace zdb {
 
 class KVStoreClient {
 public:
-    KVStoreClient(Config& c);
+    explicit KVStoreClient(Config& c);
     KVStoreClient(const KVStoreClient&) = delete;
     KVStoreClient& operator=(const KVStoreClient&) = delete;
-    std::expected<std::string, Error> get(const std::string key) const;
-    std::expected<void, Error> set(const std::string key, const std::string value);
-    std::expected<std::string, Error> erase(const std::string key);
-    std::expected<size_t, Error> size() const;
+    [[nodiscard]] std::expected<std::string, Error> get(const std::string& key) const;
+    std::expected<void, Error> set(const std::string& key, const std::string& value);
+    [[nodiscard]] std::expected<std::string, Error> erase(const std::string& key);
+    [[nodiscard]] std::expected<size_t, Error> size() const;
 private:
     template<typename Req, typename Rep>
     std::expected<void, Error> call(
@@ -37,7 +37,13 @@ private:
                     return {};
                 } else {
                     if (isRetriable(callResult.error().code)) {
-                        config.nextService();
+                        auto nextService = config.nextService();
+                        if (nextService.has_value()) {
+                            spdlog::warn("Retrying call to {} after error: {}", serviceResult.value()->address(), callResult.error().what);
+                        } else {
+                            spdlog::error("No more services available to retry after error: {}", callResult.error().what);
+                            return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "All services are unavailable")};
+                        }
                     } else {
                         return callResult;
                     }

@@ -1,3 +1,8 @@
 out/
 .vscode/settings.json
 Tasks.md
+vcpkg/
+vcpkg_installed/
+clang-tidy-reports/
+cppcheck-report.xml
+

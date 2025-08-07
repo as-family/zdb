@@ -10,7 +10,7 @@ namespace zdb {
 
 class KVStoreServiceImpl final : public kvStore::KVStoreService::Service {
 public:
-    KVStoreServiceImpl(InMemoryKVStore&);
+    explicit KVStoreServiceImpl(InMemoryKVStore& kv);
     grpc::Status get(
         grpc::ServerContext* context,
         const kvStore::GetRequest* request,
@@ -33,11 +33,11 @@ private:
 
 class KVStoreServer {
 public:
-    KVStoreServer(const std::string, KVStoreServiceImpl&);
+    KVStoreServer(const std::string& l_address, KVStoreServiceImpl& s);
     void wait();
     void shutdown();
 private:
-    std::string listen_address;
+    std::string addr;
     KVStoreServiceImpl& service;
     std::unique_ptr<grpc::Server> server;
 };
