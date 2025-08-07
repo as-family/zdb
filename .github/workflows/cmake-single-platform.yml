@@ -42,7 +42,7 @@ jobs:
         wget -q https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 18
-        
+    
         # Install other dependencies
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends \
@@ -105,7 +105,7 @@ jobs:
       run: |
         # Make the clang-tidy script executable
         chmod +x run-clang-tidy.sh
-        
+    
         # Run clang-tidy using the project's dedicated script
         # Use YAML format for CI/CD to get structured output and fix suggestions
         echo "Running clang-tidy using project script with enhanced configuration..."
@@ -135,7 +135,10 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    
+
+    env:
+      BUILD_TYPE: Debug
+
     steps:
     - name: Download GCC artifacts
       uses: actions/download-artifact@v4
