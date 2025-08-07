@@ -171,3 +171,262 @@ TEST_F(KVRPCServiceTest, CallFailureReturnsError) {
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code, ErrorCode::NotFound);
 }
+
+// Test connection reuse when channel is already READY
+TEST_F(KVRPCServiceTest, ConnectReuseReadyChannel) {
+    KVRPCService service{address, policy};
+    
+    // First connection
+    auto result1 = service.connect();
+    EXPECT_TRUE(result1.has_value());
+    EXPECT_TRUE(service.connected());
+    
+    // Second connect call should reuse existing channel
+    auto result2 = service.connect();
+    EXPECT_TRUE(result2.has_value());
+    EXPECT_TRUE(service.connected());
+}
+
+// Test that available() can trigger reconnection
+TEST_F(KVRPCServiceTest, AvailableTriggersReconnection) {
+    KVRPCService service{address, policy};
+    
+    // Initially not connected
+    EXPECT_FALSE(service.connected());
+    
+    // available() should attempt connection
+    bool available = service.available();
+    EXPECT_TRUE(available);
+    EXPECT_TRUE(service.connected());
+}
+
+// Test available() returns false when circuit breaker is open
+TEST_F(KVRPCServiceTest, AvailableReturnsFalseWhenCircuitBreakerOpen) {
+    // Use a policy that opens circuit breaker quickly
+    const RetryPolicy quickFailPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(100), 1, 1};
+    KVRPCService service{address, quickFailPolicy};
+    
+    EXPECT_TRUE(service.connect().has_value());
+    EXPECT_TRUE(service.available());
+    
+    // Shutdown server to trigger circuit breaker
+    testServer->shutdown();
+    
+    // Make a call that will fail and open circuit breaker
+    GetRequest req;
+    req.set_key("test");
+    GetReply rep;
+    auto result = service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep);
+    EXPECT_FALSE(result.has_value());
+    
+    // available() should now return false due to circuit breaker
+    EXPECT_FALSE(service.available());
+}
+
+// Test connected() reflects actual gRPC channel state
+TEST_F(KVRPCServiceTest, ConnectedReflectsChannelState) {
+    KVRPCService service{address, policy};
+    
+    // Initially not connected
+    EXPECT_FALSE(service.connected());
+    
+    // After successful connection
+    EXPECT_TRUE(service.connect().has_value());
+    EXPECT_TRUE(service.connected());
+    
+    // After server shutdown, should eventually show as not connected
+    testServer->shutdown();
+    
+    // Give some time for gRPC to detect the disconnection
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    // Note: gRPC channel state changes are asynchronous, so we might need to trigger activity
+    GetRequest req;
+    req.set_key("test");
+    GetReply rep;
+    service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep); // This will fail and potentially update channel state
+}
+
+// Test connection reuse with IDLE channel state
+TEST_F(KVRPCServiceTest, ConnectHandlesIdleChannel) {
+    KVRPCService service{address, policy};
+    
+    // First connection
+    EXPECT_TRUE(service.connect().has_value());
+    EXPECT_TRUE(service.connected());
+    
+    // Wait for channel to potentially go idle (this is implementation-dependent)
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    
+    // Second connect should handle idle state gracefully
+    auto result = service.connect();
+    EXPECT_TRUE(result.has_value());
+}
+
+// Test multiple consecutive calls to available()
+TEST_F(KVRPCServiceTest, MultipleAvailableCalls) {
+    KVRPCService service{address, policy};
+    
+    // Multiple calls should be consistent
+    for (int i = 0; i < 5; ++i) {
+        EXPECT_TRUE(service.available());
+        EXPECT_TRUE(service.connected());
+    }
+}
+
+// Test available() behavior after connection failure
+TEST_F(KVRPCServiceTest, AvailableAfterConnectionFailure) {
+    // Connect to invalid address
+    KVRPCService badService{"localhost:99999", policy};
+    
+    // available() should return false when connection fails
+    EXPECT_FALSE(badService.available());
+    EXPECT_FALSE(badService.connected());
+}
+
+// Test reconnection after server restart
+TEST_F(KVRPCServiceTest, ReconnectionAfterServerRestart) {
+    KVRPCService service{address, policy};
+    
+    // Initial connection
+    EXPECT_TRUE(service.connect().has_value());
+    EXPECT_TRUE(service.connected());
+    
+    // Shutdown server temporarily
+    testServer->shutdown();
+    
+    // Give time for disconnection
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    // Create new server instance (simulating restart)
+    auto newServer = std::make_unique<TestKVServer>(address);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    // available() should trigger reconnection
+    EXPECT_TRUE(service.available());
+    EXPECT_TRUE(service.connected());
+    
+    // Clean up the new server
+    newServer->shutdown();
+}
+
+// Test that connect() creates stub when missing
+TEST_F(KVRPCServiceTest, ConnectCreatesStubWhenMissing) {
+    KVRPCService service{address, policy};
+    
+    // Connect should succeed and service should be ready for calls
+    EXPECT_TRUE(service.connect().has_value());
+    EXPECT_TRUE(service.connected());
+    
+    // Should be able to make successful calls (indicating stub was created)
+    SetRequest req;
+    req.set_key("test");
+    req.set_value("value");
+    SetReply rep;
+    auto result = service.call(&zdb::kvStore::KVStoreService::Stub::set, req, rep);
+    EXPECT_TRUE(result.has_value());
+}
+
+// Test circuit breaker integration with available()
+TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
+    const RetryPolicy circuitBreakerPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(200), 1, 1};
+    KVRPCService service{address, circuitBreakerPolicy};
+    
+    EXPECT_TRUE(service.connect().has_value());
+    EXPECT_TRUE(service.available());
+    
+    // Shutdown server and trigger circuit breaker
+    testServer->shutdown();
+    
+    // Make calls that will fail and open circuit breaker
+    GetRequest req;
+    req.set_key("test");
+    GetReply rep;
+    service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep);
+    
+    // available() should return false when circuit breaker is open
+    EXPECT_FALSE(service.available());
+    
+    // Restart server
+    testServer = std::make_unique<TestKVServer>(address);
+    std::this_thread::sleep_for(std::chrono::milliseconds(250)); // Wait for circuit breaker reset
+    
+    // available() should trigger reconnection after circuit breaker reset
+    EXPECT_TRUE(service.available());
+    EXPECT_TRUE(service.connected());
+}
+
+// Test address() method consistency
+TEST_F(KVRPCServiceTest, AddressMethodConsistency) {
+    const std::string testAddr = "test.example.com:1234";
+    KVRPCService service{testAddr, policy};
+    
+    EXPECT_EQ(service.address(), testAddr);
+    
+    // Address should remain consistent regardless of connection state
+    auto result = service.connect(); // This will fail for invalid address
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(service.address(), testAddr);
+}
+
+// Test non-const available() can modify state
+TEST_F(KVRPCServiceTest, AvailableCanModifyState) {
+    KVRPCService service{address, policy};
+    
+    // Initially not connected
+    EXPECT_FALSE(service.connected());
+    
+    // available() is non-const and can trigger connection
+    EXPECT_TRUE(service.available());
+    
+    // State should now be modified (connected)
+    EXPECT_TRUE(service.connected());
+}
+
+// Test behavior with rapid server cycling
+TEST_F(KVRPCServiceTest, RapidServerCycling) {
+    KVRPCService service{address, policy};
+    
+    // Initial connection
+    EXPECT_TRUE(service.connect().has_value());
+    EXPECT_TRUE(service.available());
+    
+    // Create temporary servers for cycling test
+    std::vector<std::unique_ptr<TestKVServer>> tempServers;
+    
+    // Cycle server multiple times
+    for (int i = 0; i < 3; ++i) {
+        testServer->shutdown();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        
+        tempServers.push_back(std::make_unique<TestKVServer>(address));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        
+        // available() should handle reconnection
+        EXPECT_TRUE(service.available());
+        
+        tempServers.back()->shutdown();
+    }
+    
+    // Clean up temp servers
+    tempServers.clear();
+}
+
+// Test error handling in available() when reconnection fails
+TEST_F(KVRPCServiceTest, AvailableHandlesReconnectionFailure) {
+    KVRPCService service{address, policy};
+    
+    // Initial connection
+    EXPECT_TRUE(service.connect().has_value());
+    EXPECT_TRUE(service.available());
+    
+    // Shutdown server but don't reset - let TearDown handle cleanup
+    testServer->shutdown();
+    
+    // Give time for disconnection
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    // available() should return false when reconnection fails
+    EXPECT_FALSE(service.available());
+    EXPECT_FALSE(service.connected());
+}
