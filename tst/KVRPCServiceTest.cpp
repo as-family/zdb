@@ -12,6 +12,7 @@
 #include <utility>
 #include <grpcpp/security/credentials.h>
 #include <memory>
+#include <proto/kvStore.grpc.pb.h>
 #include <proto/kvStore.pb.h>
 
 using zdb::InMemoryKVStore;
@@ -19,7 +20,6 @@ using zdb::KVStoreServiceImpl;
 using zdb::KVStoreServer;
 using zdb::KVRPCService;
 using zdb::RetryPolicy;
-using zdb::Error;
 using zdb::ErrorCode;
 using zdb::kvStore::GetRequest;
 using zdb::kvStore::GetReply;

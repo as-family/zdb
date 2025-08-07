@@ -11,7 +11,7 @@
 namespace zdb {
 
 CircuitBreaker::CircuitBreaker(const RetryPolicy& p)
-    : state {State::Closed}, policy{p}, repeater {p} {}
+    : policy{p}, repeater {p} {}
 
 grpc::Status CircuitBreaker::call(const std::function<grpc::Status()>& rpc) {
     if (rpc == nullptr) {
