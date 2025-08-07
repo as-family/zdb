@@ -30,27 +30,16 @@ private:
         const Req& request,
         Rep& reply) const {
         for (int i = 0; i < config.policy.servicesToTry; ++i) {
-            auto serviceResult = config.currentService();
+            auto serviceResult = config.nextService();
             if (serviceResult.has_value()) {
                 auto callResult = serviceResult.value()->call(f, request, reply);
                 if (callResult.has_value()) {
                     return {};
                 } else {
-                    if (isRetriable(callResult.error().code)) {
-                        auto nextService = config.nextService();
-                        if (nextService.has_value()) {
-                            spdlog::warn("Retrying call to {} after error: {}", serviceResult.value()->address(), callResult.error().what);
-                        } else {
-                            spdlog::error("No more services available to retry after error: {}", callResult.error().what);
-                            return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "All services are unavailable")};
-                        }
-                    } else {
+                    if (!isRetriable(callResult.error().code)) {
                         return callResult;
                     }
-                    
                 }
-            } else {
-                return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "All services are unavailable")};
             }
         }
         return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "All services are unavailable")};

@@ -132,7 +132,7 @@ TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
     
     auto result = config.currentService();
     ASSERT_TRUE(result.has_value());
-    const KVRPCService* service = result.value();
+    KVRPCService* service = result.value();
     EXPECT_TRUE(service->connected());
     EXPECT_TRUE(service->available());
 }

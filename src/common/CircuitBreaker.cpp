@@ -55,7 +55,10 @@ grpc::Status CircuitBreaker::call(const std::function<grpc::Status()>& rpc) {
     std::unreachable();
 }
 
-bool CircuitBreaker::open() const {
+bool CircuitBreaker::open() {
+    if (state == State::Open && std::chrono::steady_clock::now() - lastFailureTime >= policy.resetTimeout) {
+        state = State::HalfOpen;
+    }
     return state == CircuitBreaker::State::Open;
 }
 
