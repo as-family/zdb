@@ -93,7 +93,7 @@ TEST_F(KVRPCServiceTest, availableReflectsCircuitBreaker) {
     GetRequest req;
     req.set_key("key");
     GetReply rep;
-    EXPECT_TRUE(!service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep).has_value());
+    EXPECT_FALSE(service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep).has_value());
     EXPECT_FALSE(service.available());
 }
 
@@ -244,7 +244,7 @@ TEST_F(KVRPCServiceTest, ConnectedReflectsChannelState) {
     GetRequest req;
     req.set_key("test");
     GetReply rep;
-    service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep); // This will fail and potentially update channel state
+    EXPECT_FALSE(service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep).has_value()); // This will fail and potentially update channel state
 }
 
 // Test connection reuse with IDLE channel state
@@ -342,7 +342,7 @@ TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
     GetRequest req;
     req.set_key("test");
     GetReply rep;
-    service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep);
+    EXPECT_FALSE(service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep).has_value());
     
     // available() should return false when circuit breaker is open
     EXPECT_FALSE(service.available());
