@@ -30,7 +30,7 @@ std::expected<void, Error> KVRPCService::connect() {
                 return {};
             }
             // For IDLE or CONNECTING, trigger connection attempt
-            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::seconds(1))) {
+            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(1000))) {
                 // Ensure stub is created if it doesn't exist
                 if (!stub) {
                     stub = kvStore::KVStoreService::NewStub(channel);
@@ -44,7 +44,7 @@ std::expected<void, Error> KVRPCService::connect() {
     
     // Create new channel only if needed
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
-    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::seconds(1))) {
+    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(1000))) {
         spdlog::warn("Could not connect to service @ {}", addr);
         return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
     }
@@ -71,7 +71,7 @@ bool KVRPCService::available() {
 }
 
 bool KVRPCService::connected() const {
-    return channel && stub && channel->GetState(true) == grpc_connectivity_state::GRPC_CHANNEL_READY;
+    return channel && stub && channel->GetState(false) == grpc_connectivity_state::GRPC_CHANNEL_READY;
 }
 
 std::string KVRPCService::address() const {

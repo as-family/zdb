@@ -527,7 +527,6 @@ TEST_F(KVStoreClientTest, DataPersistenceAfterServerRestart) {
     ASSERT_TRUE(initialSize.has_value());
     EXPECT_EQ(initialSize.value(), 1);
     
-    // Restart server (note: InMemoryKVStore doesn't persist, but we're testing client behavior)
     server->shutdown();
     if (serverThread.joinable()) {
         serverThread.join();

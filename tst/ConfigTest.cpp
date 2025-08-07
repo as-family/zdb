@@ -70,7 +70,7 @@ TEST_F(ConfigTest, ConstructorWithSingleValidAddress) {
     const std::vector<std::string> addresses{validServerAddr};
     
     ASSERT_NO_THROW({
-        const Config config(addresses, policy);
+        Config config(addresses, policy);
         auto result = config.currentService();
         ASSERT_TRUE(result.has_value());
     });
@@ -81,7 +81,7 @@ TEST_F(ConfigTest, ConstructorWithMultipleValidAddresses) {
     const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     
     ASSERT_NO_THROW({
-        const Config config(addresses, policy);
+        Config config(addresses, policy);
         auto result = config.currentService();
         ASSERT_TRUE(result.has_value());
     });
@@ -119,7 +119,7 @@ TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
     const std::vector<std::string> addresses{invalidServerAddr, validServerAddr};
     
     ASSERT_NO_THROW({
-        const Config config(addresses, policy);
+        Config config(addresses, policy);
         auto result = config.currentService();
         ASSERT_TRUE(result.has_value());
     });
@@ -128,7 +128,7 @@ TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
 // Test currentService() returns valid service after successful construction
 TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
     const std::vector<std::string> addresses{validServerAddr};
-    const Config config(addresses, policy);
+    Config config(addresses, policy);
     
     auto result = config.currentService();
     ASSERT_TRUE(result.has_value());
@@ -342,7 +342,7 @@ TEST_F(ConfigTest, ConstructorPerformanceWithManyAddresses) {
 // Test thread safety aspects (basic test)
 TEST_F(ConfigTest, BasicThreadSafetyTest) {
     const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
-    const Config config(addresses, policy);
+    Config config(addresses, policy);
     
     std::atomic<int> successCount{0};
     std::atomic<int> exceptionCount{0};

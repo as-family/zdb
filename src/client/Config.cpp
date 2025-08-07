@@ -52,7 +52,7 @@ Config::Config(const std::vector<std::string>& addresses, const RetryPolicy& p) 
     }
 }
 
-std::expected<KVRPCService*, Error> Config::currentService() const {
+std::expected<KVRPCService*, Error> Config::currentService() {
     if (cService == services.end()) {
         spdlog::error("No current service available. ");
         return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "No service available")};

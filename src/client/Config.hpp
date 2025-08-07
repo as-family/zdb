@@ -16,7 +16,7 @@ public:
     Config(const std::vector<std::string>& addresses, const RetryPolicy& policy);
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
-    [[nodiscard]] std::expected<KVRPCService*, Error> currentService() const;
+    [[nodiscard]] std::expected<KVRPCService*, Error> currentService();
     std::expected<KVRPCService*, Error> nextService();
     const RetryPolicy& policy;
 private:
