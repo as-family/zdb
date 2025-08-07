@@ -54,6 +54,7 @@ std::expected<void, Error> KVRPCService::connect() {
 }
 
 bool KVRPCService::available() {
+    // Check circuit breaker state (this may transition from Open to HalfOpen if timeout elapsed)
     if (circuitBreaker.open()) {
         return false;
     }
