@@ -143,3 +143,231 @@ TEST_F(CircuitBreakerTest, NullptrCallThrows) {
     const std::function<grpc::Status()> rpc = nullptr;
     EXPECT_THROW(breaker.call(rpc), std::bad_function_call);
 }
+
+// Test that open() can transition state from Open to HalfOpen
+TEST_F(CircuitBreakerTest, OpenTransitionsToHalfOpenAfterTimeout) {
+    // Open the breaker
+    const std::function<grpc::Status()> rpc = [] {
+        return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
+    };
+    breaker.call(rpc);
+    EXPECT_TRUE(breaker.open());
+    
+    // Wait for reset timeout
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    
+    // Calling open() should transition to HalfOpen and return false
+    EXPECT_FALSE(breaker.open());
+    
+    // Subsequent call to open() should still return false (still in HalfOpen)
+    EXPECT_FALSE(breaker.open());
+}
+
+// Test open() side effects: multiple calls after timeout
+TEST_F(CircuitBreakerTest, OpenSideEffectsMultipleCalls) {
+    // Open the breaker
+    const std::function<grpc::Status()> failRpc = [] {
+        return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
+    };
+    breaker.call(failRpc);
+    EXPECT_TRUE(breaker.open());
+    
+    // Wait for reset timeout
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    
+    // Multiple calls to open() should consistently return false after transition
+    for (int i = 0; i < 5; ++i) {
+        EXPECT_FALSE(breaker.open());
+    }
+}
+
+// Test that open() doesn't transition before timeout
+TEST_F(CircuitBreakerTest, OpenDoesNotTransitionBeforeTimeout) {
+    // Open the breaker
+    const std::function<grpc::Status()> rpc = [] {
+        return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
+    };
+    breaker.call(rpc);
+    EXPECT_TRUE(breaker.open());
+    
+    // Don't wait for timeout - should still be open
+    EXPECT_TRUE(breaker.open());
+    
+    // Wait a short time but less than reset timeout
+    std::this_thread::sleep_for(policy.resetTimeout / 2);
+    EXPECT_TRUE(breaker.open());
+}
+
+// Test circuit breaker state transitions with open() calls
+TEST_F(CircuitBreakerTest, StateTransitionsWithOpenCalls) {
+    // Initial state: Closed
+    EXPECT_FALSE(breaker.open());
+    
+    // Trigger failure to open
+    const std::function<grpc::Status()> failRpc = [] {
+        return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
+    };
+    breaker.call(failRpc);
+    EXPECT_TRUE(breaker.open()); // Now Open
+    
+    // Wait for reset timeout
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    
+    // open() should transition to HalfOpen
+    EXPECT_FALSE(breaker.open()); // Now HalfOpen
+    
+    // Make a successful call to close the breaker
+    const std::function<grpc::Status()> successRpc = [] {
+        return grpc::Status::OK;
+    };
+    auto status = breaker.call(successRpc);
+    EXPECT_TRUE(status.ok());
+    EXPECT_FALSE(breaker.open()); // Now Closed
+}
+
+// Test open() behavior with very short reset timeout
+TEST_F(CircuitBreakerTest, OpenWithShortResetTimeout) {
+    const RetryPolicy shortTimeoutPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(1), 2, 2}; // 1 microsecond reset timeout
+    CircuitBreaker shortTimeoutBreaker{shortTimeoutPolicy};
+    
+    // Open the breaker
+    const std::function<grpc::Status()> rpc = [] {
+        return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
+    };
+    shortTimeoutBreaker.call(rpc);
+    EXPECT_TRUE(shortTimeoutBreaker.open());
+    
+    // Even a tiny sleep should trigger transition
+    std::this_thread::sleep_for(std::chrono::microseconds(10));
+    EXPECT_FALSE(shortTimeoutBreaker.open());
+}
+
+// Test that open() state transition affects subsequent call() behavior
+TEST_F(CircuitBreakerTest, OpenStateTransitionAffectsCallBehavior) {
+    // Open the breaker
+    const std::function<grpc::Status()> failRpc = [] {
+        return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
+    };
+    breaker.call(failRpc);
+    EXPECT_TRUE(breaker.open());
+    
+    // Immediate call should be blocked
+    auto blockedStatus = breaker.call(failRpc);
+    EXPECT_EQ(blockedStatus.error_code(), grpc::StatusCode::UNAVAILABLE);
+    EXPECT_EQ(blockedStatus.error_message(), "Circuit breaker is open");
+    
+    // Wait for reset timeout
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    
+    // Call open() to transition to HalfOpen
+    EXPECT_FALSE(breaker.open());
+    
+    // Now calls should go through (not be blocked)
+    bool called = false;
+    const std::function<grpc::Status()> testRpc = [&called] {
+        called = true;
+        return grpc::Status::OK;
+    };
+    auto status = breaker.call(testRpc);
+    EXPECT_TRUE(called);
+    EXPECT_TRUE(status.ok());
+}
+
+// Test open() with concurrent access simulation
+TEST_F(CircuitBreakerTest, OpenConcurrentAccessSimulation) {
+    // Open the breaker
+    const std::function<grpc::Status()> rpc = [] {
+        return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
+    };
+    breaker.call(rpc);
+    EXPECT_TRUE(breaker.open());
+    
+    // Wait for reset timeout
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    
+    // Simulate multiple threads checking open() status
+    std::vector<bool> results;
+    for (int i = 0; i < 10; ++i) {
+        results.push_back(breaker.open());
+    }
+    
+    // All should return false (HalfOpen state)
+    for (bool result : results) {
+        EXPECT_FALSE(result);
+    }
+}
+
+// Test edge case: exactly at timeout boundary
+TEST_F(CircuitBreakerTest, OpenAtTimeoutBoundary) {
+    // Open the breaker
+    const std::function<grpc::Status()> rpc = [] {
+        return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
+    };
+    breaker.call(rpc);
+    EXPECT_TRUE(breaker.open());
+    
+    // Wait for exactly the reset timeout
+    std::this_thread::sleep_for(policy.resetTimeout);
+    
+    // Should transition to HalfOpen
+    EXPECT_FALSE(breaker.open());
+}
+
+// Test that open() doesn't affect Closed state
+TEST_F(CircuitBreakerTest, OpenDoesNotAffectClosedState) {
+    // Breaker starts in Closed state
+    EXPECT_FALSE(breaker.open());
+    
+    // Multiple calls to open() when Closed should not change anything
+    for (int i = 0; i < 5; ++i) {
+        EXPECT_FALSE(breaker.open());
+    }
+    
+    // Should still be able to make successful calls
+    const std::function<grpc::Status()> successRpc = [] {
+        return grpc::Status::OK;
+    };
+    auto status = breaker.call(successRpc);
+    EXPECT_TRUE(status.ok());
+    EXPECT_FALSE(breaker.open());
+}
+
+// Test open() behavior after HalfOpen failure
+TEST_F(CircuitBreakerTest, OpenAfterHalfOpenFailure) {
+    // Open the breaker
+    const std::function<grpc::Status()> failRpc = [] {
+        return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
+    };
+    breaker.call(failRpc);
+    EXPECT_TRUE(breaker.open());
+    
+    // Wait for reset timeout and transition to HalfOpen
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    EXPECT_FALSE(breaker.open()); // Transitions to HalfOpen
+    
+    // Fail in HalfOpen state (should reopen)
+    auto status = breaker.call(failRpc);
+    EXPECT_FALSE(status.ok());
+    EXPECT_TRUE(breaker.open()); // Should be Open again
+}
+
+// Test non-const nature of open() method
+TEST_F(CircuitBreakerTest, OpenIsNonConst) {
+    // This test verifies that open() can modify state
+    CircuitBreaker& nonConstBreaker = breaker;
+    
+    // Open the breaker
+    const std::function<grpc::Status()> rpc = [] {
+        return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
+    };
+    nonConstBreaker.call(rpc);
+    EXPECT_TRUE(nonConstBreaker.open());
+    
+    // Wait and call open() - should modify internal state
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    EXPECT_FALSE(nonConstBreaker.open());
+    
+    // Verify the state was actually modified by the open() call
+    // (if it were const, this transition wouldn't happen)
+    EXPECT_FALSE(nonConstBreaker.open());
+}

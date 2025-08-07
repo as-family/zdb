@@ -35,7 +35,7 @@ public:
             return std::unexpected {toError(status)};
         }
     }
-    [[nodiscard]] bool available() const;
+    [[nodiscard]] bool available();
     [[nodiscard]] bool connected() const;
     [[nodiscard]] std::string address() const;
 private:
