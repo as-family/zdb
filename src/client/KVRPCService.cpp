@@ -19,7 +19,7 @@ std::expected<void, Error> KVRPCService::connect() {
     // If we already have a channel, check if it's usable
     if (channel) {
         auto state = channel->GetState(false); // Don't try to connect yet
-        if (state == GRPC_CHANNEL_READY || state == GRPC_CHANNEL_IDLE || state == GRPC_CHANNEL_CONNECTING) {
+        if (state == grpc_connectivity_state::GRPC_CHANNEL_READY || state == grpc_connectivity_state::GRPC_CHANNEL_IDLE || state == grpc_connectivity_state::GRPC_CHANNEL_CONNECTING) {
             // Channel is usable or might become usable, don't recreate
             if (state == GRPC_CHANNEL_READY) {
                 // Ensure stub is created if it doesn't exist

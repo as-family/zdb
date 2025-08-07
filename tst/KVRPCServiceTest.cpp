@@ -12,8 +12,8 @@
 #include <utility>
 #include <grpcpp/security/credentials.h>
 #include <memory>
-#include <proto/kvStore.grpc.pb.h>
 #include <proto/kvStore.pb.h>
+#include <proto/kvStore.grpc.pb.h>
 
 using zdb::InMemoryKVStore;
 using zdb::KVStoreServiceImpl;
