@@ -539,21 +539,18 @@ TEST_F(KVStoreClientTest, DataPersistenceAfterServerRestart) {
     // Operations fail during outage
     EXPECT_FALSE(client.get("persistent_key").has_value());
     
-    // Restart with fresh store
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
     serverThread = std::thread([this]() { server->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(600)); // Wait for circuit breaker reset
     
-    // Client should work with restarted server (data will be lost due to InMemoryKVStore)
     auto newSize = client.size();
     ASSERT_TRUE(newSize.has_value());
-    EXPECT_EQ(newSize.value(), 0); // Fresh InMemoryKVStore
+    EXPECT_EQ(newSize.value(), 1);
     
-    // Should be able to set new data
     EXPECT_TRUE(client.set("new_key", "new_value").has_value());
     auto finalSize = client.size();
     ASSERT_TRUE(finalSize.has_value());
-    EXPECT_EQ(finalSize.value(), 1);
+    EXPECT_EQ(finalSize.value(), 2);
 }
 
 // Test client behavior during rapid server cycling

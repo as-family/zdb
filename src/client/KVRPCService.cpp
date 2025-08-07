@@ -22,11 +22,19 @@ std::expected<void, Error> KVRPCService::connect() {
         if (state == GRPC_CHANNEL_READY || state == GRPC_CHANNEL_IDLE || state == GRPC_CHANNEL_CONNECTING) {
             // Channel is usable or might become usable, don't recreate
             if (state == GRPC_CHANNEL_READY) {
+                // Ensure stub is created if it doesn't exist
+                if (!stub) {
+                    stub = kvStore::KVStoreService::NewStub(channel);
+                }
                 spdlog::debug("Service @ {} already connected", addr);
                 return {};
             }
             // For IDLE or CONNECTING, trigger connection attempt
             if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::seconds(1))) {
+                // Ensure stub is created if it doesn't exist
+                if (!stub) {
+                    stub = kvStore::KVStoreService::NewStub(channel);
+                }
                 spdlog::info("Reconnected to service @ {}", addr);
                 return {};
             }

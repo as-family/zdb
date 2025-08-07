@@ -76,7 +76,7 @@ std::expected<KVRPCService*, Error> Config::nextService() {
     // Try to find an active service (including potentially reconnecting to current service)
     cService = nextActiveServiceIterator();
     if (cService == services.end()) {
-        spdlog::error("KVStoreClient: No available services left. ");
+        spdlog::warn("KVStoreClient: No available services left. ");
         return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "No available services left")};
     }
     return &(cService->second);
