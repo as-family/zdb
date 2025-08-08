@@ -146,11 +146,38 @@ jobs:
         name: zdb-${{env.BUILD_TYPE}}-${{runner.os}}
         path: ./artifacts-gcc
 
+    - name: Prepare release directory
+      run: |
+        set -euo pipefail
+        # If a file named 'release' exists, remove it to avoid mkdir failure
+        if [ -e release ] && [ ! -d release ]; then
+          echo "Found existing file named 'release'; removing it."
+          rm -f release
+        fi
+        mkdir -p release
+
+    - name: Stage release artifacts
+      run: |
+        set -euo pipefail
+        # Copy installed payload if present
+        if [ -d "artifacts-gcc/install" ]; then
+          cp -a artifacts-gcc/install/. release/
+        else
+          echo "Warning: artifacts-gcc/install not found; skipping installed payload copy"
+        fi
+        # Copy standalone binary if it exists (optional)
+        if [ -f "artifacts-gcc/zdb" ]; then
+          cp artifacts-gcc/zdb release/zdb
+        fi
+
     - name: Create Release Archive
       run: |
-        mkdir -p release
-        cp -r artifacts-gcc/install/* release/ 2>/dev/null
-        cp artifacts-gcc/zdb release/zdb 2>/dev/null
+        set -euo pipefail
+        # Create archive only if we have something to package
+        if [ -z "$(ls -A release)" ]; then
+          echo "Error: release directory is empty. Nothing to package."
+          exit 1
+        fi
         tar -czf zdb-release.tar.gz -C release .
 
     - name: Upload Release Archive
