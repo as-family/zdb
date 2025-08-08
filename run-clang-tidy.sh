@@ -263,12 +263,71 @@ generate_html_report() {
         .hidden { 
             display: none !important; 
         }
+        /* Check/category filter styles */
+        .filters {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+        .filters .title {
+            font-weight: 600;
+            color: #495057;
+        }
+        .check-search {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .check-search input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+        .check-search button {
+            padding: 8px 12px;
+            background: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .check-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-height: 220px;
+            overflow: auto;
+            padding: 5px 2px 2px;
+        }
+        .check-chip {
+            border: 1px solid #dee2e6;
+            background: #ffffff;
+            color: #343a40;
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 0.85em;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+        .check-chip:hover { box-shadow: 0 1px 4px rgba(0,0,0,0.12); transform: translateY(-1px); }
+        .check-chip.active { background: #007acc; color: white; border-color: #007acc; }
+        .check-chip .chip-count { opacity: 0.8; font-weight: 600; margin-left: 6px; }
+        .check-link { text-decoration: none; cursor: pointer; }
+        .check-link:hover { text-decoration: underline; }
     </style>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const summaryCards = document.querySelectorAll('.summary-card');
             const issues = document.querySelectorAll('.issue');
-            let activeFilter = 'all';
+            let activeTypeFilter = 'all';
+            let activeCheckFilter = '';
 
             // Add click handlers to summary cards
             summaryCards.forEach(card => {
@@ -279,41 +338,39 @@ generate_html_report() {
                     summaryCards.forEach(c => c.classList.remove('active'));
 
                     // If clicking the same filter, toggle off (show all)
-                    if (activeFilter === filterType) {
-                        activeFilter = 'all';
-                        filterIssues('all');
-                        updateResultsTitle('all');
+                    if (activeTypeFilter === filterType) {
+                        activeTypeFilter = 'all';
+                        filterIssues();
+                        updateResultsTitle();
                     } else {
-                        activeFilter = filterType;
+                        activeTypeFilter = filterType;
                         this.classList.add('active');
-                        filterIssues(filterType);
-                        updateResultsTitle(filterType);
+                        filterIssues();
+                        updateResultsTitle();
                     }
                 });
             });
 
-            function filterIssues(filterType) {
+        function filterIssues() {
                 issues.forEach(issue => {
-                    if (filterType === 'all') {
+            const matchesType = (activeTypeFilter === 'all') || issue.classList.contains(activeTypeFilter);
+            const issueCheck = (issue.getAttribute('data-check') || '').trim();
+            const activeCheck = (activeCheckFilter || '').trim();
+            const matchesCheck = (!activeCheck) || (issueCheck === activeCheck);
+                    if (matchesType && matchesCheck) {
                         issue.classList.remove('hidden');
                     } else {
-                        if (issue.classList.contains(filterType)) {
-                            issue.classList.remove('hidden');
-                        } else {
-                            issue.classList.add('hidden');
-                        }
+                        issue.classList.add('hidden');
                     }
                 });
             }
 
-            function updateResultsTitle(filterType) {
+            function updateResultsTitle() {
                 const resultsTitle = document.querySelector('h2');
-                if (filterType === 'all') {
-                    resultsTitle.textContent = '📋 Detailed Analysis Results';
-                } else {
-                    const filterName = filterType.charAt(0).toUpperCase() + filterType.slice(1) + 's';
-                    resultsTitle.textContent = `📋 Filtered Results - ${filterName} Only`;
-                }
+                const typeText = (activeTypeFilter === 'all') ? 'All' : (activeTypeFilter.charAt(0).toUpperCase() + activeTypeFilter.slice(1) + 's');
+                const checkText = activeCheckFilter ? ` | Check: [${activeCheckFilter}]` : '';
+                const filteredText = (activeTypeFilter === 'all' && !activeCheckFilter) ? '' : ` - ${typeText}${checkText}`;
+                resultsTitle.textContent = `📋 Detailed Analysis Results${filteredText}`;
             }
 
             // Add keyboard shortcuts (Ctrl/Cmd + 1,2,3,4)
@@ -351,6 +408,67 @@ generate_html_report() {
                 if (!e.ctrlKey && !e.metaKey) {
                     helpText.style.display = 'none';
                 }
+            });
+
+            // Check chips filtering
+            const checkList = document.getElementById('check-list');
+            const checkSearch = document.getElementById('check-search');
+            const clearCheckBtn = document.getElementById('clear-check-filter');
+        if (checkList) {
+                checkList.addEventListener('click', function(e) {
+                    const chip = e.target.closest('.check-chip');
+                    if (!chip) return;
+            const selected = (chip.getAttribute('data-check') || '').trim();
+                    const previouslyActive = chip.classList.contains('active');
+                    // Reset all chips
+                    checkList.querySelectorAll('.check-chip').forEach(c => c.classList.remove('active'));
+                    if (previouslyActive) {
+                        activeCheckFilter = '';
+                    } else {
+                        chip.classList.add('active');
+                        activeCheckFilter = selected;
+                    }
+                    filterIssues();
+                    updateResultsTitle();
+                });
+            }
+            if (checkSearch) {
+                checkSearch.addEventListener('input', function() {
+                    const q = this.value.toLowerCase();
+                    checkList.querySelectorAll('.check-chip').forEach(chip => {
+                        const txt = chip.textContent.toLowerCase().trim();
+                        chip.style.display = txt.includes(q) ? '' : 'none';
+                    });
+                });
+            }
+            if (clearCheckBtn) {
+                clearCheckBtn.addEventListener('click', function() {
+                    activeCheckFilter = '';
+                    if (checkList) checkList.querySelectorAll('.check-chip').forEach(c => c.classList.remove('active'));
+                    filterIssues();
+                    updateResultsTitle();
+                });
+            }
+
+            // Clicking on a check name inside an issue also filters
+            document.body.addEventListener('click', function(e) {
+                const link = e.target.closest('.check-link');
+                if (!link) return;
+                e.preventDefault();
+        const name = (link.getAttribute('data-check') || '').trim();
+        activeCheckFilter = name;
+                // highlight corresponding chip
+                if (checkList) {
+                    checkList.querySelectorAll('.check-chip').forEach(c => {
+            const chipName = (c.getAttribute('data-check') || '').trim();
+            if (chipName === name) c.classList.add('active'); else c.classList.remove('active');
+                    });
+                }
+                filterIssues();
+                updateResultsTitle();
+                // scroll to results header for context
+                const h2 = document.querySelector('h2');
+                if (h2) h2.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         });
     </script>
@@ -425,6 +543,46 @@ EOF
             </div>
         </div>
 
+        <div class="filters">
+            <div class="title">Filter by clang-tidy check</div>
+            <div class="check-search">
+                <input id="check-search" type="text" placeholder="Search checks, e.g. readability-identifier-naming" aria-label="Search checks" />
+                <button id="clear-check-filter" title="Clear check filter">Clear</button>
+            </div>
+            <div id="check-list" class="check-list">
+EOF
+
+    # Build per-check counts (errors and warnings with [check]) excluding external libraries
+    # Output format: count check_name
+    local check_counts
+    check_counts=$(grep -E "^/.*:[0-9]+:[0-9]+: +(error|warning): .*\[[^]]+\]" "$text_file" 2>/dev/null \
+        | grep -v -E "(vcpkg|spdlog|fmt|grpc|gtest|protobuf)" \
+        | sed -n 's/.*\[\([^]]*\)\].*/\1/p' \
+        | sort | uniq -c | sort -nr || true)
+
+    if [ -n "$check_counts" ]; then
+        # Emit a chip for each check
+        while IFS= read -r line; do
+            # uniq -c output has leading spaces; extract count and the rest as the check name
+            local count check
+            count=$(echo "$line" | awk '{print $1}')
+            check=$(echo "$line" | sed -E 's/^ *[0-9]+ +//')
+            # Safety: trim any trailing spaces
+            check=$(echo "$check" | sed -E 's/ +$//')
+            [ -z "$check" ] && continue
+            # Write chip with clean data-check attribute
+            cat >> "$html_file" << EOF
+                <span class="check-chip" data-check="$check">$check <span class="chip-count">$count</span></span>
+EOF
+        done <<< "$check_counts"
+    else
+        echo "                <em>No check-based diagnostics found.</em>" >> "$html_file"
+    fi
+
+    cat >> "$html_file" << EOF
+            </div>
+        </div>
+
         <h2>📋 Detailed Analysis Results</h2>
 EOF
 
@@ -466,8 +624,8 @@ EOF
                     continue
                 fi
                 
-                cat >> "$html_file" << EOF
-        <div class="issue $issue_type">
+        cat >> "$html_file" << EOF
+    <div class="issue $issue_type" data-check="$check_name">
             <div class="issue-header">
                 <div>
                     <span class="file-path">$file_path:$line_num:$col_num</span>
@@ -477,8 +635,8 @@ EOF
                 </div>
             </div>
 EOF
-                if [ -n "$check_name" ]; then
-                    echo "            <div class=\"check-name\">[$check_name]</div>" >> "$html_file"
+        if [ -n "$check_name" ]; then
+            echo "            <div class=\"check-name\"><a href=\"#\" class=\"check-link\" data-check=\"$check_name\">[$check_name]</a></div>" >> "$html_file"
                 fi
                 cat >> "$html_file" << EOF
             <div class="message">$message</div>
