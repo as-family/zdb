@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <atomic>
+#include "common/Error.hpp"
 
 using zdb::Config;
 using zdb::KVRPCService;
@@ -434,8 +435,6 @@ TEST_F(ConfigTest, NextActiveServiceIteratorPrioritizesCurrentService) {
     // Get initial service - should be one of the two available services
     auto result1 = config.currentService();
     ASSERT_TRUE(result1.has_value());
-    const KVRPCService* service1 = result1.value();
-    std::string initialAddress = service1->address();
     
     // Call nextService multiple times - should prefer to stay with current service if available
     for (int i = 0; i < 5; ++i) {

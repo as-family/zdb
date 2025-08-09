@@ -3,7 +3,6 @@
 #include <chrono>
 #include <stdexcept>
 #include <random>
-#include <cstdint>
 
 namespace zdb {
 

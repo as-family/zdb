@@ -6,6 +6,7 @@
 #include <cstddef>
 #include "common/Error.hpp"
 #include <expected>
+#include <optional>
 
 namespace zdb {
 

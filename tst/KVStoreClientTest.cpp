@@ -11,6 +11,7 @@
 #include <vector>
 #include "client/Config.hpp"
 #include <stdexcept>
+#include "client/KVRPCService.hpp"
 
 using zdb::Config;
 using zdb::InMemoryKVStore;

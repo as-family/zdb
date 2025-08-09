@@ -6,6 +6,7 @@
 #include "proto/kvStore.grpc.pb.h"
 #include "common/Error.hpp"
 #include <cstddef>
+#include <expected>
 
 namespace zdb {
 

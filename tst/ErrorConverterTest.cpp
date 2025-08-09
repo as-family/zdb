@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
+#include "common/Error.hpp"
 #include <expected>
 #include "common/ErrorConverter.hpp"
-#include "common/Error.hpp"
 #include <grpcpp/support/status.h>
 
 using zdb::ErrorCode;

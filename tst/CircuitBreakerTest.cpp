@@ -5,6 +5,7 @@
 #include <grpcpp/support/status.h>
 #include "common/CircuitBreaker.hpp"
 #include "common/RetryPolicy.hpp"
+#include <vector>
 
 using zdb::CircuitBreaker;
 using zdb::RetryPolicy;
@@ -292,7 +293,7 @@ TEST_F(CircuitBreakerTest, OpenConcurrentAccessSimulation) {
     }
     
     // All should return false (HalfOpen state)
-    for (bool result : results) {
+    for (const bool result : results) {
         EXPECT_FALSE(result);
     }
 }

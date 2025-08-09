@@ -8,6 +8,7 @@
 #include <grpcpp/grpcpp.h>
 #include "proto/kvStore.grpc.pb.h"
 #include <grpcpp/security/credentials.h>
+#include <expected>
 
 namespace zdb {
 

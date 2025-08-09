@@ -17,7 +17,6 @@
 
 using zdb::InMemoryKVStore;
 using zdb::KVStoreServiceImpl;
-using zdb::KVStoreServer;
 using zdb::KVRPCService;
 using zdb::RetryPolicy;
 using zdb::ErrorCode;
@@ -195,7 +194,7 @@ TEST_F(KVRPCServiceTest, AvailableTriggersReconnection) {
     EXPECT_FALSE(service.connected());
     
     // available() should attempt connection
-    bool available = service.available();
+    const bool available = service.available();
     EXPECT_TRUE(available);
     EXPECT_TRUE(service.connected());
 }

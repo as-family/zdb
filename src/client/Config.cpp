@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include "common/Error.hpp"
 #include <tuple>
+#include <expected>
 
 namespace zdb {
 
