@@ -6,6 +6,10 @@
 
 set -e
 
+# Always run from the repository root (the script's directory)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 # Show help if requested
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     cat << 'EOF'

@@ -1,4 +1,6 @@
 if(${BUILD_TESTING})
+  include(CTest)
+
   find_package(GTest CONFIG REQUIRED)
   include(GoogleTest)
 

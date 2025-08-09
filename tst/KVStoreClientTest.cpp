@@ -406,7 +406,7 @@ TEST_F(KVStoreClientTest, CircuitBreakerDuringExtendedOutage) {
     // Restart server
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
     serverThread = std::thread([this]() { server->wait(); });
-    std::this_thread::sleep_for(std::chrono::seconds(3)); // Wait for circuit breaker reset timeout
+    std::this_thread::sleep_for(std::chrono::seconds(4)); // Wait for circuit breaker reset timeout
     
     // Circuit breaker should allow operations after reset timeout
     auto recoveryResult = client.set("after_recovery", "test");

@@ -88,18 +88,8 @@ jobs:
 
     - name: Run cppcheck (complementary analysis)
       run: |
-        # Run cppcheck with focused checks that complement clang-tidy
-        # Focus on areas where cppcheck excels or provides different insights
-        cppcheck --enable=warning,style,performance,portability \
-          --std=c++23 \
-          --suppress=missingIncludeSystem \
-          --suppress=unusedFunction \
-          --suppress=unmatchedSuppression \
-          --inline-suppr \
-          --quiet \
-          --xml --xml-version=2 \
-          --max-configs=1 \
-          src/ 2> cppcheck-report.xml
+        chmod +x run-cppcheck.sh
+        ./run-cppcheck.sh "${{ steps.build-dir.outputs.build_dir }}" "${{github.workspace}}/cppcheck-report.xml"
 
     - name: Run enhanced clang-tidy analysis
       run: |
