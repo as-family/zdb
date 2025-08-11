@@ -12,7 +12,7 @@ class StorageEngine {
 public:
     virtual ~StorageEngine() = default;
 
-    virtual std::expected<std::optional<Value>, Error> get(const Key& key) = 0;
+    virtual std::expected<std::optional<Value>, Error> get(const Key& key) const = 0;
     virtual std::expected<void, Error> set(const Key& key, const Value& value) = 0;
     virtual std::expected<std::optional<Value>, Error> erase(const Key& key) = 0;
 };

@@ -27,6 +27,7 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/server/InMemoryKVStore.cpp
     ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp
     ${CMAKE_SOURCE_DIR}/src/client/Config.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
     ${CMAKE_SOURCE_DIR}/tst/InMemoryKVStoreTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/ExponentialBackoffTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/RetryPolicyTest.cpp

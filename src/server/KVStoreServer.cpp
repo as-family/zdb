@@ -19,14 +19,18 @@ grpc::Status KVStoreServiceImpl::get(
     const kvStore::GetRequest *request,
     kvStore::GetReply *reply) {
     std::ignore = context;
-    auto v = kvStore.get(request->key());
+    // Convert protobuf Key to C++ Key
+    Key key{request->key().data()};
+    auto v = kvStore.get(key);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
     }
     else if (!v->has_value()) {
         return toGrpcStatus(Error {ErrorCode::NotFound, "key not found"});
     } else {
-        reply->set_value(v->value());
+        // Convert C++ Value to protobuf Value
+        reply->mutable_value()->set_data(v->value().data);
+        reply->mutable_value()->set_version(v->value().version);
         return grpc::Status::OK;
     }
 }
@@ -37,7 +41,10 @@ grpc::Status KVStoreServiceImpl::set(
     kvStore::SetReply *reply) {
     std::ignore = context;
     std::ignore = reply;
-    auto v = kvStore.set(request->key(), request->value());
+    // Convert protobuf types to C++ types
+    Key key{request->key().data()};
+    Value value{request->value().data(), request->value().version()};
+    auto v = kvStore.set(key, value);
     return toGrpcStatus(v);
 }
 
@@ -46,14 +53,18 @@ grpc::Status KVStoreServiceImpl::erase(
     const kvStore::EraseRequest* request,
     kvStore::EraseReply* reply) {
     std::ignore = context;
-    auto v = kvStore.erase(request->key());
+    // Convert protobuf Key to C++ Key
+    Key key{request->key().data()};
+    auto v = kvStore.erase(key);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
     }
     else if (!v->has_value()) {
         return toGrpcStatus(Error {ErrorCode::NotFound, "key not found"});
     } else {
-        reply->set_value(v->value());
+        // Convert C++ Value to protobuf Value
+        reply->mutable_value()->set_data(v->value().data);
+        reply->mutable_value()->set_version(v->value().version);
         return grpc::Status::OK;
     }
 }

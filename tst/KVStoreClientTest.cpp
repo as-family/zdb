@@ -2,6 +2,7 @@
 #include "client/KVStoreClient.hpp"
 #include "common/RetryPolicy.hpp"
 #include "common/Error.hpp"
+#include "common/Types.hpp"
 #include "server/KVStoreServer.hpp"
 #include "server/InMemoryKVStore.hpp"
 #include <thread>
@@ -21,6 +22,8 @@ using zdb::KVStoreClient;
 using zdb::KVRPCService;
 using zdb::RetryPolicy;
 using zdb::ErrorCode;
+using zdb::Key;
+using zdb::Value;
 
 const std::string SERVER_ADDR = "localhost:50052";
 
@@ -58,17 +61,17 @@ TEST_F(KVStoreClientTest, ConnectsToServer) {
 TEST_F(KVStoreClientTest, SetAndGetSuccess) {
     Config c {addresses, policy};
     KVStoreClient client {c};
-    auto setResult = client.set("foo", "bar");
+    auto setResult = client.set(Key{"foo"}, Value{"bar"});
     EXPECT_TRUE(setResult.has_value());
-    auto getResult = client.get("foo");
+    auto getResult = client.get(Key{"foo"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), "bar");
+    EXPECT_EQ(getResult.value().data, "bar");
 }
 
 TEST_F(KVStoreClientTest, GetNonExistentKey) {
     Config c {addresses, policy};
     const KVStoreClient client {c};
-    auto getResult = client.get("missing");
+    auto getResult = client.get(Key{"missing"});
     EXPECT_FALSE(getResult.has_value());
     EXPECT_EQ(getResult.error().code, ErrorCode::NotFound);
 }
@@ -76,21 +79,21 @@ TEST_F(KVStoreClientTest, GetNonExistentKey) {
 TEST_F(KVStoreClientTest, OverwriteValue) {
     Config c {addresses, policy};
     KVStoreClient client {c};
-    EXPECT_TRUE(client.set("foo", "bar").has_value());
-    EXPECT_TRUE(client.set("foo", "baz").has_value());
-    auto getResult = client.get("foo");
+    EXPECT_TRUE(client.set(Key{"foo"}, Value{"bar"}).has_value());
+    EXPECT_TRUE(client.set(Key{"foo"}, Value{"baz"}).has_value());
+    auto getResult = client.get(Key{"foo"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), "baz");
+    EXPECT_EQ(getResult.value().data, "baz");
 }
 
 TEST_F(KVStoreClientTest, EraseExistingKey) {
     Config c {addresses, policy};
     KVStoreClient client {c};
-    EXPECT_TRUE(client.set("foo", "bar").has_value());
-    auto eraseResult = client.erase("foo");
+    EXPECT_TRUE(client.set(Key{"foo"}, Value{"bar"}).has_value());
+    auto eraseResult = client.erase(Key{"foo"});
     ASSERT_TRUE(eraseResult.has_value());
-    EXPECT_EQ(eraseResult.value(), "bar");
-    auto getResult = client.get("foo");
+    EXPECT_EQ(eraseResult.value().data, "bar");
+    auto getResult = client.get(Key{"foo"});
     EXPECT_FALSE(getResult.has_value());
     EXPECT_EQ(getResult.error().code, ErrorCode::NotFound);
 }
@@ -98,7 +101,7 @@ TEST_F(KVStoreClientTest, EraseExistingKey) {
 TEST_F(KVStoreClientTest, EraseNonExistentKey) {
     Config c {addresses, policy};
     KVStoreClient client {c};
-    auto eraseResult = client.erase("missing");
+    auto eraseResult = client.erase(Key{"missing"});
     EXPECT_FALSE(eraseResult.has_value());
     EXPECT_EQ(eraseResult.error().code, ErrorCode::NotFound);
 }
@@ -106,12 +109,12 @@ TEST_F(KVStoreClientTest, EraseNonExistentKey) {
 TEST_F(KVStoreClientTest, SizeReflectsSetAndErase) {
     Config c {addresses, policy};
     KVStoreClient client {c};
-    EXPECT_TRUE(client.set("a", "1").has_value());
-    EXPECT_TRUE(client.set("b", "2").has_value());
+    EXPECT_TRUE(client.set(Key{"a"}, Value{"1"}).has_value());
+    EXPECT_TRUE(client.set(Key{"b"}, Value{"2"}).has_value());
     auto sizeResult = client.size();
     ASSERT_TRUE(sizeResult.has_value());
     EXPECT_EQ(sizeResult.value(), 2);
-    EXPECT_EQ(client.erase("a"), "1");
+    EXPECT_EQ(client.erase(Key{"a"}), Value{"1"});
     auto sizeResult2 = client.size();
     ASSERT_TRUE(sizeResult2.has_value());
     EXPECT_EQ(sizeResult2.value(), 1);
@@ -130,7 +133,7 @@ TEST_F(KVStoreClientTest, SetFailureReturnsError) {
     KVStoreClient client {c};
     server->shutdown(); // Simulate server down
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    auto setResult = client.set("foo", "bar");
+    auto setResult = client.set(Key{"foo"}, Value{"bar"});
     EXPECT_FALSE(setResult.has_value());
     EXPECT_EQ(setResult.error().code, ErrorCode::AllServicesUnavailable);
 }
@@ -140,7 +143,7 @@ TEST_F(KVStoreClientTest, GetFailureReturnsError) {
     const KVStoreClient client {c};
     server->shutdown();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    auto getResult = client.get("foo");
+    auto getResult = client.get(Key{"foo"});
     EXPECT_FALSE(getResult.has_value());
     EXPECT_EQ(getResult.error().code, ErrorCode::AllServicesUnavailable);
 }
@@ -150,7 +153,7 @@ TEST_F(KVStoreClientTest, EraseFailureReturnsError) {
     KVStoreClient client {c};
     server->shutdown();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    auto eraseResult = client.erase("foo");
+    auto eraseResult = client.erase(Key{"foo"});
     EXPECT_FALSE(eraseResult.has_value());
     EXPECT_EQ(eraseResult.error().code, ErrorCode::AllServicesUnavailable);
 }
@@ -169,14 +172,14 @@ TEST_F(KVStoreClientTest, SizeFailureReturnsError) {
 TEST_F(KVStoreClientTest, EmptyKeySetGetErase) {
     Config c {addresses, policy};
     KVStoreClient client {c};
-    auto setResult = client.set("", "empty");
+    auto setResult = client.set(Key{""}, Value{"empty"});
     EXPECT_TRUE(setResult.has_value());
-    auto getResult = client.get("");
+    auto getResult = client.get(Key{""});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), "empty");
-    auto eraseResult = client.erase("");
+    EXPECT_EQ(getResult.value().data, "empty");
+    auto eraseResult = client.erase(Key{""});
     ASSERT_TRUE(eraseResult.has_value());
-    EXPECT_EQ(eraseResult.value(), "empty");
+    EXPECT_EQ(eraseResult.value().data, "empty");
 }
 
 // Edge case: large value
@@ -184,11 +187,11 @@ TEST_F(KVStoreClientTest, LargeValueSetGet) {
     Config c {addresses, policy};
     KVStoreClient client {c};
     const std::string largeValue(100000, 'x');
-    auto setResult = client.set("big", largeValue);
+    auto setResult = client.set(Key{"big"}, Value{largeValue});
     EXPECT_TRUE(setResult.has_value());
-    auto getResult = client.get("big");
+    auto getResult = client.get(Key{"big"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), largeValue);
+    EXPECT_EQ(getResult.value(), Value{largeValue});
 }
 
 // Test behavior with servicesToTry = 0 (should fail immediately)
@@ -198,7 +201,7 @@ TEST_F(KVStoreClientTest, ServicesToTryZeroFailsImmediately) {
     const KVStoreClient client{c};
     
     // Should fail immediately without trying any services
-    auto result = client.get("test");
+    auto result = client.get(Key{"test"});
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code, ErrorCode::AllServicesUnavailable);
 }
@@ -210,12 +213,12 @@ TEST_F(KVStoreClientTest, ServicesToTryOneTriesOnlyOnce) {
     KVStoreClient client{c};
     
     // Should work when service is available
-    auto setResult = client.set("test", "value");
+    auto setResult = client.set(Key{"test"}, Value{"value"});
     EXPECT_TRUE(setResult.has_value());
     
-    auto getResult = client.get("test");
+    auto getResult = client.get(Key{"test"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), "value");
+    EXPECT_EQ(getResult.value(), Value{"value"});
 }
 
 // Test with multiple services and different servicesToTry values
@@ -238,7 +241,7 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     Config c1{multiAddresses, oneServicePolicy};
     KVStoreClient client1{c1};
     
-    auto result1 = client1.set("key1", "value1");
+    auto result1 = client1.set(Key{"key1"}, Value{"value1"});
     EXPECT_TRUE(result1.has_value());
     
     // Test with servicesToTry = 2 (should work with up to 2 services)
@@ -246,7 +249,7 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     Config c2{multiAddresses, twoServicesPolicy};
     KVStoreClient client2{c2};
     
-    auto result2 = client2.set("key2", "value2");
+    auto result2 = client2.set(Key{"key2"}, Value{"value2"});
     EXPECT_TRUE(result2.has_value());
     
     // Cleanup second server
@@ -266,7 +269,7 @@ TEST_F(KVStoreClientTest, ServicesToTryWithServiceFailure) {
     KVStoreClient client{c};
     
     // First verify it works
-    auto setResult = client.set("test", "value");
+    auto setResult = client.set(Key{"test"}, Value{"value"});
     EXPECT_TRUE(setResult.has_value());
     
     // Now simulate service becoming unavailable by shutting down the server
@@ -277,7 +280,7 @@ TEST_F(KVStoreClientTest, ServicesToTryWithServiceFailure) {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // Should fail after trying available services (up to servicesToTry limit)
-    auto getResult = client.get("test");
+    auto getResult = client.get(Key{"test"});
     EXPECT_FALSE(getResult.has_value());
     EXPECT_EQ(getResult.error().code, ErrorCode::AllServicesUnavailable);
 }
@@ -290,12 +293,12 @@ TEST_F(KVStoreClientTest, ServicesToTryLargerThanAvailableServices) {
     KVStoreClient client{c};
     
     // Should still work - client will try available services
-    auto result = client.set("test", "value");
+    auto result = client.set(Key{"test"}, Value{"value"});
     EXPECT_TRUE(result.has_value());
     
-    auto getResult = client.get("test");
+    auto getResult = client.get(Key{"test"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), "value");
+    EXPECT_EQ(getResult.value(), Value{"value"});
 }
 
 // Test that Config properly exposes the RetryPolicy
@@ -321,7 +324,7 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
     KVStoreClient client{c};
     
     // First, verify client works normally
-    EXPECT_TRUE(client.set("test", "value").has_value());
+    EXPECT_TRUE(client.set(Key{"test"}, Value{"value"}).has_value());
     
     // Simulate server outage
     server->shutdown();
@@ -330,7 +333,7 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
     }
     
     // Operations should fail during outage
-    auto getResult = client.get("test");
+    auto getResult = client.get(Key{"test"});
     EXPECT_FALSE(getResult.has_value());
     EXPECT_EQ(getResult.error().code, ErrorCode::AllServicesUnavailable);
     
@@ -340,12 +343,12 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
     std::this_thread::sleep_for(std::chrono::milliseconds(600)); // Wait for circuit breaker reset
     
     // Client should recover and work again
-    auto setResult = client.set("recovery", "test");
+    auto setResult = client.set(Key{"recovery"}, Value{"test"});
     EXPECT_TRUE(setResult.has_value());
     
-    auto getRecoveryResult = client.get("recovery");
+    auto getRecoveryResult = client.get(Key{"recovery"});
     ASSERT_TRUE(getRecoveryResult.has_value());
-    EXPECT_EQ(getRecoveryResult.value(), "test");
+    EXPECT_EQ(getRecoveryResult.value(), Value{"test"});
 }
 
 // Test client behavior with multiple server restarts
@@ -358,7 +361,7 @@ TEST_F(KVStoreClientTest, MultipleServerRestarts) {
         // Set data before restart
         std::string key = "key" + std::to_string(restart);
         std::string value = "value" + std::to_string(restart);
-        EXPECT_TRUE(client.set(key, value).has_value());
+        EXPECT_TRUE(client.set(Key{key}, Value{value}).has_value());
         
         // Restart server
         server->shutdown();
@@ -367,7 +370,7 @@ TEST_F(KVStoreClientTest, MultipleServerRestarts) {
         }
         
         // Brief outage - operations should fail
-        auto failResult = client.get(key);
+        auto failResult = client.get(Key{key});
         EXPECT_FALSE(failResult.has_value());
         
         // Restart server
@@ -376,7 +379,7 @@ TEST_F(KVStoreClientTest, MultipleServerRestarts) {
         std::this_thread::sleep_for(std::chrono::milliseconds(400)); // Wait for circuit breaker reset
         
         // Client should recover
-        auto newSetResult = client.set("after_restart_" + std::to_string(restart), "recovery");
+        auto newSetResult = client.set(Key{"after_restart_" + std::to_string(restart)}, Value{"recovery"});
         EXPECT_TRUE(newSetResult.has_value());
     }
 }
@@ -389,7 +392,7 @@ TEST_F(KVStoreClientTest, CircuitBreakerDuringExtendedOutage) {
     KVStoreClient client{c};
     
     // Verify client works normally
-    EXPECT_TRUE(client.set("before_outage", "value").has_value());
+    EXPECT_TRUE(client.set(Key{"before_outage"}, Value{"value"}).has_value());
     
     // Simulate extended server outage
     server->shutdown();
@@ -399,7 +402,7 @@ TEST_F(KVStoreClientTest, CircuitBreakerDuringExtendedOutage) {
     
     // Multiple failed operations should trigger circuit breaker
     for (int i = 0; i < 5; ++i) {
-        auto result = client.get("test");
+        auto result = client.get(Key{"test"});
         EXPECT_FALSE(result.has_value());
         EXPECT_EQ(result.error().code, ErrorCode::AllServicesUnavailable);
     }
@@ -410,7 +413,7 @@ TEST_F(KVStoreClientTest, CircuitBreakerDuringExtendedOutage) {
     std::this_thread::sleep_for(std::chrono::seconds(4)); // Wait for circuit breaker reset timeout
     
     // Circuit breaker should allow operations after reset timeout
-    auto recoveryResult = client.set("after_recovery", "test");
+    auto recoveryResult = client.set(Key{"after_recovery"}, Value{"test"});
     EXPECT_TRUE(recoveryResult.has_value());
 }
 
@@ -437,7 +440,7 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     KVStoreClient client{c};
     
     // Verify client works with all services up
-    EXPECT_TRUE(client.set("multi_test", "value").has_value());
+    EXPECT_TRUE(client.set(Key{"multi_test"}, Value{"value"}).has_value());
     
     // Shutdown first server
     server->shutdown();
@@ -446,7 +449,7 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     }
     
     // Client should failover to remaining services
-    auto result1 = client.set("failover1", "test1");
+    auto result1 = client.set(Key{"failover1"}, Value{"test1"});
     EXPECT_TRUE(result1.has_value());
     
     // Shutdown second server
@@ -456,7 +459,7 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     }
     
     // Client should still work with one remaining service
-    auto result2 = client.set("failover2", "test2");
+    auto result2 = client.set(Key{"failover2"}, Value{"test2"});
     EXPECT_TRUE(result2.has_value());
     
     // Shutdown all servers
@@ -466,7 +469,7 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     }
     
     // Now all operations should fail
-    auto failResult = client.get("failover1");
+    auto failResult = client.get(Key{"failover1"});
     EXPECT_FALSE(failResult.has_value());
     EXPECT_EQ(failResult.error().code, ErrorCode::AllServicesUnavailable);
     
@@ -476,7 +479,7 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     std::this_thread::sleep_for(std::chrono::milliseconds(600)); // Wait for circuit breaker reset
     
     // Client should recover with the restarted service
-    auto recoveryResult = client.set("recovery", "success");
+    auto recoveryResult = client.set(Key{"recovery"}, Value{"success"});
     EXPECT_TRUE(recoveryResult.has_value());
     
     // Cleanup remaining servers
@@ -496,7 +499,7 @@ TEST_F(KVStoreClientTest, ExponentialBackoffDuringRetries) {
     KVStoreClient client{c};
     
     // Verify client works normally
-    EXPECT_TRUE(client.set("backoff_test", "value").has_value());
+    EXPECT_TRUE(client.set(Key{"backoff_test"}, Value{"value"}).has_value());
     
     // Shutdown server to trigger retries
     server->shutdown();
@@ -506,7 +509,7 @@ TEST_F(KVStoreClientTest, ExponentialBackoffDuringRetries) {
     
     // Measure time for failed operation (should include backoff delays)
     auto start = std::chrono::steady_clock::now();
-    auto result = client.get("backoff_test");
+    auto result = client.get(Key{"backoff_test"});
     auto end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     
@@ -523,7 +526,7 @@ TEST_F(KVStoreClientTest, DataPersistenceAfterServerRestart) {
     KVStoreClient client{c};
     
     // Set initial data
-    EXPECT_TRUE(client.set("persistent_key", "persistent_value").has_value());
+    EXPECT_TRUE(client.set(Key{"persistent_key"}, Value{"persistent_value"}).has_value());
     auto initialSize = client.size();
     ASSERT_TRUE(initialSize.has_value());
     EXPECT_EQ(initialSize.value(), 1);
@@ -534,7 +537,7 @@ TEST_F(KVStoreClientTest, DataPersistenceAfterServerRestart) {
     }
     
     // Operations fail during outage
-    EXPECT_FALSE(client.get("persistent_key").has_value());
+    EXPECT_FALSE(client.get(Key{"persistent_key"}).has_value());
     
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
     serverThread = std::thread([this]() { server->wait(); });
@@ -544,7 +547,7 @@ TEST_F(KVStoreClientTest, DataPersistenceAfterServerRestart) {
     ASSERT_TRUE(newSize.has_value());
     EXPECT_EQ(newSize.value(), 1);
     
-    EXPECT_TRUE(client.set("new_key", "new_value").has_value());
+    EXPECT_TRUE(client.set(Key{"new_key"}, Value{"new_value"}).has_value());
     auto finalSize = client.size();
     ASSERT_TRUE(finalSize.has_value());
     EXPECT_EQ(finalSize.value(), 2);
@@ -559,7 +562,7 @@ TEST_F(KVStoreClientTest, RapidServerCycling) {
     // Perform rapid server restarts
     for (int cycle = 0; cycle < 3; ++cycle) {
         // Quick operation
-        auto setResult = client.set("cycle_" + std::to_string(cycle), "value");
+        auto setResult = client.set(Key{"cycle_" + std::to_string(cycle)}, Value{"value"});
         EXPECT_TRUE(setResult.has_value());
         
         // Quick shutdown and restart
@@ -577,7 +580,7 @@ TEST_F(KVStoreClientTest, RapidServerCycling) {
     }
     
     // Final verification that client still works
-    auto finalResult = client.set("final_test", "success");
+    auto finalResult = client.set(Key{"final_test"}, Value{"success"});
     EXPECT_TRUE(finalResult.has_value());
 }
 
@@ -588,7 +591,7 @@ TEST_F(KVStoreClientTest, RetryExhaustionAllServicesDown) {
     KVStoreClient client{c};
     
     // Verify client works initially
-    EXPECT_TRUE(client.set("before_shutdown", "value").has_value());
+    EXPECT_TRUE(client.set(Key{"before_shutdown"}, Value{"value"}).has_value());
     
     // Shutdown server
     server->shutdown();
@@ -597,15 +600,15 @@ TEST_F(KVStoreClientTest, RetryExhaustionAllServicesDown) {
     }
     
     // Test different operations - all should fail after retry exhaustion
-    auto getResult = client.get("before_shutdown");
+    auto getResult = client.get(Key{"before_shutdown"});
     EXPECT_FALSE(getResult.has_value());
     EXPECT_EQ(getResult.error().code, ErrorCode::AllServicesUnavailable);
     
-    auto setResult = client.set("during_outage", "value");
+    auto setResult = client.set(Key{"during_outage"}, Value{"value"});
     EXPECT_FALSE(setResult.has_value());
     EXPECT_EQ(setResult.error().code, ErrorCode::AllServicesUnavailable);
     
-    auto eraseResult = client.erase("before_shutdown");
+    auto eraseResult = client.erase(Key{"before_shutdown"});
     EXPECT_FALSE(eraseResult.has_value());
     EXPECT_EQ(eraseResult.error().code, ErrorCode::AllServicesUnavailable);
     
@@ -624,31 +627,31 @@ TEST_F(KVStoreClientTest, IntermittentConnectivityResilience) {
     // Pattern: work -> fail -> work -> fail -> work
     
     // 1. Initial work
-    EXPECT_TRUE(client.set("intermittent1", "value1").has_value());
+    EXPECT_TRUE(client.set(Key{"intermittent1"}, Value{"value1"}).has_value());
     
     // 2. Simulate failure
     server->shutdown();
     if (serverThread.joinable()) {
         serverThread.join();
     }
-    EXPECT_FALSE(client.get("intermittent1").has_value());
+    EXPECT_FALSE(client.get(Key{"intermittent1"}).has_value());
     
     // 3. Restore service - wait much longer for circuit breaker reset
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
     serverThread = std::thread([this]() { server->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(200)); // Wait for circuit breaker reset
-    EXPECT_TRUE(client.set("intermittent2", "value2").has_value());
+    EXPECT_TRUE(client.set(Key{"intermittent2"}, Value{"value2"}).has_value());
     
     // 4. Another failure
     server->shutdown();
     if (serverThread.joinable()) {
         serverThread.join();
     }
-    EXPECT_FALSE(client.get("intermittent2").has_value());
+    EXPECT_FALSE(client.get(Key{"intermittent2"}).has_value());
     
     // 5. Final restore - wait much longer for circuit breaker reset
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
     serverThread = std::thread([this]() { server->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(200)); // Wait for circuit breaker reset
-    EXPECT_TRUE(client.set("intermittent3", "value3").has_value());
+    EXPECT_TRUE(client.set(Key{"intermittent3"}, Value{"value3"}).has_value());
 }

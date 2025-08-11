@@ -9,17 +9,18 @@
 #include <expected>
 #include <optional>
 #include "common/Error.hpp"
+#include "interface/StorageEngine.hpp"
 
 namespace zdb {
 
-class InMemoryKVStore {
+class InMemoryKVStore : public StorageEngine {
 public:
-    std::expected<std::optional<std::string>, Error> get(const std::string& key) const;
-    std::expected<void, Error> set(const std::string& key, const std::string& value);
-    std::expected<std::optional<std::string>, Error> erase(const std::string& key);
+    std::expected<std::optional<Value>, Error> get(const Key& key) const override;
+    std::expected<void, Error> set(const Key& key, const Value& value) override;
+    std::expected<std::optional<Value>, Error> erase(const Key& key) override;
     size_t size() const;
 private:
-    std::unordered_map<std::string, std::string> store;
+    std::unordered_map<Key, Value, KeyHash> store;
     mutable std::shared_mutex m;
 };
 

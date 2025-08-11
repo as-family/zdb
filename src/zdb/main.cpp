@@ -36,6 +36,6 @@ int main(int /*argc*/, char** /*argv*/) {
     const RetryPolicy policy {std::chrono::microseconds(100), std::chrono::milliseconds(500), std::chrono::seconds(5), 3, 3};
     Config config {peerAddresses, policy};
     const KVStoreClient client {config};
-    std::cout << client.get("hello").error().what << '\n';
+    // std::cout << client.get("hello").error().what << '\n';
     return 0;
 }

@@ -11,6 +11,7 @@
 #include "common/RetryPolicy.hpp"
 #include "client/Config.hpp"
 #include <spdlog/spdlog.h>
+#include "common/Types.hpp"
 
 namespace zdb {
 
@@ -19,9 +20,9 @@ public:
     explicit KVStoreClient(Config& c);
     KVStoreClient(const KVStoreClient&) = delete;
     KVStoreClient& operator=(const KVStoreClient&) = delete;
-    [[nodiscard]] std::expected<std::string, Error> get(const std::string& key) const;
-    std::expected<void, Error> set(const std::string& key, const std::string& value);
-    [[nodiscard]] std::expected<std::string, Error> erase(const std::string& key);
+    [[nodiscard]] std::expected<Value, Error> get(const Key& key) const;
+    std::expected<void, Error> set(const Key& key, const Value& value);
+    [[nodiscard]] std::expected<Value, Error> erase(const Key& key);
     [[nodiscard]] std::expected<size_t, Error> size() const;
 private:
     template<typename Req, typename Rep>

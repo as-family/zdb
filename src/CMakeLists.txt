@@ -43,6 +43,7 @@ target_sources(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src/common/Repeater.cpp
   ${CMAKE_SOURCE_DIR}/src/common/RetryPolicy.cpp
   ${CMAKE_SOURCE_DIR}/src/client/Config.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
 )
 
 target_link_libraries(zdb PRIVATE

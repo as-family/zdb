@@ -4,8 +4,11 @@
 #include <thread>
 #include <vector>
 #include "server/InMemoryKVStore.hpp"
+#include "common/Types.hpp"
 
 using zdb::InMemoryKVStore;
+using zdb::Key;
+using zdb::Value;
 
 class InMemoryKVStoreTest : public ::testing::Test {
 protected:
@@ -13,115 +16,115 @@ protected:
 };
 
 TEST_F(InMemoryKVStoreTest, SetAndGetBasic) {
-    auto setResult = kv.set("key1", "value1");
+    auto setResult = kv.set(Key{"key1"}, Value{"value1"});
     EXPECT_TRUE(setResult.has_value());
-    auto getResult = kv.get("key1");
+    auto getResult = kv.get(Key{"key1"});
     ASSERT_TRUE(getResult.has_value());
     ASSERT_TRUE(getResult.value().has_value());
-    EXPECT_EQ(getResult.value().value(), "value1");
+    EXPECT_EQ(getResult.value().value().data, "value1");
 }
 
 TEST_F(InMemoryKVStoreTest, GetNonExistentKey) {
-    auto getResult = kv.get("missing");
+    auto getResult = kv.get(Key{"missing"});
     ASSERT_TRUE(getResult.has_value());
     EXPECT_FALSE(getResult.value().has_value());
 }
 
 TEST_F(InMemoryKVStoreTest, OverwriteValue) {
-    auto result1 = kv.set("key1", "value1");
+    auto result1 = kv.set(Key{"key1"}, Value{"value1"});
     EXPECT_TRUE(result1.has_value());
-    auto result2 = kv.set("key1", "value2");
+    auto result2 = kv.set(Key{"key1"}, Value{"value2"});
     EXPECT_TRUE(result2.has_value());
-    auto getResult = kv.get("key1");
+    auto getResult = kv.get(Key{"key1"});
     ASSERT_TRUE(getResult.has_value());
     ASSERT_TRUE(getResult.value().has_value());
-    EXPECT_EQ(getResult.value().value(), "value2");
+    EXPECT_EQ(getResult.value().value().data, "value2");
 }
 
 TEST_F(InMemoryKVStoreTest, EraseExistingKey) {
-    auto setResult = kv.set("key1", "value1");
+    auto setResult = kv.set(Key{"key1"}, Value{"value1"});
     EXPECT_TRUE(setResult.has_value());
-    auto eraseResult = kv.erase("key1");
+    auto eraseResult = kv.erase(Key{"key1"});
     ASSERT_TRUE(eraseResult.has_value());
     ASSERT_TRUE(eraseResult.value().has_value());
-    EXPECT_EQ(eraseResult.value().value(), "value1");
-    auto getResult = kv.get("key1");
+    EXPECT_EQ(eraseResult.value().value().data, "value1");
+    auto getResult = kv.get(Key{"key1"});
     ASSERT_TRUE(getResult.has_value());
     EXPECT_FALSE(getResult.value().has_value());
 }
 
 TEST_F(InMemoryKVStoreTest, EraseNonExistentKey) {
-    auto eraseResult = kv.erase("missing");
+    auto eraseResult = kv.erase(Key{"missing"});
     ASSERT_TRUE(eraseResult.has_value());
     EXPECT_FALSE(eraseResult.value().has_value());
 }
 
 TEST_F(InMemoryKVStoreTest, SizeReflectsChanges) {
     EXPECT_EQ(kv.size(), 0);
-    auto result1 = kv.set("a", "1");
+    auto result1 = kv.set(Key{"a"}, Value{"1"});
     EXPECT_TRUE(result1.has_value());
-    auto result2 = kv.set("b", "2");
+    auto result2 = kv.set(Key{"b"}, Value{"2"});
     EXPECT_TRUE(result2.has_value());
     EXPECT_EQ(kv.size(), 2);
-    auto eraseResult1 = kv.erase("a");
+    auto eraseResult1 = kv.erase(Key{"a"});
     EXPECT_TRUE(eraseResult1.has_value());
     EXPECT_EQ(kv.size(), 1);
-    auto eraseResult2 = kv.erase("b");
+    auto eraseResult2 = kv.erase(Key{"b"});
     EXPECT_TRUE(eraseResult2.has_value());
     EXPECT_EQ(kv.size(), 0);
 }
 
 TEST_F(InMemoryKVStoreTest, EmptyValue) {
-    auto setResult = kv.set("empty", "");
+    auto setResult = kv.set(Key{"empty"}, Value{""});
     EXPECT_TRUE(setResult.has_value());
-    auto getResult = kv.get("empty");
+    auto getResult = kv.get(Key{"empty"});
     ASSERT_TRUE(getResult.has_value());
     ASSERT_TRUE(getResult.value().has_value());
-    EXPECT_EQ(getResult.value().value(), "");
+    EXPECT_EQ(getResult.value().value().data, "");
 }
 
 TEST_F(InMemoryKVStoreTest, LargeValue) {
     const std::string large(100000, 'x');
-    auto setResult = kv.set("bigkey", large);
+    auto setResult = kv.set(Key{"bigkey"}, Value{large});
     EXPECT_TRUE(setResult.has_value());
-    auto getResult = kv.get("bigkey");
+    auto getResult = kv.get(Key{"bigkey"});
     ASSERT_TRUE(getResult.has_value());
     ASSERT_TRUE(getResult.value().has_value());
-    EXPECT_EQ(getResult.value().value(), large);
+    EXPECT_EQ(getResult.value().value().data, large);
 }
 
 TEST_F(InMemoryKVStoreTest, SpecialCharactersInKey) {
-    auto setResult = kv.set("spécial!@#", "value");
+    auto setResult = kv.set(Key{"spécial!@#"}, Value{"value"});
     EXPECT_TRUE(setResult.has_value());
-    auto getResult = kv.get("spécial!@#");
+    auto getResult = kv.get(Key{"spécial!@#"});
     ASSERT_TRUE(getResult.has_value());
     ASSERT_TRUE(getResult.value().has_value());
-    EXPECT_EQ(getResult.value().value(), "value");
+    EXPECT_EQ(getResult.value().value().data, "value");
 }
 
 TEST_F(InMemoryKVStoreTest, MultipleKeys) {
-    auto result1 = kv.set("k1", "v1");
+    auto result1 = kv.set(Key{"k1"}, Value{"v1"});
     EXPECT_TRUE(result1.has_value());
-    auto result2 = kv.set("k2", "v2");
+    auto result2 = kv.set(Key{"k2"}, Value{"v2"});
     EXPECT_TRUE(result2.has_value());
-    auto result3 = kv.set("k3", "v3");
+    auto result3 = kv.set(Key{"k3"}, Value{"v3"});
     EXPECT_TRUE(result3.has_value());
     EXPECT_EQ(kv.size(), 3);
     
-    auto getResult1 = kv.get("k1");
+    auto getResult1 = kv.get(Key{"k1"});
     ASSERT_TRUE(getResult1.has_value());
     ASSERT_TRUE(getResult1.value().has_value());
-    EXPECT_EQ(getResult1.value().value(), "v1");
+    EXPECT_EQ(getResult1.value().value().data, "v1");
     
-    auto getResult2 = kv.get("k2");
+    auto getResult2 = kv.get(Key{"k2"});
     ASSERT_TRUE(getResult2.has_value());
     ASSERT_TRUE(getResult2.value().has_value());
-    EXPECT_EQ(getResult2.value().value(), "v2");
+    EXPECT_EQ(getResult2.value().value().data, "v2");
     
-    auto getResult3 = kv.get("k3");
+    auto getResult3 = kv.get(Key{"k3"});
     ASSERT_TRUE(getResult3.has_value());
     ASSERT_TRUE(getResult3.value().has_value());
-    EXPECT_EQ(getResult3.value().value(), "v3");
+    EXPECT_EQ(getResult3.value().value().data, "v3");
 }
 
 TEST_F(InMemoryKVStoreTest, ThreadSafetySetAndGet) {
@@ -129,7 +132,9 @@ TEST_F(InMemoryKVStoreTest, ThreadSafetySetAndGet) {
     std::atomic<bool> failed{false};
     auto writer = [&]() {
         for (int i = 0; i < n; ++i) {
-            auto res = kv.set("key" + std::to_string(i), std::to_string(i));
+            Key key{"key" + std::to_string(i)};
+            Value value{std::to_string(i)};
+            auto res = kv.set(key, value);
             if (!res.has_value()) {
                 failed = true;
             }
@@ -137,7 +142,8 @@ TEST_F(InMemoryKVStoreTest, ThreadSafetySetAndGet) {
     };
     auto reader = [&]() {
         for (int i = 0; i < n; ++i) {
-            auto res = kv.get("key" + std::to_string(i));
+            Key key{"key" + std::to_string(i)};
+            auto res = kv.get(key);
             if (!res.has_value()) {
                 failed = true;
             }
@@ -154,23 +160,27 @@ TEST_F(InMemoryKVStoreTest, ThreadSafetySetAndGet) {
     EXPECT_FALSE(failed);
     EXPECT_EQ(kv.size(), n);
     for (int i = 0; i < n; ++i) {
-        auto res = kv.get("key" + std::to_string(i));
+        Key key{"key" + std::to_string(i)};
+        auto res = kv.get(key);
         ASSERT_TRUE(res.has_value());
         ASSERT_TRUE(res.value().has_value());
-        EXPECT_EQ(res.value().value(), std::to_string(i));
+        EXPECT_EQ(res.value().value().data, std::to_string(i));
     }
 }
 
 TEST_F(InMemoryKVStoreTest, ThreadSafetyErase) {
     const int n = 100;
     for (int i = 0; i < n; ++i) {
-        auto setResult = kv.set("key" + std::to_string(i), "v");
+        Key key{"key" + std::to_string(i)};
+        Value value{"v"};
+        auto setResult = kv.set(key, value);
         EXPECT_TRUE(setResult.has_value());
     }
     std::atomic<int> erased{0};
     auto eraser = [&]() {
         for (int i = 0; i < n; ++i) {
-            auto res = kv.erase("key" + std::to_string(i));
+            Key key{"key" + std::to_string(i)};
+            auto res = kv.erase(key);
             if (res.has_value() && res.value().has_value()) {
                 ++erased;
             }
@@ -189,8 +199,9 @@ TEST_F(InMemoryKVStoreTest, StressTestConcurrentSetGetErase) {
     std::atomic<bool> failed{false};
     auto worker = [&](int /*tid*/) {
         for (int i = 0; i < n; ++i) {
-            const std::string key = "k" + std::to_string(i);
-            auto setResult = kv.set(key, std::to_string(i));
+            Key key{"k" + std::to_string(i)};
+            Value value{std::to_string(i)};
+            auto setResult = kv.set(key, value);
             if (!setResult.has_value()) {
                 failed = true;
             }

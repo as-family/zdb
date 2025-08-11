@@ -5,12 +5,13 @@
 #include <mutex>
 #include <cstddef>
 #include "common/Error.hpp"
+#include "common/Types.hpp"
 #include <expected>
 #include <optional>
 
 namespace zdb {
 
-std::expected<std::optional<std::string>, Error> InMemoryKVStore::get(const std::string& key) const {
+std::expected<std::optional<Value>, Error> InMemoryKVStore::get(const Key& key) const {
     const std::shared_lock lock {m};
     auto i = store.find(key);
     if (i == store.end()) {
@@ -19,13 +20,13 @@ std::expected<std::optional<std::string>, Error> InMemoryKVStore::get(const std:
     return i->second;
 }
 
-std::expected<void, Error> InMemoryKVStore::set(const std::string& key, const std::string& value) {
+std::expected<void, Error> InMemoryKVStore::set(const Key& key, const Value& value) {
     const std::unique_lock lock {m};
     store[key] = value;
     return {};
 }
 
-std::expected<std::optional<std::string>, Error> InMemoryKVStore::erase(const std::string& key) {
+std::expected<std::optional<Value>, Error> InMemoryKVStore::erase(const Key& key) {
     const std::unique_lock lock {m};
     auto i = store.find(key);
     if (i == store.end()) {

@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package zdb.kvStore;
+import "proto/types.proto";
 
 service KVStoreService {
     rpc get(GetRequest) returns (GetReply) {}
@@ -10,27 +11,27 @@ service KVStoreService {
 }
 
 message GetRequest {
-    string key = 1;
+    zdb.proto.Key key = 1;
 }
 
 message GetReply {
-    string value = 1;
+    zdb.proto.Value value = 1;
 }
 
 message SetRequest {
-    string key = 1;
-    string value = 2;
+    zdb.proto.Key key = 1;
+    zdb.proto.Value value = 2;
 }
 
 message SetReply {
 }
 
 message EraseRequest  {
-    string key = 1;
+    zdb.proto.Key key = 1;
 }
 
 message EraseReply {
-    string value = 1;
+    zdb.proto.Value value = 1;
 }
 
 message SizeRequest {
