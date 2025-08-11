@@ -28,17 +28,17 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp
     ${CMAKE_SOURCE_DIR}/src/client/Config.cpp
     ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
-    ${CMAKE_SOURCE_DIR}/tst/InMemoryKVStoreTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/ExponentialBackoffTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/RetryPolicyTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/FullJitterTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/ErrorConverterTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/RepeaterTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/CircuitBreakerTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/KVRPCServiceTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/KVStoreServerTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/KVStoreClientTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/ConfigTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/server/InMemoryKVStoreTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/ExponentialBackoffTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/RetryPolicyTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/FullJitterTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/ErrorConverterTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/RepeaterTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/CircuitBreakerTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/client/KVRPCServiceTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/server/KVStoreServerTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/client/KVStoreClientTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/client/ConfigTest.cpp
   )
 
   target_link_libraries(tests PRIVATE
