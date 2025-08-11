@@ -174,8 +174,20 @@ void KVTestFramework::InitializeServer() {
             server->wait(); 
         });
         
-        std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Allow server to start
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Allow server to start
         std::cout << "Server initialization complete" << std::endl;
+        
+        // Test server connectivity
+        try {
+            zdb::RetryPolicy test_policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 1, 1};
+            std::vector<std::string> test_addresses{server_address};
+            zdb::Config test_config(test_addresses, test_policy);
+            auto test_client = std::make_unique<zdb::KVStoreClient>(test_config);
+            auto test_result = test_client->get(zdb::Key{"test_connectivity"});
+            std::cout << "Server connectivity test completed" << std::endl;
+        } catch (const std::exception& e) {
+            std::cout << "Server connectivity test failed: " << e.what() << std::endl;
+        }
         
         // Create config for clients
         zdb::RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2};
@@ -375,7 +387,7 @@ ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<zdb::K
         // Select a random key (or just use first key for simple case)
         std::string key = keys[key_dist(gen)];
         
-        auto [new_version, success] = OnePut(client_id, *ck, key, version_map[key]);
+        auto [new_version, success] = OnePut(client_id, *ck, key, version_map[key], done);
         
         if (success) {
             result.nok++;
@@ -390,8 +402,14 @@ ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<zdb::K
 }
 
 std::pair<TVersion, bool> KVTestFramework::OnePut(int client_id, zdb::KVStoreClient& ck, 
-                                                 const std::string& key, TVersion version) {
+                                                 const std::string& key, TVersion version, 
+                                                 std::atomic<bool>& done) {
     while (true) {
+        // Check if we should stop due to test timeout
+        if (done.load()) {
+            return {0, false};
+        }
+        
         // Step 1: Get current version of the key
         TVersion current_version = 0;
         EntryV current_entry;
@@ -418,9 +436,13 @@ std::pair<TVersion, bool> KVTestFramework::OnePut(int client_id, zdb::KVStoreCli
             return {new_version, true};
         } else if (err == KVError::ErrVersion) {
             // Version conflict, retry the optimistic concurrency loop
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            if (done.load()) return {0, false};
             continue;
         } else if (err == KVError::ErrMaybe) {
-            // Network or temporary error, retry
+            // Network or temporary error, retry with backoff
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            if (done.load()) return {0, false};
             continue;
         } else {
             throw std::runtime_error("Unexpected error in OnePut: " + ErrorToString(err));

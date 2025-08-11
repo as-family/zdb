@@ -55,6 +55,12 @@ target_include_directories(protobuf_generated PRIVATE
   ${CMAKE_BINARY_DIR}
 )
 
+# Enable testing at the root level for proper CTest integration
+if(${BUILD_TESTING})
+  include(CTest)
+  enable_testing()
+endif()
+
 add_subdirectory(src)
 add_subdirectory(tst)
 

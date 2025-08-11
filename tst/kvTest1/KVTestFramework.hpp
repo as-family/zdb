@@ -222,7 +222,8 @@ public:
                              std::atomic<bool>& done);
     
     std::pair<TVersion, bool> OnePut(int client_id, zdb::KVStoreClient& ck, 
-                                    const std::string& key, TVersion version);
+                                    const std::string& key, TVersion version,
+                                    std::atomic<bool>& done);
     
     bool IsReliable() const { return reliable_network; }
     

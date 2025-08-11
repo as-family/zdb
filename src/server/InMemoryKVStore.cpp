@@ -24,12 +24,12 @@ std::expected<void, Error> InMemoryKVStore::set(const Key& key, const Value& val
     const std::unique_lock lock {m};
     auto i = store.find(key);
     if (i != store.end()) {
-        if (value.version < i->second.version) {
-            return std::unexpected {Error {ErrorCode::VersionMismatch, "Cannot overwrite with older version"}};
+        if (value.version != i->second.version) {
+            return std::unexpected {Error {ErrorCode::VersionMismatch, "Version mismatch: expected " + std::to_string(i->second.version) + " but got " + std::to_string(value.version)}};
         }
-        i->second = value;
+        i->second = Value{value.data, i->second.version + 1};
     } else {
-        store[key] = value;
+        store[key] = Value{value.data, 1};
     }
     return {};
 }
