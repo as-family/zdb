@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <thread>
 #include <cstdlib>
+#include <cstdio>
 #include "common/RetryPolicy.hpp"
 
 #ifdef __linux__
@@ -84,86 +85,65 @@ size_t PorcupineChecker::GetOperationCount() const {
     return operations.size();
 }
 
-std::map<std::string, std::vector<PorcupineOperation>> PorcupineChecker::PartitionByKey() const {
-    std::map<std::string, std::vector<PorcupineOperation>> partitioned;
-    std::lock_guard<std::mutex> lock(ops_mutex);
+nlohmann::json PorcupineChecker::OperationsToJson() const {
+    nlohmann::json j = nlohmann::json::array();
     
     for (const auto& op : operations) {
-        partitioned[op.input.key].push_back(op);
-    }
-    
-    return partitioned;
-}
-
-bool PorcupineChecker::CheckLinearizability(std::chrono::seconds timeout) {
-    auto partitioned = PartitionByKey();
-    
-    // Check each partition independently
-    for (const auto& [key, ops] : partitioned) {
-        if (!CheckPartitionLinearizability(ops, timeout)) {
-            std::cerr << "Linearizability check failed for key: " << key << std::endl;
-            return false;
-        }
-    }
-    return true;
-}
-
-std::pair<bool, KVState> PorcupineChecker::StepFunction(const KVState& state, 
-                                                       const KVInput& input, 
-                                                       const KVOutput& output) {
-    switch (input.op) {
-    case OpType::GET:
-        // For GET operations, check if output matches current state
-        return {output.value == state.value && output.version == state.version, state};
+        nlohmann::json op_json;
+        op_json["client_id"] = op.client_id;
+        op_json["call_time"] = op.call_time;
+        op_json["return_time"] = op.return_time;
         
-    case OpType::PUT:
-        if (state.version == input.version) {
-            // Version matches - PUT should succeed or return ErrMaybe
-            bool valid = (output.err == "OK" || output.err == "ErrMaybe");
-            if (valid && output.err == "OK") {
-                return {true, KVState(input.value, state.version + 1)};
-            } else {
-                // ErrMaybe - could have succeeded or not
-                return {true, state}; // Keep current state for ErrMaybe
-            }
-        } else {
-            // Version mismatch - should return ErrVersion or ErrMaybe
-            bool valid = (output.err == "ErrVersion" || output.err == "ErrMaybe");
-            return {valid, state};
-        }
+        op_json["input"]["op"] = static_cast<int>(op.input.op);
+        op_json["input"]["key"] = op.input.key;
+        op_json["input"]["value"] = op.input.value;
+        op_json["input"]["version"] = op.input.version;
+        
+        op_json["output"]["value"] = op.output.value;
+        op_json["output"]["version"] = op.output.version;
+        op_json["output"]["error"] = op.output.err;
+        
+        j.push_back(op_json);
     }
-    return {false, state};
+    
+    return j;
 }
 
-bool PorcupineChecker::CheckPartitionLinearizability(const std::vector<PorcupineOperation>& ops, 
-                                                    std::chrono::seconds /* timeout */) {
-    // Simplified linearizability checker
-    // For a full implementation, this would need a more sophisticated algorithm
-    // that explores all possible interleavings of concurrent operations
+bool PorcupineChecker::CallPorcupineChecker(const std::string& json_file) {
+    // Call the Go porcupine checker
+    std::string command = "/home/ahmed/ws/zdb/tst/kvTest1/porcupine_checker " + json_file;
+    int result = system(command.c_str());
+    return result == 0;
+}
+
+bool PorcupineChecker::CheckLinearizability(std::chrono::seconds /* timeout */) {
+    std::lock_guard<std::mutex> lock(ops_mutex);
     
-    if (ops.empty()) return true;
-    
-    // Sort operations by call time to get a sequential execution
-    auto sorted_ops = ops;
-    std::sort(sorted_ops.begin(), sorted_ops.end(), 
-              [](const PorcupineOperation& a, const PorcupineOperation& b) {
-                  return a.call_time < b.call_time;
-              });
-    
-    KVState current_state;
-    
-    for (const auto& op : sorted_ops) {
-        auto [valid, new_state] = StepFunction(current_state, op.input, op.output);
-        if (!valid) {
-            std::cerr << "Invalid operation: " << op.input.key 
-                      << " op=" << static_cast<int>(op.input.op) 
-                      << " err=" << op.output.err << std::endl;
-            return false;
-        }
-        current_state = new_state;
+    if (operations.empty()) {
+        return true;
     }
     
-    return true;
+    // Convert operations to JSON
+    auto json_ops = OperationsToJson();
+    
+    // Write to temporary file
+    std::string temp_file = "/tmp/porcupine_ops_" + std::to_string(getpid()) + ".json";
+    std::ofstream file(temp_file);
+    if (!file.is_open()) {
+        std::cerr << "Failed to create temporary file: " << temp_file << std::endl;
+        return false;
+    }
+    
+    file << json_ops.dump(2);
+    file.close();
+    
+    // Call Go porcupine checker
+    bool result = CallPorcupineChecker(temp_file);
+    
+    // Clean up temporary file
+    std::remove(temp_file.c_str());
+    
+    return result;
 }
 
 // KVTestFramework Implementation
@@ -181,16 +161,30 @@ KVTestFramework::~KVTestFramework() {
 }
 
 void KVTestFramework::InitializeServer() {
-    kvStore = std::make_unique<zdb::InMemoryKVStore>();
-    serviceImpl = std::make_unique<zdb::KVStoreServiceImpl>(*kvStore);
-    server = std::make_unique<zdb::KVStoreServer>(server_address, *serviceImpl);
-    serverThread = std::thread([this]() { server->wait(); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Allow server to start
+    std::cout << "Initializing server on " << server_address << std::endl;
     
-    // Create config for clients
-    zdb::RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2};
-    std::vector<std::string> addresses{server_address};
-    config = std::make_unique<zdb::Config>(addresses, policy);
+    try {
+        kvStore = std::make_unique<zdb::InMemoryKVStore>();
+        serviceImpl = std::make_unique<zdb::KVStoreServiceImpl>(*kvStore);
+        server = std::make_unique<zdb::KVStoreServer>(server_address, *serviceImpl);
+        
+        std::cout << "Server created, starting thread..." << std::endl;
+        serverThread = std::thread([this]() { 
+            std::cout << "Server thread started, calling wait()..." << std::endl;
+            server->wait(); 
+        });
+        
+        std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Allow server to start
+        std::cout << "Server initialization complete" << std::endl;
+        
+        // Create config for clients
+        zdb::RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2};
+        std::vector<std::string> addresses{server_address};
+        config = std::make_unique<zdb::Config>(addresses, policy);
+    } catch (const std::exception& e) {
+        std::cerr << "Server initialization failed: " << e.what() << std::endl;
+        throw;
+    }
 }
 
 std::unique_ptr<zdb::KVStoreClient> KVTestFramework::MakeClerk() {
@@ -398,41 +392,39 @@ ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<zdb::K
 std::pair<TVersion, bool> KVTestFramework::OnePut(int client_id, zdb::KVStoreClient& ck, 
                                                  const std::string& key, TVersion version) {
     while (true) {
-        EntryV entry{client_id, version};
-        auto err = PutJson(ck, key, entry, version, client_id);
+        // Step 1: Get current version of the key
+        TVersion current_version = 0;
+        EntryV current_entry;
+        bool key_exists = false;
         
-        if (err != KVError::OK && err != KVError::ErrVersion && 
-            err != KVError::ErrMaybe) {
-            throw std::runtime_error("Unexpected error: " + ErrorToString(err));
-        }
-        
-        // Check what's actually stored
-        EntryV stored_entry;
-        TVersion stored_version;
         try {
-            stored_version = GetJson(ck, key, client_id, stored_entry);
+            current_version = GetJson(ck, key, client_id, current_entry);
+            key_exists = true;
         } catch (const std::runtime_error& e) {
-            // Key doesn't exist yet, continue trying
-            if (err == KVError::ErrVersion) {
-                return {0, false};
-            }
-            continue;
+            // Key doesn't exist yet, start with version 0
+            key_exists = false;
+            current_version = 0;
         }
         
-        if (err == KVError::OK && stored_version == version + 1) {
-            // Verify it's our put
-            if (stored_entry.id != client_id || stored_entry.version != version) {
-                throw std::runtime_error("Wrong value stored - expected id=" + 
-                                        std::to_string(client_id) + " version=" + 
-                                        std::to_string(version) + " but got id=" + 
-                                        std::to_string(stored_entry.id) + " version=" + 
-                                        std::to_string(stored_entry.version));
-            }
-            return {stored_version, true};
+        // Step 2: Create new entry with incremented version
+        TVersion new_version = current_version + 1;
+        EntryV entry{client_id, version}; // version here is the logical version from test
+        
+        // Step 3: Try to put with the new version
+        auto err = PutJson(ck, key, entry, new_version, client_id);
+        
+        if (err == KVError::OK) {
+            // Success! Return the new version
+            return {new_version, true};
         } else if (err == KVError::ErrVersion) {
-            return {stored_version, false};
+            // Version conflict, retry the optimistic concurrency loop
+            continue;
+        } else if (err == KVError::ErrMaybe) {
+            // Network or temporary error, retry
+            continue;
+        } else {
+            throw std::runtime_error("Unexpected error in OnePut: " + ErrorToString(err));
         }
-        // Continue looping for ErrMaybe
     }
 }
 

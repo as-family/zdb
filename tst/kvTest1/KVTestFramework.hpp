@@ -163,11 +163,11 @@ public:
     size_t GetOperationCount() const;
     
 private:
-    bool CheckPartitionLinearizability(const std::vector<PorcupineOperation>& ops, 
-                                     std::chrono::seconds timeout);
-    std::pair<bool, KVState> StepFunction(const KVState& state, 
-                                         const KVInput& input, 
-                                         const KVOutput& output);
+    // Call external Go porcupine checker
+    bool CallPorcupineChecker(const std::string& json_file);
+    
+    // Convert operations to JSON format for Go checker
+    nlohmann::json OperationsToJson() const;
     std::map<std::string, std::vector<PorcupineOperation>> PartitionByKey() const;
 };
 
