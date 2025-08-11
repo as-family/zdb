@@ -131,13 +131,6 @@ This is an excellent idea for accountability and managing such an ambitious plan
     *   [ ] **Project:** Refactor `KvServiceImpl` to handle the new Protobuf messages, translating them to/from the internal `Key`/`Value` structs when calling the `StorageEngine` interface.
     *   [ ] **Git:** Commit the server-side refactoring. Verify CI passes.
 
-
-*   **Day 3 (Wednesday, Aug 13): Refactor Application & Client Layers**
-    *   [ ] **Project:** Refactor your `RaftNode` class (or `main.cpp` if `RaftNode` isn't fully fleshed out) to use **Dependency Injection**. It should hold a `std::unique_ptr<StorageEngine>` and receive it in its constructor.
-    *   [ ] **Project:** Refactor the `KvClient` to use the `Key` and `Value` structs in its public API, handling the translation to/from Protobuf internally.
-    *   [ ] **Project:** Update all integration and end-to-end tests to use the new client API.
-    *   [ ] **Git:** Commit the client-side and application-layer refactoring.
-
 *   **Day 4 (Thursday, Aug 14): Final Verification & Phase 2 Preparation**
     *   [ ] **Testing:**
         *   [ ] Run the **entire** test suite from a clean build.

@@ -3,9 +3,7 @@
 
 #include <string>
 #include <cstdint>
-
-// Forward declaration for protobuf types
-namespace zdb { namespace proto { class Key; class Value; } }
+#include "proto/types.pb.h"
 
 namespace zdb {
 
