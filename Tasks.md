@@ -117,48 +117,36 @@ This is an excellent idea for accountability and managing such an ambitious plan
 
 **Week 4: The Refactoring Capstone**
 *   **Day 1 (Monday, Aug 11): Define New Types & Abstract Interfaces**
-
-**Goal:** Lay the new foundation without breaking existing logic.
-*   [ ] **Project:** Create `src/db_types.h`. Define the concrete `struct MyDB::Key` (with `key_data` and `KeyHash`) and `struct MyDB::Value` (with `value_data` and `version`).
-*   [ ] **Project:** Update your `.proto` files. Create `KeyProto` and `ValueProto` messages and update `GetRequest`, `GetResponse`, and `SetRequest` to use them.
-*   [ ] **Project:** Run `protoc` to generate the new C++ Protobuf code.
-*   [ ] **Project:** Create `storage_engine.h`. Define the abstract `class StorageEngine` with pure virtual functions (`Set`, `Get`, `Delete`) that use `const Key&` and `const Value&`.
-*   [ ] **Git:** Create a new feature branch (e.g., `feature/storage-refactor`). Commit these changes. The project should still compile. Push to trigger CI.
+    *   [ ] **Project:** Create `src/db_types.h`. Define the concrete `struct MyDB::Key` (with `key_data` and `KeyHash`) and `struct MyDB::Value` (with `value_data` and `version`).
+    *   [ ] **Project:** Update your `.proto` files. Create `KeyProto` and `ValueProto` messages and update `GetRequest`, `GetResponse`, and `SetRequest` to use them.
+    *   [ ] **Project:** Run `protoc` to generate the new C++ Protobuf code.
+    *   [ ] **Project:** Create `storage_engine.h`. Define the abstract `class StorageEngine` with pure virtual functions (`Set`, `Get`, `Delete`) that use `const Key&` and `const Value&`.
+    *   [ ] **Git:** Create a new feature branch (e.g., `feature/storage-refactor`). Commit these changes. The project should still compile. Push to trigger CI.
 
 *   **Day 2 (Tuesday, Aug 12): Refactor Concrete Storage & Service Layer**
 
-**Goal:** Make the server-side conform to the new design.
-*   [ ] **Project:** Refactor `InMemoryKVStore` into `InMemoryStorageEngine`, making it inherit from `StorageEngine`.
-*   [ ] **Project:** Update its internal `std::unordered_map` to use `Key` and `Value` (`std::unordered_map<Key, Value, KeyHash>`).
-*   [ ] **Project:** Update the unit tests for `InMemoryStorageEngine` to use and verify the new `Key` and `Value` structs. Ensure they pass with TSan.
-*   [ ] **Project:** Refactor `KvServiceImpl` to handle the new Protobuf messages, translating them to/from the internal `Key`/`Value` structs when calling the `StorageEngine` interface.
-*   [ ] **Git:** Commit the server-side refactoring. Verify CI passes.
+    *   [ ] **Project:** Refactor `InMemoryKVStore` into `InMemoryStorageEngine`, making it inherit from `StorageEngine`.
+    *   [ ] **Project:** Update its internal `std::unordered_map` to use `Key` and `Value` (`std::unordered_map<Key, Value, KeyHash>`).
+    *   [ ] **Project:** Update the unit tests for `InMemoryStorageEngine` to use and verify the new `Key` and `Value` structs. Ensure they pass with TSan.
+    *   [ ] **Project:** Refactor `KvServiceImpl` to handle the new Protobuf messages, translating them to/from the internal `Key`/`Value` structs when calling the `StorageEngine` interface.
+    *   [ ] **Git:** Commit the server-side refactoring. Verify CI passes.
 
 
 *   **Day 3 (Wednesday, Aug 13): Refactor Application & Client Layers**
-
-**Goal:** Complete the refactoring end-to-end.
-*   [ ] **Project:** Refactor your `RaftNode` class (or `main.cpp` if `RaftNode` isn't fully fleshed out) to use **Dependency Injection**. It should hold a `std::unique_ptr<StorageEngine>` and receive it in its constructor.
-*   [ ] **Project:** Refactor the `KvClient` to use the `Key` and `Value` structs in its public API, handling the translation to/from Protobuf internally.
-*   [ ] **Project:** Update all integration and end-to-end tests to use the new client API.
-*   [ ] **Git:** Commit the client-side and application-layer refactoring.
-
----
+    *   [ ] **Project:** Refactor your `RaftNode` class (or `main.cpp` if `RaftNode` isn't fully fleshed out) to use **Dependency Injection**. It should hold a `std::unique_ptr<StorageEngine>` and receive it in its constructor.
+    *   [ ] **Project:** Refactor the `KvClient` to use the `Key` and `Value` structs in its public API, handling the translation to/from Protobuf internally.
+    *   [ ] **Project:** Update all integration and end-to-end tests to use the new client API.
+    *   [ ] **Git:** Commit the client-side and application-layer refactoring.
 
 *   **Day 4 (Thursday, Aug 14): Final Verification & Phase 2 Preparation**
-
-**Goal:** Lock in the Phase 1 achievement and prepare mentally for Raft.
-*   [ ] **Testing:**
-    *   [ ] Run the **entire** test suite from a clean build.
-    *   [ ] Run the entire suite again with **TSan enabled**. Fix any final race conditions or memory issues.
-*   [ ] **Git & CI/CD:**
-    *   [ ] Push all final changes to your feature branch.
-    *   [ ] Create a Pull Request. Verify your GitHub Actions pipeline passes all checks.
-    *   [ ] Review the PR (self-review or with Copilot) and **merge it into `master`**.
-*   [ ] **Documentation:**
-    *   [ ] Update your `README.md`. Add a section on "Architecture" that describes your use of abstract interfaces (`StorageEngine`) and concrete data types (`Key`, `Value`). This documents your achievement.
-*   [ ] **Study (Phase 2 Kickoff):**
-    *   [ ] **Action:** Begin your Raft study. Watch **LEC 3 (Primary-Backup)** and **LEC 4 (Consistency)** from the 6.824 schedule.
-    *   [ ] **Goal:** Your goal for today's study is to understand the *context* and *goals* of a system like Raft. You will dive into Raft itself on Saturday.
+    *   [ ] **Testing:**
+        *   [ ] Run the **entire** test suite from a clean build.
+        *   [ ] Run the entire suite again with **TSan enabled**. Fix any final race conditions or memory issues.
+    *   [ ] **Git & CI/CD:**
+        *   [ ] Push all final changes to your feature branch.
+        *   [ ] Create a Pull Request. Verify your GitHub Actions pipeline passes all checks.
+        *   [ ] Review the PR (self-review or with Copilot) and **merge it into `master`**.
+    *   [ ] **Documentation:**
+        *   [ ] Update your `README.md`. Add a section on "Architecture" that describes your use of abstract interfaces (`StorageEngine`) and concrete data types (`Key`, `Value`). This documents your achievement.
 
 ---

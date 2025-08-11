@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package zdb.protoError;
+package zdb.proto;
 
 enum ErrorCode {
     UNKNOWN = 0;

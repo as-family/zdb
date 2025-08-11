@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package zdb.proto;
+
+message Key {
+    string data = 1;
+}
+
+message Value {
+    string data = 1;
+    uint64 version = 2;
+}
