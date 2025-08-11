@@ -38,114 +38,6 @@ KVError ErrorFromZdb(const std::expected<void, zdb::Error>& result) {
     return ErrorFromZdb(result.error());
 }
 
-// ZdbKVServerAdapter Implementation (simplified)
-ZdbKVServerAdapter::ZdbKVServerAdapter() {
-    kvStore = std::make_unique<zdb::InMemoryKVStore>();
-}
-
-ZdbKVServerAdapter::~ZdbKVServerAdapter() {
-    Kill();
-}
-
-void ZdbKVServerAdapter::Get(const GetArgs& args, GetReply& reply) {
-    std::lock_guard<std::mutex> lock(store_mutex);
-    
-    if (killed) {
-        reply.err = KVError::ErrNoKey;
-        return;
-    }
-    
-    zdb::Key key{args.key};
-    auto result = kvStore->get(key);
-    
-    if (!result.has_value()) {
-        reply.err = ErrorFromZdb(result.error());
-        return;
-    }
-    
-    if (!result->has_value()) {
-        reply.err = KVError::ErrNoKey;
-        return;
-    }
-    
-    reply.value = result->value().data;
-    reply.version = result->value().version;
-    reply.err = KVError::OK;
-}
-
-void ZdbKVServerAdapter::Put(const PutArgs& args, PutReply& reply) {
-    std::lock_guard<std::mutex> lock(store_mutex);
-    
-    if (killed) {
-        reply.err = KVError::ErrNoKey;
-        return;
-    }
-    
-    zdb::Key key{args.key};
-    
-    // Get current value to check version
-    auto current = kvStore->get(key);
-    
-    if (!current.has_value()) {
-        reply.err = ErrorFromZdb(current.error());
-        return;
-    }
-    
-    if (current->has_value()) {
-        // Key exists - check version
-        if (current->value().version != args.version) {
-            reply.err = KVError::ErrVersion;
-            return;
-        }
-        // Version matches - update with incremented version
-        zdb::Value newValue{args.value, current->value().version + 1};
-        auto setResult = kvStore->set(key, newValue);
-        reply.err = ErrorFromZdb(setResult);
-    } else {
-        // Key doesn't exist
-        if (args.version == 0) {
-            // Create new key with version 1
-            zdb::Value newValue{args.value, 1};
-            auto setResult = kvStore->set(key, newValue);
-            reply.err = ErrorFromZdb(setResult);
-        } else {
-            // Trying to update non-existent key with non-zero version
-            reply.err = KVError::ErrNoKey;
-        }
-    }
-}
-
-void ZdbKVServerAdapter::Kill() {
-    std::lock_guard<std::mutex> lock(store_mutex);
-    killed = true;
-}
-
-// ZdbKVClerkAdapter Implementation (using server interface)
-ZdbKVClerkAdapter::ZdbKVClerkAdapter(KVServer* srv) : server(srv) {
-}
-
-std::tuple<std::string, TVersion, KVError> ZdbKVClerkAdapter::Get(const std::string& key) {
-    GetArgs args;
-    args.key = key;
-    
-    GetReply reply;
-    server->Get(args, reply);
-    
-    return {reply.value, reply.version, reply.err};
-}
-
-KVError ZdbKVClerkAdapter::Put(const std::string& key, const std::string& value, TVersion version) {
-    PutArgs args;
-    args.key = key;
-    args.value = value;
-    args.version = version;
-    
-    PutReply reply;
-    server->Put(args, reply);
-    
-    return reply.err;
-}
-
 // NetworkSimulator Implementation
 NetworkSimulator::NetworkSimulator(bool isReliable) 
     : reliable(isReliable), gen(rd()), dis(0.0, 1.0) {}
@@ -274,7 +166,7 @@ bool PorcupineChecker::CheckPartitionLinearizability(const std::vector<Porcupine
 
 // KVTestFramework Implementation
 KVTestFramework::KVTestFramework(bool reliable) 
-    : reliable_network(reliable), cleanup_done(false) {
+    : reliable_network(reliable), cleanup_done(false), server_address("localhost:50051") {
     
     network_sim = std::make_unique<NetworkSimulator>(reliable);
     porcupine_checker = std::make_unique<PorcupineChecker>();
@@ -286,31 +178,25 @@ KVTestFramework::~KVTestFramework() {
     }
 }
 
-void KVTestFramework::SetServerFactory(std::function<std::unique_ptr<KVServer>()> factory) {
-    server_factory = factory;
-}
-
-void KVTestFramework::SetClerkFactory(std::function<std::unique_ptr<KVClerk>(KVServer*)> factory) {
-    clerk_factory = factory;
-}
-
 void KVTestFramework::InitializeServer() {
-    if (!server_factory) {
-        throw std::runtime_error("Server factory not set. Call SetServerFactory() first.");
-    }
-    server = server_factory();
+    kvStore = std::make_unique<zdb::InMemoryKVStore>();
+    serviceImpl = std::make_unique<zdb::KVStoreServiceImpl>(*kvStore);
+    server = std::make_unique<zdb::KVStoreServer>(server_address, *serviceImpl);
+    serverThread = std::thread([this]() { server->wait(); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Allow server to start
+    
+    // Create config for clients
+    zdb::RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2};
+    std::vector<std::string> addresses{server_address};
+    config = std::make_unique<zdb::Config>(addresses, policy);
 }
 
-std::unique_ptr<KVClerk> KVTestFramework::MakeClerk() {
+std::unique_ptr<zdb::KVStoreClient> KVTestFramework::MakeClerk() {
     if (!server) {
         InitializeServer();
     }
     
-    if (!clerk_factory) {
-        throw std::runtime_error("Clerk factory not set. Call SetClerkFactory() first.");
-    }
-    
-    return clerk_factory(server.get());
+    return std::make_unique<zdb::KVStoreClient>(*config);
 }
 
 void KVTestFramework::Begin(const std::string& test_name) {
@@ -327,7 +213,10 @@ void KVTestFramework::Cleanup() {
     if (cleanup_done) return;
     
     if (server) {
-        server->Kill();
+        server->shutdown();
+        if (serverThread.joinable()) {
+            serverThread.join();
+        }
         server.reset();
     }
     
@@ -364,7 +253,7 @@ void KVTestFramework::CheckPorcupineT(std::chrono::seconds timeout) {
 std::vector<ClientResult> KVTestFramework::SpawnClientsAndWait(
     int num_clients, 
     std::chrono::seconds duration,
-    std::function<ClientResult(int, std::unique_ptr<KVClerk>&, std::atomic<bool>&)> client_fn) {
+    std::function<ClientResult(int, std::unique_ptr<zdb::KVStoreClient>&, std::atomic<bool>&)> client_fn) {
     
     std::vector<std::thread> threads;
     std::vector<std::promise<ClientResult>> promises(static_cast<size_t>(num_clients));
@@ -403,7 +292,7 @@ std::vector<ClientResult> KVTestFramework::SpawnClientsAndWait(
 }
 
 void KVTestFramework::RunClient(int client_id, 
-                               std::function<ClientResult(int, std::unique_ptr<KVClerk>&, std::atomic<bool>&)> client_fn,
+                               std::function<ClientResult(int, std::unique_ptr<zdb::KVStoreClient>&, std::atomic<bool>&)> client_fn,
                                std::atomic<bool>& done,
                                std::promise<ClientResult>& result_promise) {
     try {
@@ -461,7 +350,7 @@ void KVTestFramework::CheckPutConcurrent(const std::string& key,
     }
 }
 
-ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<KVClerk>& ck, 
+ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<zdb::KVStoreClient>& ck, 
                                           const std::vector<std::string>& keys, 
                                           std::atomic<bool>& done) {
     ClientResult result;
@@ -494,7 +383,7 @@ ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<KVCler
     return result;
 }
 
-std::pair<TVersion, bool> KVTestFramework::OnePut(int client_id, KVClerk& ck, 
+std::pair<TVersion, bool> KVTestFramework::OnePut(int client_id, zdb::KVStoreClient& ck, 
                                                  const std::string& key, TVersion version) {
     while (true) {
         EntryV entry{client_id, version};
