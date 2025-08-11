@@ -13,6 +13,7 @@ enum class ErrorCode : char {
     InvalidArg,
     ServiceTemporarilyUnavailable,
     AllServicesUnavailable,
+    VersionMismatch,
     Unknown
 };
 

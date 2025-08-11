@@ -14,6 +14,12 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
             return grpc::StatusCode::NOT_FOUND;
         case ErrorCode::InvalidArg:
             return grpc::StatusCode::INVALID_ARGUMENT;
+        case ErrorCode::VersionMismatch:
+            return grpc::StatusCode::ABORTED;
+        case ErrorCode::ServiceTemporarilyUnavailable:
+            return grpc::StatusCode::UNAVAILABLE;
+        case ErrorCode::AllServicesUnavailable:
+            return grpc::StatusCode::UNAVAILABLE;
         default:
             return grpc::StatusCode::UNKNOWN;
     }
@@ -39,6 +45,9 @@ Error toError(const grpc::Status& status) {
             break;
         case grpc::StatusCode::INVALID_ARGUMENT:
             code = ErrorCode::InvalidArg;
+            break;
+        case grpc::StatusCode::ABORTED:
+            code = ErrorCode::VersionMismatch;
             break;
         case grpc::StatusCode::UNAVAILABLE:
             code = ErrorCode::ServiceTemporarilyUnavailable;

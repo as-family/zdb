@@ -19,6 +19,8 @@ KVError ErrorFromZdb(const zdb::Error& err) {
             return KVError::ErrNoKey;
         case zdb::ErrorCode::InvalidArg:
             return KVError::ErrVersion;
+        case zdb::ErrorCode::VersionMismatch:
+            return KVError::ErrVersion;
         default:
             return KVError::ErrMaybe;
     }
@@ -203,6 +205,11 @@ void KVTestFramework::Begin(const std::string& test_name) {
     current_test_name = test_name;
     std::cout << "Starting test: " << test_name << std::endl;
     
+    // Initialize server if not already done
+    if (!server) {
+        InitializeServer();
+    }
+    
     // Clear any previous porcupine operations
     if (porcupine_checker) {
         porcupine_checker->Clear();
@@ -254,6 +261,11 @@ std::vector<ClientResult> KVTestFramework::SpawnClientsAndWait(
     int num_clients, 
     std::chrono::seconds duration,
     std::function<ClientResult(int, std::unique_ptr<zdb::KVStoreClient>&, std::atomic<bool>&)> client_fn) {
+    
+    // Initialize server before starting any client threads to avoid race condition
+    if (!server) {
+        InitializeServer();
+    }
     
     std::vector<std::thread> threads;
     std::vector<std::promise<ClientResult>> promises(static_cast<size_t>(num_clients));
