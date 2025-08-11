@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <thread>
 #include <cstdlib>
+#include "common/RetryPolicy.hpp"
 
 #ifdef __linux__
 #include <fstream>
@@ -11,9 +12,143 @@
 #include <sys/resource.h>
 #endif
 
+// Helper function implementations
+KVError ErrorFromZdb(const zdb::Error& err) {
+    switch (err.code) {
+        case zdb::ErrorCode::NotFound:
+            return KVError::ErrNoKey;
+        case zdb::ErrorCode::InvalidArg:
+            return KVError::ErrVersion;
+        default:
+            return KVError::ErrMaybe;
+    }
+}
+
+KVError ErrorFromZdb(const std::expected<zdb::Value, zdb::Error>& result) {
+    if (result.has_value()) {
+        return KVError::OK;
+    }
+    return ErrorFromZdb(result.error());
+}
+
+KVError ErrorFromZdb(const std::expected<void, zdb::Error>& result) {
+    if (result.has_value()) {
+        return KVError::OK;
+    }
+    return ErrorFromZdb(result.error());
+}
+
+// ZdbKVServerAdapter Implementation (simplified)
+ZdbKVServerAdapter::ZdbKVServerAdapter() {
+    kvStore = std::make_unique<zdb::InMemoryKVStore>();
+}
+
+ZdbKVServerAdapter::~ZdbKVServerAdapter() {
+    Kill();
+}
+
+void ZdbKVServerAdapter::Get(const GetArgs& args, GetReply& reply) {
+    std::lock_guard<std::mutex> lock(store_mutex);
+    
+    if (killed) {
+        reply.err = KVError::ErrNoKey;
+        return;
+    }
+    
+    zdb::Key key{args.key};
+    auto result = kvStore->get(key);
+    
+    if (!result.has_value()) {
+        reply.err = ErrorFromZdb(result.error());
+        return;
+    }
+    
+    if (!result->has_value()) {
+        reply.err = KVError::ErrNoKey;
+        return;
+    }
+    
+    reply.value = result->value().data;
+    reply.version = result->value().version;
+    reply.err = KVError::OK;
+}
+
+void ZdbKVServerAdapter::Put(const PutArgs& args, PutReply& reply) {
+    std::lock_guard<std::mutex> lock(store_mutex);
+    
+    if (killed) {
+        reply.err = KVError::ErrNoKey;
+        return;
+    }
+    
+    zdb::Key key{args.key};
+    
+    // Get current value to check version
+    auto current = kvStore->get(key);
+    
+    if (!current.has_value()) {
+        reply.err = ErrorFromZdb(current.error());
+        return;
+    }
+    
+    if (current->has_value()) {
+        // Key exists - check version
+        if (current->value().version != args.version) {
+            reply.err = KVError::ErrVersion;
+            return;
+        }
+        // Version matches - update with incremented version
+        zdb::Value newValue{args.value, current->value().version + 1};
+        auto setResult = kvStore->set(key, newValue);
+        reply.err = ErrorFromZdb(setResult);
+    } else {
+        // Key doesn't exist
+        if (args.version == 0) {
+            // Create new key with version 1
+            zdb::Value newValue{args.value, 1};
+            auto setResult = kvStore->set(key, newValue);
+            reply.err = ErrorFromZdb(setResult);
+        } else {
+            // Trying to update non-existent key with non-zero version
+            reply.err = KVError::ErrNoKey;
+        }
+    }
+}
+
+void ZdbKVServerAdapter::Kill() {
+    std::lock_guard<std::mutex> lock(store_mutex);
+    killed = true;
+}
+
+// ZdbKVClerkAdapter Implementation (using server interface)
+ZdbKVClerkAdapter::ZdbKVClerkAdapter(KVServer* srv) : server(srv) {
+}
+
+std::tuple<std::string, TVersion, KVError> ZdbKVClerkAdapter::Get(const std::string& key) {
+    GetArgs args;
+    args.key = key;
+    
+    GetReply reply;
+    server->Get(args, reply);
+    
+    return {reply.value, reply.version, reply.err};
+}
+
+KVError ZdbKVClerkAdapter::Put(const std::string& key, const std::string& value, TVersion version) {
+    PutArgs args;
+    args.key = key;
+    args.value = value;
+    args.version = version;
+    
+    PutReply reply;
+    server->Put(args, reply);
+    
+    return reply.err;
+}
+
 // NetworkSimulator Implementation
-NetworkSimulator::NetworkSimulator(bool reliable) 
-    : reliable(reliable), gen(rd()), dis(0.0, 1.0) {}
+NetworkSimulator::NetworkSimulator(bool isReliable) 
+    : reliable(isReliable), gen(rd()), dis(0.0, 1.0) {}
 
 bool NetworkSimulator::ShouldDropMessage() const {
     return !reliable && dis(gen) < drop_rate;
@@ -107,7 +242,7 @@ std::pair<bool, KVState> PorcupineChecker::StepFunction(const KVState& state,
 }
 
 bool PorcupineChecker::CheckPartitionLinearizability(const std::vector<PorcupineOperation>& ops, 
-                                                    std::chrono::seconds timeout) {
+                                                    std::chrono::seconds /* timeout */) {
     // Simplified linearizability checker
     // For a full implementation, this would need a more sophisticated algorithm
     // that explores all possible interleavings of concurrent operations
@@ -232,7 +367,7 @@ std::vector<ClientResult> KVTestFramework::SpawnClientsAndWait(
     std::function<ClientResult(int, std::unique_ptr<KVClerk>&, std::atomic<bool>&)> client_fn) {
     
     std::vector<std::thread> threads;
-    std::vector<std::promise<ClientResult>> promises(num_clients);
+    std::vector<std::promise<ClientResult>> promises(static_cast<size_t>(num_clients));
     std::vector<std::future<ClientResult>> futures;
     std::atomic<bool> done{false};
     
@@ -244,7 +379,7 @@ std::vector<ClientResult> KVTestFramework::SpawnClientsAndWait(
     // Start all client threads
     for (int i = 0; i < num_clients; i++) {
         threads.emplace_back(&KVTestFramework::RunClient, this, i, client_fn, 
-                           std::ref(done), std::ref(promises[i]));
+                           std::ref(done), std::ref(promises[static_cast<size_t>(i)]));
     }
     
     // Wait for specified duration
@@ -339,7 +474,7 @@ ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<KVCler
     
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> key_dist(0, keys.size() - 1);
+    std::uniform_int_distribution<size_t> key_dist(0, keys.size() - 1);
     
     while (!done.load()) {
         // Select a random key (or just use first key for simple case)
@@ -422,10 +557,10 @@ std::string KVTestFramework::RandValue(int length) {
     std::uniform_int_distribution<> dis(0, charset.length() - 1);
     
     std::string result;
-    result.reserve(length);
+    result.reserve(static_cast<size_t>(length));
     
     for (int i = 0; i < length; ++i) {
-        result += charset[dis(gen)];
+        result += charset[static_cast<size_t>(dis(gen))];
     }
     
     return result;

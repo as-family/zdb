@@ -14,6 +14,15 @@
 #include <random>
 #include <fstream>
 #include <sstream>
+#include <future>
+
+// Include current project headers
+#include "client/KVStoreClient.hpp"
+#include "server/KVStoreServer.hpp"
+#include "server/InMemoryKVStore.hpp"
+#include "common/Types.hpp"
+#include "common/Error.hpp"
+#include "client/Config.hpp"
 
 // Forward declarations
 class KVServer;
@@ -21,13 +30,18 @@ class KVClerk;
 class NetworkSimulator;
 class PorcupineChecker;
 
-// Error types matching the Go implementation
+// Error types matching the current project
 enum class KVError {
     OK,
     ErrNoKey,
     ErrVersion,
     ErrMaybe  // Client-side only
 };
+
+// Helper function to convert from current project errors
+KVError ErrorFromZdb(const zdb::Error& err);
+KVError ErrorFromZdb(const std::expected<zdb::Value, zdb::Error>& result);
+KVError ErrorFromZdb(const std::expected<void, zdb::Error>& result);
 
 // Version type
 using TVersion = uint64_t;
@@ -124,14 +138,14 @@ private:
     double duplicate_rate = 0.05; // 5% message duplication rate
     
 public:
-    NetworkSimulator(bool reliable = true);
+    NetworkSimulator(bool isReliable = true);
     
     bool ShouldDropMessage() const;
     bool ShouldDelayMessage() const;
     bool ShouldDuplicateMessage() const;
     std::chrono::milliseconds GetRandomDelay() const;
     
-    void SetReliable(bool reliable) { this->reliable = reliable; }
+    void SetReliable(bool isReliable) { this->reliable = isReliable; }
     bool IsReliable() const { return reliable; }
 };
 
@@ -159,7 +173,7 @@ private:
     std::map<std::string, std::vector<PorcupineOperation>> PartitionByKey() const;
 };
 
-// Simple KV Server interface (to be implemented by user)
+// Simple KV Server interface (adapter for current project)
 class KVServer {
 public:
     virtual ~KVServer() = default;
@@ -168,12 +182,39 @@ public:
     virtual void Kill() = 0;
 };
 
-// Simple KV Clerk interface (to be implemented by user)
+// Adapter for current project's server (simplified for direct access)
+class ZdbKVServerAdapter : public KVServer {
+private:
+    std::unique_ptr<zdb::InMemoryKVStore> kvStore;
+    bool killed = false;
+    mutable std::mutex store_mutex; // Add thread safety
+    
+public:
+    ZdbKVServerAdapter();
+    ~ZdbKVServerAdapter();
+    void Get(const GetArgs& args, GetReply& reply) override;
+    void Put(const PutArgs& args, PutReply& reply) override;
+    void Kill() override;
+    zdb::InMemoryKVStore* GetKVStore() { return kvStore.get(); }
+};
+
+// Simple KV Clerk interface (adapter for current project)
 class KVClerk {
 public:
     virtual ~KVClerk() = default;
     virtual std::tuple<std::string, TVersion, KVError> Get(const std::string& key) = 0;
     virtual KVError Put(const std::string& key, const std::string& value, TVersion version) = 0;
+};
+
+// Adapter for current project's client
+class ZdbKVClerkAdapter : public KVClerk {
+private:
+    KVServer* server; // Use server interface directly for thread safety
+    
+public:
+    ZdbKVClerkAdapter(KVServer* srv);
+    std::tuple<std::string, TVersion, KVError> Get(const std::string& key) override;
+    KVError Put(const std::string& key, const std::string& value, TVersion version) override;
 };
 
 // Main test framework

@@ -2,6 +2,7 @@ if(${BUILD_TESTING})
   include(CTest)
 
   find_package(GTest CONFIG REQUIRED)
+  find_package(nlohmann_json CONFIG REQUIRED)
   include(GoogleTest)
 
   add_executable(tests)
@@ -50,6 +51,7 @@ if(${BUILD_TESTING})
     protobuf::libprotobuf
     protobuf_generated
     spdlog::spdlog
+    nlohmann_json::nlohmann_json
   )
 
   target_compile_options(tests PRIVATE
