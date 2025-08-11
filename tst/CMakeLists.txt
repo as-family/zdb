@@ -39,6 +39,8 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/tst/server/KVStoreServerTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/client/KVStoreClientTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/client/ConfigTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTestFramework.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/TestKVServer.cpp
   )
 
   target_link_libraries(tests PRIVATE

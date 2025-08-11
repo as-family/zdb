@@ -5,7 +5,8 @@
   "dependencies": [
     "grpc",
     "spdlog",
-    "gtest"
+    "gtest",
+    "nlohmann-json"
   ],
   "builtin-baseline": "b0190b451303865b89ced9767caaab140c39f980"
 }
