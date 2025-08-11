@@ -24,15 +24,14 @@ find_package(gRPC CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
 add_library(protobuf_generated STATIC)
-target_sources(protobuf_generated PRIVATE
-  ${CMAKE_SOURCE_DIR}/proto/error.proto
-  ${CMAKE_SOURCE_DIR}/proto/kvStore.proto
-  ${CMAKE_SOURCE_DIR}/proto/peer.proto
-)
 
 # Generate protobuf C++ files
 protobuf_generate(
   TARGET protobuf_generated
+  PROTOS
+    ${CMAKE_SOURCE_DIR}/proto/types.proto
+    ${CMAKE_SOURCE_DIR}/proto/error.proto
+    ${CMAKE_SOURCE_DIR}/proto/kvStore.proto
 )
 
 # Generate gRPC C++ files
@@ -42,6 +41,8 @@ protobuf_generate(
   PLUGIN protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
   PLUGIN_OPTIONS generate_mock_code=true
   GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
+  PROTOS
+    ${CMAKE_SOURCE_DIR}/proto/kvStore.proto
 )
 
 target_link_libraries(protobuf_generated PRIVATE

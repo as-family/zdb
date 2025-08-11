@@ -5,6 +5,7 @@
 #include "proto/kvStore.pb.h"
 #include "proto/kvStore.grpc.pb.h"
 #include "common/Error.hpp"
+#include "common/Types.hpp"
 #include <cstddef>
 #include <expected>
 
@@ -12,9 +13,9 @@ namespace zdb {
 
 KVStoreClient::KVStoreClient(Config& c) : config(c) {}
 
-std::expected<std::string, Error> KVStoreClient::get(const std::string& key) const {
+std::expected<Value, Error> KVStoreClient::get(const Key& key) const {
     kvStore::GetRequest request;
-    request.set_key(key);
+    request.mutable_key()->set_data(key.data);
     kvStore::GetReply reply;
     auto t = call(
         &kvStore::KVStoreService::Stub::get,
@@ -24,15 +25,16 @@ std::expected<std::string, Error> KVStoreClient::get(const std::string& key) con
     if (t.has_value()) {
         return reply.value();
     } else {
-        spdlog::error("Failed to get value for key '{}': {}", key, t.error().what);
+        spdlog::error("Failed to get value for key '{}': {}", key.data, t.error().what);
         return std::unexpected {t.error()};
     }
 }
 
-std::expected<void, Error> KVStoreClient::set(const std::string& key, const std::string& value) {
+std::expected<void, Error> KVStoreClient::set(const Key& key, const Value& value) {
     kvStore::SetRequest request;
-    request.set_key(key);
-    request.set_value(value);
+    request.mutable_key()->set_data(key.data);
+    request.mutable_value()->set_data(value.data);
+    request.mutable_value()->set_version(value.version);
     kvStore::SetReply reply;
     auto t = call(
         &kvStore::KVStoreService::Stub::set,
@@ -42,14 +44,14 @@ std::expected<void, Error> KVStoreClient::set(const std::string& key, const std:
     if (t.has_value()) {
         return {};
     } else {
-        spdlog::error("Failed to set value for key '{}': {}", key, t.error().what);
+        spdlog::error("Failed to set value for key '{}': {}", key.data, t.error().what);
         return std::unexpected {t.error()};
     }
 }
 
-std::expected<std::string, Error> KVStoreClient::erase(const std::string& key) {
+std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
     kvStore::EraseRequest request;
-    request.set_key(key);
+    request.mutable_key()->set_data(key.data);
     kvStore::EraseReply reply;
     auto t = call(
         &kvStore::KVStoreService::Stub::erase,
@@ -59,7 +61,7 @@ std::expected<std::string, Error> KVStoreClient::erase(const std::string& key) {
     if (t.has_value()) {
         return reply.value();
     } else {
-        spdlog::error("Failed to erase value for key '{}': {}", key, t.error().what);
+        spdlog::error("Failed to erase value for key '{}': {}", key.data, t.error().what);
         return std::unexpected {t.error()};
     }
 }

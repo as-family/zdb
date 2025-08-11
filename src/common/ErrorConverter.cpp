@@ -20,8 +20,8 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
 }
 
 grpc::Status toGrpcStatus(const Error& error) {
-    protoError::ErrorDetails details;
-    details.set_code(static_cast<protoError::ErrorCode>(error.code));
+    proto::ErrorDetails details;
+    details.set_code(static_cast<proto::ErrorCode>(error.code));
     details.set_what(error.what);
     google::protobuf::Any anyDetail;
     anyDetail.PackFrom(details);

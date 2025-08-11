@@ -14,7 +14,10 @@
 #include <memory>
 #include <proto/kvStore.pb.h>
 #include <proto/kvStore.grpc.pb.h>
+#include <proto/types.pb.h>
+#include "common/Types.hpp"
 
+using zdb::Value;
 using zdb::InMemoryKVStore;
 using zdb::KVStoreServiceImpl;
 using zdb::KVRPCService;
@@ -90,7 +93,7 @@ TEST_F(KVRPCServiceTest, availableReflectsCircuitBreaker) {
     EXPECT_TRUE(service.available());
     testServer->shutdown(); // Simulate server failure
     GetRequest req;
-    req.set_key("key");
+    req.mutable_key()->set_data("key");
     GetReply rep;
     EXPECT_FALSE(service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep).has_value());
     EXPECT_FALSE(service.available());
@@ -101,17 +104,17 @@ TEST_F(KVRPCServiceTest, CallGetSuccess) {
     KVRPCService service{address, policy};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest setReq;
-    setReq.set_key("foo");
-    setReq.set_value("bar");
+    setReq.mutable_key()->set_data("foo");
+    setReq.mutable_value()->set_data("bar");
     SetReply setRep;
     EXPECT_TRUE(
         service.call(&zdb::kvStore::KVStoreService::Stub::set, setReq, setRep).has_value());
     GetRequest req;
-    req.set_key("foo");
+    req.mutable_key()->set_data("foo");
     GetReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep);
     EXPECT_TRUE(result.has_value());
-    EXPECT_EQ(rep.value(), "bar");
+    EXPECT_EQ(rep.value(), Value{"bar"});
 }
 
 
@@ -119,8 +122,8 @@ TEST_F(KVRPCServiceTest, CallSetSuccess) {
     KVRPCService service{address, policy};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest req;
-    req.set_key("foo");
-    req.set_value("bar");
+    req.mutable_key()->set_data("foo");
+    req.mutable_value()->set_data("bar");
     SetReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::set, req, rep);
     EXPECT_TRUE(result.has_value());
@@ -131,16 +134,16 @@ TEST_F(KVRPCServiceTest, CallEraseSuccess) {
     KVRPCService service{address, policy};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest setReq;
-    setReq.set_key("foo");
-    setReq.set_value("bar");
+    setReq.mutable_key()->set_data("foo");
+    setReq.mutable_value()->set_data("bar");
     SetReply setRep;
     EXPECT_TRUE(service.call(&zdb::kvStore::KVStoreService::Stub::set, setReq, setRep).has_value());
     EraseRequest req;
-    req.set_key("foo");
+    req.mutable_key()->set_data("foo");
     EraseReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::erase, req, rep);
     EXPECT_TRUE(result.has_value());
-    EXPECT_EQ(rep.value(), "bar");
+    EXPECT_EQ(rep.value(), Value{"bar"});
 }
 
 
@@ -148,8 +151,8 @@ TEST_F(KVRPCServiceTest, CallSizeSuccess) {
     KVRPCService service{address, policy};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest setReq;
-    setReq.set_key("foo");
-    setReq.set_value("bar");
+    setReq.mutable_key()->set_data("foo");
+    setReq.mutable_value()->set_data("bar");
     SetReply setRep;
     EXPECT_TRUE(service.call(&zdb::kvStore::KVStoreService::Stub::set, setReq, setRep).has_value());
     const SizeRequest req;
@@ -164,7 +167,7 @@ TEST_F(KVRPCServiceTest, CallFailureReturnsError) {
     KVRPCService service{address, policy};
     EXPECT_TRUE(service.connect().has_value());
     GetRequest req;
-    req.set_key("notfound");
+    req.mutable_key()->set_data("notfound");
     GetReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep);
     EXPECT_FALSE(result.has_value());
@@ -213,7 +216,7 @@ TEST_F(KVRPCServiceTest, AvailableReturnsFalseWhenCircuitBreakerOpen) {
     
     // Make a call that will fail and open circuit breaker
     GetRequest req;
-    req.set_key("test");
+    req.mutable_key()->set_data("test");
     GetReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep);
     EXPECT_FALSE(result.has_value());
@@ -241,7 +244,7 @@ TEST_F(KVRPCServiceTest, ConnectedReflectsChannelState) {
     
     // Note: gRPC channel state changes are asynchronous, so we might need to trigger activity
     GetRequest req;
-    req.set_key("test");
+    req.mutable_key()->set_data("test");
     GetReply rep;
     EXPECT_FALSE(service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep).has_value()); // This will fail and potentially update channel state
 }
@@ -319,8 +322,8 @@ TEST_F(KVRPCServiceTest, ConnectCreatesStubWhenMissing) {
     
     // Should be able to make successful calls (indicating stub was created)
     SetRequest req;
-    req.set_key("test");
-    req.set_value("value");
+    req.mutable_key()->set_data("test");
+    req.mutable_value()->set_data("value");
     SetReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::set, req, rep);
     EXPECT_TRUE(result.has_value());
@@ -339,7 +342,7 @@ TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
     
     // Make calls that will fail and open circuit breaker
     GetRequest req;
-    req.set_key("test");
+    req.mutable_key()->set_data("test");
     GetReply rep;
     EXPECT_FALSE(service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep).has_value());
     
