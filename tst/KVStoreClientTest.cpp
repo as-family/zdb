@@ -65,7 +65,7 @@ TEST_F(KVStoreClientTest, SetAndGetSuccess) {
     EXPECT_TRUE(setResult.has_value());
     auto getResult = client.get(Key{"foo"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value().data, "bar");
+    EXPECT_EQ(getResult.value(), Value{"bar"});
 }
 
 TEST_F(KVStoreClientTest, GetNonExistentKey) {
@@ -83,7 +83,7 @@ TEST_F(KVStoreClientTest, OverwriteValue) {
     EXPECT_TRUE(client.set(Key{"foo"}, Value{"baz"}).has_value());
     auto getResult = client.get(Key{"foo"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value().data, "baz");
+    EXPECT_EQ(getResult.value(), Value{"baz"});
 }
 
 TEST_F(KVStoreClientTest, EraseExistingKey) {
@@ -92,7 +92,7 @@ TEST_F(KVStoreClientTest, EraseExistingKey) {
     EXPECT_TRUE(client.set(Key{"foo"}, Value{"bar"}).has_value());
     auto eraseResult = client.erase(Key{"foo"});
     ASSERT_TRUE(eraseResult.has_value());
-    EXPECT_EQ(eraseResult.value().data, "bar");
+    EXPECT_EQ(eraseResult.value(), Value{"bar"});
     auto getResult = client.get(Key{"foo"});
     EXPECT_FALSE(getResult.has_value());
     EXPECT_EQ(getResult.error().code, ErrorCode::NotFound);
@@ -176,10 +176,10 @@ TEST_F(KVStoreClientTest, EmptyKeySetGetErase) {
     EXPECT_TRUE(setResult.has_value());
     auto getResult = client.get(Key{""});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value().data, "empty");
+    EXPECT_EQ(getResult.value(), Value{"empty"});
     auto eraseResult = client.erase(Key{""});
     ASSERT_TRUE(eraseResult.has_value());
-    EXPECT_EQ(eraseResult.value().data, "empty");
+    EXPECT_EQ(eraseResult.value(), Value{"empty"});
 }
 
 // Edge case: large value
