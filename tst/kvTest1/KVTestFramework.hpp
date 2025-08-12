@@ -16,7 +16,6 @@
 #include <sstream>
 #include <future>
 
-// Include current project headers
 #include "client/KVStoreClient.hpp"
 #include "server/KVStoreServer.hpp"
 #include "server/InMemoryKVStore.hpp"
@@ -24,7 +23,6 @@
 #include "common/Error.hpp"
 #include "client/Config.hpp"
 
-// Forward declarations
 class NetworkSimulator;
 class PorcupineChecker;
 
@@ -168,7 +166,6 @@ private:
     
     // Convert operations to JSON format for Go checker
     nlohmann::json OperationsToJson() const;
-    std::map<std::string, std::vector<PorcupineOperation>> PartitionByKey() const;
 };
 
 // Main test framework

@@ -145,9 +145,9 @@ bool PorcupineChecker::CallPorcupineChecker(const std::string& json_file) {
         return false;
     } else if (pid == 0) {
         // Child process
-        execl("./porcupine_checker", "porcupine_checker", json_file.c_str(), nullptr);
+        execl("./porcupine", "porcupine", json_file.c_str(), nullptr);
         // If execl returns, it failed
-        std::cerr << "Failed to execute porcupine_checker" << std::endl;
+        std::cerr << "Failed to execute porcupine" << std::endl;
         _exit(EXIT_FAILURE);
     } else {
         // Parent process
@@ -584,12 +584,6 @@ size_t KVTestFramework::GetHeapUsage() {
             return memory_kb * 1024; // Convert to bytes
         }
     }
-#elif defined(__APPLE__)
-    struct rusage usage;
-    if (getrusage(RUSAGE_SELF, &usage) == 0) {
-        return usage.ru_maxrss; // Already in bytes on macOS
-    }
 #endif
-    
     return 0; // Fallback - unable to determine memory usage
 }

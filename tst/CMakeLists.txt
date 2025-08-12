@@ -94,8 +94,8 @@ if(${BUILD_TESTING})
   find_program(GO_EXECUTABLE go)
   if(GO_EXECUTABLE)
     add_custom_command(
-      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/porcupine_checker
-      COMMAND ${GO_EXECUTABLE} build -o ${CMAKE_CURRENT_BINARY_DIR}/porcupine_checker
+      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/porcupine
+      COMMAND ${GO_EXECUTABLE} build -o ${CMAKE_CURRENT_BINARY_DIR}/porcupine
       WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine
       DEPENDS 
         ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/porcupine_checker.go
@@ -106,7 +106,7 @@ if(${BUILD_TESTING})
     )
 
     add_custom_target(porcupine_checker ALL
-      DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/porcupine_checker
+      DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/porcupine
     )
 
     add_dependencies(tests porcupine_checker)
