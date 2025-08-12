@@ -110,8 +110,8 @@ nlohmann::json PorcupineChecker::OperationsToJson() const {
 }
 
 bool PorcupineChecker::CallPorcupineChecker(const std::string& json_file) {
-    // Call the Go porcupine checker (built by CMake in binary directory)
-    std::string command = "../porcupine_checker " + json_file;
+    // Call the Go porcupine checker (built by CMake in tst directory)
+    std::string command = "./porcupine_checker " + json_file;
     int result = system(command.c_str());
     return result == 0;
 }
