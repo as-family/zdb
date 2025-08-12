@@ -24,18 +24,14 @@ std::expected<void, Error> InMemoryKVStore::set(const Key& key, const Value& val
     const std::unique_lock lock {m};
     auto i = store.find(key);
     if (i != store.end()) {
-        // Key exists - validate version matches current version
         if (value.version != i->second.version) {
             return std::unexpected {Error {ErrorCode::VersionMismatch, "Version mismatch: expected " + std::to_string(i->second.version) + " but got " + std::to_string(value.version)}};
         }
-        // Update with incremented version
         i->second = Value{value.data, i->second.version + 1};
     } else {
-        // Key doesn't exist - must use version 0 (matching Go semantics)
         if (value.version != 0) {
             return std::unexpected {Error {ErrorCode::NotFound, "Key does not exist, must use version 0 for new keys"}};
         }
-        // Create new key with version 1
         store[key] = Value{value.data, 1};
     }
     return {};

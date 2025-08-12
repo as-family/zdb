@@ -105,11 +105,11 @@ if(${BUILD_TESTING})
       VERBATIM
     )
 
-    add_custom_target(porcupine_checker_target ALL
+    add_custom_target(porcupine_checker ALL
       DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/porcupine_checker
     )
 
-    add_dependencies(tests porcupine_checker_target)
+    add_dependencies(tests porcupine_checker)
   else()
     message(WARNING "Go not found. Porcupine checker will not be built.")
   endif()

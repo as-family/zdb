@@ -33,23 +33,19 @@ std::expected<Value, Error> KVStoreClient::get(const Key& key) const {
 }
 
 std::expected<void, Error> KVStoreClient::set(const Key& key, const Value& value) {
-    spdlog::info("KVStoreClient::set: key='{}', value='{}', version={}", key.data, value.data, value.version);
-    
     kvStore::SetRequest request;
     request.mutable_key()->set_data(key.data);
     request.mutable_value()->set_data(value.data);
     request.mutable_value()->set_version(value.version);
     kvStore::SetReply reply;
-    
-    spdlog::info("KVStoreClient::set: calling RPC service");
+
     auto t = call(
         &kvStore::KVStoreService::Stub::set,
         request,
         reply
     );
-    
+
     if (t.has_value()) {
-        spdlog::info("KVStoreClient::set: RPC call succeeded");
         return {};
     } else {
         spdlog::error("KVStoreClient::set: RPC call failed with error: {} (code: {})", 
