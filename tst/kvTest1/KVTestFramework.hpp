@@ -253,51 +253,68 @@ KVError KVTestFramework::PutJson(zdb::KVStoreClient& ck, const std::string& key,
     nlohmann::json j = value;
     std::string json_str = j.dump();
     
+    spdlog::info("PutJson: key='{}', value='{}', version={}, client_id={}, reliable_network={}", 
+                 key, json_str, version, client_id, reliable_network);
+    
     // Log for porcupine if enabled
     auto start_time = std::chrono::steady_clock::now();
     
-    // Simulate network effects for unreliable network
-    bool should_send_request = true;
-    bool should_return_maybe = false;
-    
+    // For unreliable networks, simulate network issues
+    KVError err;
     if (network_sim && !network_sim->IsReliable()) {
-        // Simulate request drop (don't send the request at all)
-        if (network_sim->ShouldDropMessage()) {
-            should_send_request = false;
-            should_return_maybe = true;
+        spdlog::info("PutJson: unreliable network mode active");
+        
+        // Check all network conditions once to avoid multiple random calls
+        bool should_drop = network_sim->ShouldDropMessage();
+        bool should_delay = network_sim->ShouldDelayMessage(); 
+        // Additional check for response loss (different from message drop)
+        bool response_lost = network_sim->ShouldDropMessage();
+        
+        // Simulate network drop - retry internally until success (transparent to client)
+        if (should_drop) {
+            spdlog::warn("PutJson: simulating message drop - retrying internally");
+            // Keep retrying until the message gets through
+            while (network_sim->ShouldDropMessage()) {
+                spdlog::info("PutJson: message dropped again, retrying...");
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            spdlog::info("PutJson: message finally got through");
         }
         
         // Simulate message delay
-        if (should_send_request && network_sim->ShouldDelayMessage()) {
-            std::this_thread::sleep_for(network_sim->GetRandomDelay());
+        if (should_delay) {
+            auto delay = network_sim->GetRandomDelay();
+            spdlog::info("PutJson: simulating message delay of {}ms", delay.count());
+            std::this_thread::sleep_for(delay);
         }
-    }
-    
-    KVError err = KVError::ErrMaybe;
-    
-    if (should_send_request) {
-        // Use the current project's client interface
+        
+        // Make the actual call
+        spdlog::info("PutJson: making actual client call");
         zdb::Key zdbKey{key};
         zdb::Value zdbValue{json_str, version};
         auto result = ck.set(zdbKey, zdbValue);
         
         err = ErrorFromZdb(result);
+        spdlog::info("PutJson: client call result: {}", ErrorToString(err));
         
         // For unreliable networks, sometimes return ErrMaybe even on success
         // (simulate response loss - request succeeded but response was lost)
-        if (network_sim && !network_sim->IsReliable() && err == KVError::OK) {
-            if (network_sim->ShouldDuplicateMessage()) {
-                should_return_maybe = true;
-            }
+        if ((err == KVError::OK || err == KVError::ErrVersion) && response_lost) {
+            spdlog::warn("PutJson: simulating response loss - converting {} to ErrMaybe", ErrorToString(err));
+            err = KVError::ErrMaybe;
         }
+    } else {
+        // Reliable network - make the call directly
+        spdlog::info("PutJson: reliable network - making direct client call");
+        zdb::Key zdbKey{key};
+        zdb::Value zdbValue{json_str, version};
+        auto result = ck.set(zdbKey, zdbValue);
+        
+        err = ErrorFromZdb(result);
+        spdlog::info("PutJson: client call result: {}", ErrorToString(err));
     }
     
     auto end_time = std::chrono::steady_clock::now();
-    
-    // Return ErrMaybe if network simulation dictates it
-    if (should_return_maybe) {
-        err = KVError::ErrMaybe;
-    }
     
     if (porcupine_checker) {
         PorcupineOperation op;

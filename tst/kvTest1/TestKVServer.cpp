@@ -126,15 +126,20 @@ TEST_F(KVServerTest, UnreliableNet) {
     
     bool retried = false;
     for (int try_num = 0; try_num < NTRY; try_num++) {
+        std::cout << "=== Try " << try_num << " ===" << std::endl;
         for (int i = 0; true; i++) {
+            std::cout << "  Attempt " << i << " for try " << try_num << std::endl;
             auto err = unreliable_ts->PutJson(*ck, "k", 0, TVersion(try_num), 0);
+            std::cout << "  PutJson returned: " << KVTestFramework::ErrorToString(err) << std::endl;
             if (err != KVError::ErrMaybe) {
                 if (i > 0 && err != KVError::ErrVersion) {
                     FAIL() << "Put shouldn't have happened more than once, got error: " << KVTestFramework::ErrorToString(err);
                 }
+                std::cout << "  Breaking from inner loop after " << (i+1) << " attempts" << std::endl;
                 break;
             }
             // Try put again; it should fail with ErrVersion since it may have succeeded
+            std::cout << "  Got ErrMaybe, setting retried=true and trying again" << std::endl;
             retried = true;
         }
         

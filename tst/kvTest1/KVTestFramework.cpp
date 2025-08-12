@@ -15,48 +15,69 @@
 
 // Helper function implementations
 KVError ErrorFromZdb(const zdb::Error& err) {
+    KVError result;
     switch (err.code) {
         case zdb::ErrorCode::NotFound:
-            return KVError::ErrNoKey;
+            result = KVError::ErrNoKey;
+            break;
         case zdb::ErrorCode::InvalidArg:
-            return KVError::ErrVersion;
+            result = KVError::ErrVersion;
+            break;
         case zdb::ErrorCode::VersionMismatch:
-            return KVError::ErrVersion;
+            result = KVError::ErrVersion;
+            break;
         case zdb::ErrorCode::Maybe:
-            return KVError::ErrMaybe;
+            result = KVError::ErrMaybe;
+            break;
         default:
-            return KVError::ErrMaybe;
+            result = KVError::ErrMaybe;
+            break;
     }
+    spdlog::info("ErrorFromZdb: zdb::ErrorCode::{} -> KVError::{}", 
+                 static_cast<int>(err.code), static_cast<int>(result));
+    return result;
 }
 
 KVError ErrorFromZdb(const std::expected<zdb::Value, zdb::Error>& result) {
     if (result.has_value()) {
+        spdlog::info("ErrorFromZdb: expected<Value> has value -> KVError::OK");
         return KVError::OK;
     }
+    spdlog::info("ErrorFromZdb: expected<Value> has error");
     return ErrorFromZdb(result.error());
 }
 
 KVError ErrorFromZdb(const std::expected<void, zdb::Error>& result) {
     if (result.has_value()) {
+        spdlog::info("ErrorFromZdb: expected<void> has value -> KVError::OK");
         return KVError::OK;
     }
+    spdlog::info("ErrorFromZdb: expected<void> has error");
     return ErrorFromZdb(result.error());
 }
 
 // NetworkSimulator Implementation
 NetworkSimulator::NetworkSimulator(bool isReliable) 
-    : reliable(isReliable), gen(rd()), dis(0.0, 1.0) {}
+    : reliable(isReliable), gen(rd()), dis(0.0, 1.0) {
+    spdlog::info("NetworkSimulator: created with reliable={}", isReliable);
+}
 
 bool NetworkSimulator::ShouldDropMessage() const {
-    return !reliable && dis(gen) < drop_rate;
+    bool should_drop = !reliable && dis(gen) < drop_rate;
+    spdlog::info("NetworkSimulator::ShouldDropMessage: reliable={}, drop_rate={}, result={}", reliable, drop_rate, should_drop);
+    return should_drop;
 }
 
 bool NetworkSimulator::ShouldDelayMessage() const {
-    return !reliable && dis(gen) < delay_rate;
+    bool should_delay = !reliable && dis(gen) < delay_rate;
+    spdlog::info("NetworkSimulator::ShouldDelayMessage: reliable={}, delay_rate={}, result={}", reliable, delay_rate, should_delay);
+    return should_delay;
 }
 
 bool NetworkSimulator::ShouldDuplicateMessage() const {
-    return !reliable && dis(gen) < duplicate_rate;
+    bool should_duplicate = !reliable && dis(gen) < duplicate_rate;
+    spdlog::info("NetworkSimulator::ShouldDuplicateMessage: reliable={}, duplicate_rate={}, result={}", reliable, duplicate_rate, should_duplicate);
+    return should_duplicate;
 }
 
 std::chrono::milliseconds NetworkSimulator::GetRandomDelay() const {
@@ -192,7 +213,7 @@ void KVTestFramework::InitializeServer() {
         }
         
         // Create config for clients
-        zdb::RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2};
+        zdb::RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 1, 1};
         std::vector<std::string> addresses{server_address};
         config = std::make_unique<zdb::Config>(addresses, policy);
     } catch (const std::exception& e) {
