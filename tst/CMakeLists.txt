@@ -88,5 +88,29 @@ if(${BUILD_TESTING})
     # -fsanitize=thread
   )
 
+  # Build the Go porcupine checker
+  find_program(GO_EXECUTABLE go)
+  if(GO_EXECUTABLE)
+    add_custom_command(
+      OUTPUT ${CMAKE_BINARY_DIR}/porcupine_checker
+      COMMAND ${GO_EXECUTABLE} build -o ${CMAKE_BINARY_DIR}/porcupine_checker
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine
+      DEPENDS 
+        ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/porcupine_checker.go
+        ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/go.mod
+        ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/go.sum
+      COMMENT "Building Go porcupine checker"
+      VERBATIM
+    )
+
+    add_custom_target(porcupine_checker_target ALL
+      DEPENDS ${CMAKE_BINARY_DIR}/porcupine_checker
+    )
+
+    add_dependencies(tests porcupine_checker_target)
+  else()
+    message(WARNING "Go not found. Porcupine checker will not be built.")
+  endif()
+
   gtest_discover_tests(tests)
 endif()
