@@ -26,31 +26,28 @@ TEST_F(KVServerTest, ReliablePut) {
     
     auto ck = ts->MakeClerk();
     
-    // Test basic put using JSON framework
-    EntryV entry1{1, VER};
-    EXPECT_EQ(ts->PutJson(*ck, "k", entry1, VER), KVError::OK);
+    // Test basic put - should succeed with version 0 for new key
+    EXPECT_EQ(ts->PutJson(*ck, "k", VAL, VER, 1), KVError::OK);
     
-    // Test get using JSON framework
-    EntryV retrieved_entry;
-    auto version = ts->GetJson(*ck, "k", 1, retrieved_entry);
-    EXPECT_EQ(retrieved_entry.id, 1);
-    EXPECT_EQ(retrieved_entry.version, VER);
+    // Test get - should return the value and version 1 (server incremented it)
+    std::string retrieved_val;
+    auto version = ts->GetJson(*ck, "k", 1, retrieved_val);
+    EXPECT_EQ(retrieved_val, VAL);
+    EXPECT_EQ(version, VER + 1); // Server should have incremented version
     
-    // Test version mismatch (current project DOES validate versions)
-    EntryV entry2{2, 5};
-    auto result = ts->PutJson(*ck, "k", entry2, 1); // Use version 1 to update
-    EXPECT_EQ(result, KVError::OK); // Should succeed with correct version
+    // Test version mismatch - trying to put with old version should fail
+    auto result = ts->PutJson(*ck, "k", VAL, 0, 1); // Use version 0 again
+    EXPECT_EQ(result, KVError::ErrVersion) << "Put should fail with ErrVersion when using old version";
     
-    // Test non-existent key (new keys always work regardless of version)
-    EntryV entry3{3, 10};
-    auto result2 = ts->PutJson(*ck, "y", entry3, 1);
-    EXPECT_EQ(result2, KVError::OK); // Should succeed for new key
+    // Test put to non-existent key with non-zero version - should fail  
+    auto result2 = ts->PutJson(*ck, "y", VAL, TVersion(1), 1);
+    EXPECT_EQ(result2, KVError::ErrNoKey) << "Put to non-existent key with version > 0 should fail with ErrNoKey";
     
-    // Test get of existing key
-    EntryV retrieved_entry2;
-    auto version2 = ts->GetJson(*ck, "y", 1, retrieved_entry2);
-    EXPECT_EQ(retrieved_entry2.id, 3);
-    EXPECT_EQ(retrieved_entry2.version, 10);
+    // Test get of non-existent key - should fail
+    std::string dummy_val;
+    EXPECT_THROW({
+        ts->GetJson(*ck, "y", 1, dummy_val);
+    }, std::runtime_error) << "Get of non-existent key should fail";
 }
 
 TEST_F(KVServerTest, PutConcurrentReliable) {
@@ -65,7 +62,9 @@ TEST_F(KVServerTest, PutConcurrentReliable) {
             return ts->OneClientPut(client_id, ck, {"k"}, done);
         });
     
-    ts->CheckPutConcurrent("k", results);
+    auto ck = ts->MakeClerk();
+    ClientResult total_result;
+    ts->CheckPutConcurrent(ck, "k", results, &total_result, ts->IsReliable());
     ts->CheckPorcupineT(PORCUPINE_TIME);
 }
 
@@ -83,20 +82,19 @@ TEST_F(KVServerTest, MemPutManyClientsReliable) {
         clients.push_back(ts->MakeClerk());
     }
     
-    // Force allocation by trying put operations to unique keys to avoid version conflicts
+    // Force allocation by trying put operations to the SAME key "k" (matching Go version)
     for (int i = 0; i < NCLIENT; i++) {
-        std::string unique_key = "key_" + std::to_string(i);
-        auto err = ts->PutJson(*clients[static_cast<size_t>(i)], unique_key, "", 0, i);
-        EXPECT_EQ(err, KVError::OK); // Should succeed for unique keys
+        auto err = ts->PutJson(*clients[static_cast<size_t>(i)], "k", "", TVersion(1), i);
+        // This should fail with ErrNoKey since key doesn't exist yet and we're using version 1
+        EXPECT_EQ(err, KVError::ErrNoKey);
     }
     
     // Measure initial memory
     size_t initial_memory = KVTestFramework::GetHeapUsage();
     
-    // Perform operations with unique keys to avoid version conflicts
+    // Perform operations with the SAME key "k" using sequential versions (matching Go version)
     for (int i = 0; i < NCLIENT; i++) {
-        std::string unique_key = "key_" + std::to_string(i);
-        auto err = ts->PutJson(*clients[static_cast<size_t>(i)], unique_key, large_value, 1, i); // Use version 1 for update
+        auto err = ts->PutJson(*clients[static_cast<size_t>(i)], "k", large_value, TVersion(i), i);
         EXPECT_EQ(err, KVError::OK);
     }
     
@@ -118,21 +116,38 @@ TEST_F(KVServerTest, MemPutManyClientsReliable) {
 }
 
 TEST_F(KVServerTest, UnreliableNet) {
-    ts->Begin("One client unreliable network (simplified)");
+    const int NTRY = 100;
     
-    auto ck = ts->MakeClerk();
+    // Create unreliable test framework
+    auto unreliable_ts = std::make_unique<KVTestFramework>(false); // unreliable network
+    unreliable_ts->Begin("One client unreliable network");
     
-    // Simple test: just do one put and get to verify basic functionality
-    auto err = ts->PutJson(*ck, "k", 42, 0, 0);
-    EXPECT_EQ(err, KVError::OK) << "Put should succeed";
+    auto ck = unreliable_ts->MakeClerk();
     
-    int stored_value = 0;
-    auto version = ts->GetJson(*ck, "k", 0, stored_value);
+    bool retried = false;
+    for (int try_num = 0; try_num < NTRY; try_num++) {
+        for (int i = 0; true; i++) {
+            auto err = unreliable_ts->PutJson(*ck, "k", i, TVersion(try_num), 0);
+            if (err != KVError::ErrMaybe) {
+                if (i > 0 && err != KVError::ErrVersion) {
+                    FAIL() << "Put shouldn't have happened more than once, got error: " << KVTestFramework::ErrorToString(err);
+                }
+                break;
+            }
+            // Try put again; it should fail with ErrVersion since it may have succeeded
+            retried = true;
+        }
+        
+        int stored_value = 0;
+        auto version = unreliable_ts->GetJson(*ck, "k", 0, stored_value);
+        EXPECT_EQ(version, TVersion(try_num + 1)) << "Wrong version " << version << " expect " << (try_num + 1);
+        EXPECT_EQ(stored_value, 0) << "Wrong value " << stored_value << " expect 0";
+    }
     
-    EXPECT_EQ(version, 1) << "Version should be 1";
-    EXPECT_EQ(stored_value, 42) << "Value should be 42";
+    EXPECT_TRUE(retried) << "Clerk.Put never returned ErrMaybe";
     
-    ts->CheckPorcupine();
+    unreliable_ts->CheckPorcupine();
+    unreliable_ts->Cleanup();
 }
 
 // Additional example test
@@ -153,9 +168,4 @@ TEST_F(KVServerTest, BasicOperations) {
     EXPECT_EQ(retrieved_entry.version, 5);
     
     ts->CheckPorcupine();
-}
-
-int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
 }

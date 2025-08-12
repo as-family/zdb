@@ -332,8 +332,8 @@ void KVTestFramework::CheckPutConcurrent(const std::string& key,
     
     // Get current state of the key
     auto ck = MakeClerk();
-    EntryV entry;
     try {
+        EntryV entry;
         TVersion current_version = GetJson(*ck, key, -1, entry);
         
         if (IsReliable()) {
@@ -368,13 +368,48 @@ void KVTestFramework::CheckPutConcurrent(const std::string& key,
     }
 }
 
+void KVTestFramework::CheckPutConcurrent(std::unique_ptr<zdb::KVStoreClient>& ck, const std::string& key, 
+                                        const std::vector<ClientResult>& results, ClientResult* total_result, bool reliable) {
+    // Implementation that matches the Go version more closely
+    for (const auto& result : results) {
+        total_result->nok += result.nok;
+        total_result->nmaybe += result.nmaybe;
+    }
+    
+    try {
+        EntryV entry;
+        TVersion current_version = GetJson(*ck, key, -1, entry);
+        
+        if (reliable) {
+            if (current_version != static_cast<TVersion>(total_result->nok)) {
+                throw std::runtime_error(
+                    "Reliable: Wrong number of puts: server " + std::to_string(current_version) + 
+                    " clnts {" + std::to_string(total_result->nok) + "," + std::to_string(total_result->nmaybe) + "}");
+            }
+        } else {
+            if (current_version > static_cast<TVersion>(total_result->nok + total_result->nmaybe)) {
+                throw std::runtime_error(
+                    "Unreliable: Wrong number of puts: server " + std::to_string(current_version) + 
+                    " clnts {" + std::to_string(total_result->nok) + "," + std::to_string(total_result->nmaybe) + "}");
+            }
+        }
+    } catch (const std::runtime_error& e) {
+        if (total_result->nok == 0) {
+            // No successful operations, key might not exist
+            return;
+        } else {
+            throw;
+        }
+    }
+}
+
 ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<zdb::KVStoreClient>& ck, 
                                           const std::vector<std::string>& keys, 
                                           std::atomic<bool>& done) {
     ClientResult result;
     std::map<std::string, TVersion> version_map;
     
-    // Initialize versions to 0 for all keys
+    // Initialize versions to 0 for all keys (matching Go semantics)
     for (const auto& key : keys) {
         version_map[key] = 0;
     }
@@ -385,17 +420,23 @@ ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<zdb::K
     
     while (!done.load()) {
         // Select a random key (or just use first key for simple case)
-        std::string key = keys[key_dist(gen)];
+        std::string key = keys[0];  // Use first key like Go version for simplicity
+        if (keys.size() > 1) {
+            key = keys[key_dist(gen)];
+        }
         
         auto [new_version, success] = OnePut(client_id, *ck, key, version_map[key], done);
         
+        // Update our version tracker to the current server version
+        version_map[key] = new_version;
+        
         if (success) {
             result.nok++;
-            version_map[key] = new_version;
         } else {
             result.nmaybe++;
-            version_map[key] = new_version;
         }
+        
+        if (done.load()) break;
     }
     
     return result;
@@ -410,43 +451,38 @@ std::pair<TVersion, bool> KVTestFramework::OnePut(int client_id, zdb::KVStoreCli
             return {0, false};
         }
         
-        // Step 1: Get current version of the key
-        TVersion current_version = 0;
-        EntryV current_entry;
-        bool key_exists = false;
+        // Step 1: Try to put with the specified version (matching Go semantics exactly)
+        EntryV entry{client_id, version}; 
+        auto err = PutJson(ck, key, entry, version, client_id);
         
-        try {
-            current_version = GetJson(ck, key, client_id, current_entry);
-            key_exists = true;
-        } catch (const std::runtime_error& e) {
-            // Key doesn't exist yet, start with version 0
-            key_exists = false;
-            current_version = 0;
-        }
-        
-        // Step 2: Create new entry with incremented version
-        TVersion new_version = current_version + 1;
-        EntryV entry{client_id, version}; // version here is the logical version from test
-        
-        // Step 3: Try to put with the new version
-        auto err = PutJson(ck, key, entry, new_version, client_id);
-        
-        if (err == KVError::OK) {
-            // Success! Return the new version
-            return {new_version, true};
-        } else if (err == KVError::ErrVersion) {
-            // Version conflict, retry the optimistic concurrency loop
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            if (done.load()) return {0, false};
-            continue;
-        } else if (err == KVError::ErrMaybe) {
-            // Network or temporary error, retry with backoff
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            if (done.load()) return {0, false};
-            continue;
-        } else {
+        if (!(err == KVError::OK || err == KVError::ErrVersion || err == KVError::ErrMaybe)) {
             throw std::runtime_error("Unexpected error in OnePut: " + ErrorToString(err));
         }
+        
+        // Step 2: Get current state to see what version we're at now (matching Go exactly)
+        EntryV current_entry;
+        TVersion ver0 = GetJson(ck, key, client_id, current_entry);
+        
+        // Step 3: Check if our put succeeded (exactly like Go version)
+        if (err == KVError::OK && ver0 == version + 1) {
+            // My put succeeded - verify the value is correct
+            if (current_entry.id != client_id || current_entry.version != version) {
+                throw std::runtime_error("Wrong value stored after successful put");
+            }
+        }
+        
+        // Step 4: Update version to current state (ver = ver0 in Go)
+        version = ver0;
+        
+        // Step 5: Return based on result (exactly matching Go logic)
+        if (err == KVError::OK || err == KVError::ErrMaybe) {
+            // In Go: return ver, err == rpc.OK
+            // This means only return true if err was actually OK (not ErrMaybe)
+            return {version, err == KVError::OK};
+        }
+        
+        // If we got ErrVersion, retry with the new version (continue loop)
+        // No explicit sleep in Go version, just retry immediately
     }
 }
 

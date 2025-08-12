@@ -34,8 +34,23 @@ type Output struct {
 }
 
 // KVState represents the state of the key-value store
+// Using a string representation to make it comparable for porcupine
 type KVState struct {
-	Data map[string]string `json:"data"`
+	DataString string `json:"data_string"`
+}
+
+// Helper functions for KVState
+func makeKVState(data map[string]string) KVState {
+	// Create a canonical string representation
+	// For simplicity, we'll use JSON encoding
+	bytes, _ := json.Marshal(data)
+	return KVState{DataString: string(bytes)}
+}
+
+func (s KVState) getData() map[string]string {
+	var data map[string]string
+	json.Unmarshal([]byte(s.DataString), &data)
+	return data
 }
 
 func main() {
@@ -72,36 +87,38 @@ func main() {
 	// Define KV store model
 	kvModel := porcupine.Model{
 		Init: func() interface{} {
-			return KVState{Data: make(map[string]string)}
+			return makeKVState(make(map[string]string))
 		},
 		Step: func(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
 			st := state.(KVState)
 			inp := input.(Input)
 			out := output.(Output)
 
+			data := st.getData()
+
 			switch inp.Op {
 			case 0: // Get
 				if out.Error == "OK" {
-					if val, exists := st.Data[inp.Key]; exists {
+					if val, exists := data[inp.Key]; exists {
 						if val == out.Value {
 							return true, st
 						}
 					}
 					return false, st
 				} else if out.Error == "ErrNoKey" {
-					_, exists := st.Data[inp.Key]
+					_, exists := data[inp.Key]
 					return !exists, st
 				}
 				return false, st
 
 			case 1: // Put
 				if out.Error == "OK" {
-					newState := KVState{Data: make(map[string]string)}
-					for k, v := range st.Data {
-						newState.Data[k] = v
+					newData := make(map[string]string)
+					for k, v := range data {
+						newData[k] = v
 					}
-					newState.Data[inp.Key] = inp.Value
-					return true, newState
+					newData[inp.Key] = inp.Value
+					return true, makeKVState(newData)
 				}
 				return true, st // Put can fail but state doesn't change
 
