@@ -5,21 +5,12 @@
 class KVServerTest : public ::testing::Test {
 protected:
     std::unique_ptr<KVTestFramework> ts;
-    
-    void SetUp() override {
-        ts = std::make_unique<KVTestFramework>(true); // reliable network
-        // No need to set up factories - the framework manages the server directly
-    }
-    
-    void TearDown() override {
-        ts->~KVTestFramework();
-        ts.reset();
-    }
 };
 
 // Test implementations corresponding to the Go tests
 
 TEST_F(KVServerTest, ReliablePut) {
+    ts = std::make_unique<KVTestFramework>(true);
     const std::string VAL = "6.5840";
     const TVersion VER = 0;
     
@@ -52,6 +43,7 @@ TEST_F(KVServerTest, ReliablePut) {
 }
 
 TEST_F(KVServerTest, PutConcurrentReliable) {
+    ts = std::make_unique<KVTestFramework>(true);
     const auto PORCUPINE_TIME = std::chrono::seconds(5);
     const int NCLNT = 3;  // Reduced from 10 to 3 clients
     const auto NSEC = std::chrono::seconds(1);  // Keep as 1 second
@@ -70,6 +62,7 @@ TEST_F(KVServerTest, PutConcurrentReliable) {
 }
 
 TEST_F(KVServerTest, MemPutManyClientsReliable) {
+    ts = std::make_unique<KVTestFramework>(true);
     const int NCLIENT = 1000; // Reduced for testing
     const int MEM_SIZE = 100;  // Reduced for testing
     
@@ -157,6 +150,7 @@ TEST_F(KVServerTest, UnreliableNet) {
 
 // Additional example test
 TEST_F(KVServerTest, BasicOperations) {
+    ts = std::make_unique<KVTestFramework>(true);
     ts->Begin("Basic operations test");
     
     auto ck = ts->MakeClerk();
