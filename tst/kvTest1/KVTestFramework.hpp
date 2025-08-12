@@ -233,7 +233,7 @@ zdb::ErrorCode KVTestFramework::PutJson(zdb::KVStoreClient& ck, const std::strin
     auto start_time = std::chrono::steady_clock::now();
 
     zdb::ErrorCode err;
-    if (network_sim && !network_sim->IsReliable()) {
+    if (!network_sim->IsReliable()) {
         
         bool should_drop = network_sim->ShouldDropMessage();
         bool should_delay = network_sim->ShouldDelayMessage(); 
@@ -302,7 +302,7 @@ TVersion KVTestFramework::GetJson(zdb::KVStoreClient& ck, const std::string& key
         if (porcupine_checker) {
             PorcupineOperation op;
             op.input = {OpType::GET, key, "", 0};
-            op.output = {getResult.value().data, getResult.value().version, "OK"};
+            op.output = {getResult.value().data, getResult.value().version, toString(zdb::ErrorCode::OK)};
             op.call_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 start_time.time_since_epoch()).count();
             op.return_time = std::chrono::duration_cast<std::chrono::nanoseconds>(

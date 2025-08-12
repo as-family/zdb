@@ -40,6 +40,7 @@ TEST_F(KVServerTest, ReliablePut) {
     EXPECT_THROW({
         ts->GetJson(*ck, "y", 1, dummy_val);
     }, std::runtime_error) << "Get of non-existent key should fail";
+    ts->CheckPorcupineT(std::chrono::seconds(1));
 }
 
 TEST_F(KVServerTest, PutConcurrentReliable) {
