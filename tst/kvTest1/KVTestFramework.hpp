@@ -179,7 +179,6 @@ private:
     std::thread serverThread;
     std::unique_ptr<PorcupineChecker> porcupine_checker;
     std::string current_test_name;
-    bool cleanup_done;
     std::string server_address;
     std::unique_ptr<zdb::Config> config; // Store config for clients
     
@@ -190,7 +189,6 @@ public:
     // Core test utilities
     std::unique_ptr<zdb::KVStoreClient> MakeClerk();
     void Begin(const std::string& test_name);
-    void Cleanup();
     
     // JSON helpers (equivalent to Go's PutJson/GetJson)
     template<typename T>
@@ -201,7 +199,6 @@ public:
     TVersion GetJson(zdb::KVStoreClient& ck, const std::string& key, int client_id, T& result);
     
     // Porcupine testing
-    void CheckPorcupine();
     void CheckPorcupineT(std::chrono::seconds timeout);
     
     // Concurrency testing
@@ -236,7 +233,6 @@ public:
     static std::string RandValue(int length);
 
 private:
-    void InitializeServer();
     void RunClient(int client_id, 
                   std::function<ClientResult(int, std::unique_ptr<zdb::KVStoreClient>&, std::atomic<bool>&)> client_fn,
                   std::atomic<bool>& done,
@@ -249,66 +245,42 @@ KVError KVTestFramework::PutJson(zdb::KVStoreClient& ck, const std::string& key,
                                 const T& value, TVersion version, int client_id) {
     nlohmann::json j = value;
     std::string json_str = j.dump();
-    
-    spdlog::info("PutJson: key='{}', value='{}', version={}, client_id={}, reliable_network={}", 
-                 key, json_str, version, client_id, reliable_network);
-    
-    // Log for porcupine if enabled
+
     auto start_time = std::chrono::steady_clock::now();
-    
-    // For unreliable networks, simulate network issues
+
     KVError err;
     if (network_sim && !network_sim->IsReliable()) {
-        spdlog::info("PutJson: unreliable network mode active");
         
-        // Check all network conditions once to avoid multiple random calls
         bool should_drop = network_sim->ShouldDropMessage();
         bool should_delay = network_sim->ShouldDelayMessage(); 
-        // Additional check for response loss (different from message drop)
         bool response_lost = network_sim->ShouldDropMessage();
         
-        // Simulate network drop - retry internally until success (transparent to client)
         if (should_drop) {
-            spdlog::warn("PutJson: simulating message drop - retrying internally");
-            // Keep retrying until the message gets through
             while (network_sim->ShouldDropMessage()) {
-                spdlog::info("PutJson: message dropped again, retrying...");
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
-            spdlog::info("PutJson: message finally got through");
         }
         
-        // Simulate message delay
         if (should_delay) {
             auto delay = network_sim->GetRandomDelay();
-            spdlog::info("PutJson: simulating message delay of {}ms", delay.count());
             std::this_thread::sleep_for(delay);
         }
         
-        // Make the actual call
-        spdlog::info("PutJson: making actual client call");
         zdb::Key zdbKey{key};
         zdb::Value zdbValue{json_str, version};
         auto result = ck.set(zdbKey, zdbValue);
         
         err = ErrorFromZdb(result);
-        spdlog::info("PutJson: client call result: {}", ErrorToString(err));
-        
-        // For unreliable networks, sometimes return ErrMaybe even on success
-        // (simulate response loss - request succeeded but response was lost)
+
         if ((err == KVError::OK || err == KVError::ErrVersion) && response_lost) {
-            spdlog::warn("PutJson: simulating response loss - converting {} to ErrMaybe", ErrorToString(err));
             err = KVError::ErrMaybe;
         }
     } else {
-        // Reliable network - make the call directly
-        spdlog::info("PutJson: reliable network - making direct client call");
         zdb::Key zdbKey{key};
         zdb::Value zdbValue{json_str, version};
         auto result = ck.set(zdbKey, zdbValue);
         
         err = ErrorFromZdb(result);
-        spdlog::info("PutJson: client call result: {}", ErrorToString(err));
     }
     
     auto end_time = std::chrono::steady_clock::now();
@@ -333,14 +305,11 @@ TVersion KVTestFramework::GetJson(zdb::KVStoreClient& ck, const std::string& key
                                  int client_id, T& result) {
     auto start_time = std::chrono::steady_clock::now();
     
-    // For unreliable networks, retry Get operations for verification
     const int max_get_retries = 10;
     for (int retry = 0; retry < max_get_retries; retry++) {
         bool should_retry = false;
         
-        // Simulate network effects for unreliable network
         if (network_sim && !network_sim->IsReliable()) {
-            // Simulate message drop
             if (network_sim->ShouldDropMessage()) {
                 should_retry = true;
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -353,7 +322,6 @@ TVersion KVTestFramework::GetJson(zdb::KVStoreClient& ck, const std::string& key
             }
         }
         
-        // Use the current project's client interface
         zdb::Key zdbKey{key};
         auto getResult = ck.get(zdbKey);
         
@@ -377,7 +345,6 @@ TVersion KVTestFramework::GetJson(zdb::KVStoreClient& ck, const std::string& key
             
             return getResult.value().version;
         } else {
-            // Get failed - check if we should retry
             if (network_sim && !network_sim->IsReliable() && retry < max_get_retries - 1) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 continue;

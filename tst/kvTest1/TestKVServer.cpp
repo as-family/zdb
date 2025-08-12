@@ -12,7 +12,8 @@ protected:
     }
     
     void TearDown() override {
-        ts->Cleanup();
+        ts->~KVTestFramework();
+        ts.reset();
     }
 };
 
@@ -151,8 +152,7 @@ TEST_F(KVServerTest, UnreliableNet) {
     
     EXPECT_TRUE(retried) << "Clerk.Put never returned ErrMaybe";
     
-    unreliable_ts->CheckPorcupine();
-    unreliable_ts->Cleanup();
+    unreliable_ts->CheckPorcupineT(std::chrono::seconds(1));
 }
 
 // Additional example test
@@ -171,6 +171,6 @@ TEST_F(KVServerTest, BasicOperations) {
     EXPECT_EQ(version, 1); // InMemoryKVStore sets new keys to version 1
     EXPECT_EQ(retrieved_entry.id, 1);
     EXPECT_EQ(retrieved_entry.version, 5);
-    
-    ts->CheckPorcupine();
+
+    ts->CheckPorcupineT(std::chrono::seconds(1));
 }

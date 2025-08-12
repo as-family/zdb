@@ -21,7 +21,8 @@ protected:
     
     void TearDown() override {
         if (ts) {
-            ts->Cleanup();
+            ts->~KVTestFramework();
+            ts.reset();
         }
     }
 };
@@ -35,7 +36,7 @@ TEST_F(FrameworkValidationTest, BasicFrameworkLifecycle) {
     EXPECT_NE(ck, nullptr) << "MakeClerk should return a valid client";
     
     // Should be able to cleanup without issues
-    ts->Cleanup();
+    ts->~KVTestFramework();
     
     // Should be able to create new framework after cleanup
     ts = std::make_unique<KVTestFramework>(true);
@@ -203,8 +204,6 @@ TEST_F(FrameworkValidationTest, UnreliableNetworkFramework) {
     if (saw_success) {
         std::cout << "Successfully performed operations through unreliable network" << std::endl;
     }
-    
-    unreliable_ts->Cleanup();
 }
 
 // Test porcupine checker basic functionality

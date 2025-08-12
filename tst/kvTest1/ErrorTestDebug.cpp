@@ -11,7 +11,8 @@ protected:
     
     void TearDown() override {
         if (ts) {
-            ts->Cleanup();
+            ts->~KVTestFramework();
+            ts.reset();
         }
     }
 };

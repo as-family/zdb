@@ -60,24 +60,20 @@ KVError ErrorFromZdb(const std::expected<void, zdb::Error>& result) {
 // NetworkSimulator Implementation
 NetworkSimulator::NetworkSimulator(bool isReliable) 
     : reliable(isReliable), gen(rd()), dis(0.0, 1.0) {
-    spdlog::info("NetworkSimulator: created with reliable={}", isReliable);
 }
 
 bool NetworkSimulator::ShouldDropMessage() const {
     bool should_drop = !reliable && dis(gen) < drop_rate;
-    spdlog::info("NetworkSimulator::ShouldDropMessage: reliable={}, drop_rate={}, result={}", reliable, drop_rate, should_drop);
     return should_drop;
 }
 
 bool NetworkSimulator::ShouldDelayMessage() const {
     bool should_delay = !reliable && dis(gen) < delay_rate;
-    spdlog::info("NetworkSimulator::ShouldDelayMessage: reliable={}, delay_rate={}, result={}", reliable, delay_rate, should_delay);
     return should_delay;
 }
 
 bool NetworkSimulator::ShouldDuplicateMessage() const {
     bool should_duplicate = !reliable && dis(gen) < duplicate_rate;
-    spdlog::info("NetworkSimulator::ShouldDuplicateMessage: reliable={}, duplicate_rate={}, result={}", reliable, duplicate_rate, should_duplicate);
     return should_duplicate;
 }
 
@@ -134,9 +130,7 @@ nlohmann::json PorcupineChecker::OperationsToJson() const {
 }
 
 bool PorcupineChecker::CallPorcupineChecker(const std::string& json_file) {
-    // Call the Go porcupine checker (built by CMake in tst directory)
-    // Using fork/exec instead of system() for security and better error handling
-    
+    // Call the Go porcupine checker (built by CMake in tst directory)    
 #ifdef __linux__
     pid_t pid = fork();
     if (pid == -1) {
@@ -159,15 +153,11 @@ bool PorcupineChecker::CallPorcupineChecker(const std::string& json_file) {
         return WIFEXITED(status) && WEXITSTATUS(status) == 0;
     }
 #else
-    // Fallback for non-Linux systems - use system() with a warning suppression
-    std::string command = "./porcupine_checker " + json_file;
-    // NOLINTNEXTLINE(cert-env33-c) - Fallback for non-POSIX systems
-    int result = system(command.c_str());
-    return result == 0;
+    return false;
 #endif
 }
 
-bool PorcupineChecker::CheckLinearizability(std::chrono::seconds /* timeout */) {
+bool PorcupineChecker::CheckLinearizability(std::chrono::seconds timeout) {
     std::lock_guard<std::mutex> lock(ops_mutex);
     
     if (operations.empty()) {
@@ -200,21 +190,10 @@ bool PorcupineChecker::CheckLinearizability(std::chrono::seconds /* timeout */) 
 
 // KVTestFramework Implementation
 KVTestFramework::KVTestFramework(bool reliable) 
-    : reliable_network(reliable), cleanup_done(false), server_address("localhost:50051") {
+    : reliable_network(reliable), server_address("localhost:50051") {
     
     network_sim = std::make_unique<NetworkSimulator>(reliable);
     porcupine_checker = std::make_unique<PorcupineChecker>();
-}
-
-KVTestFramework::~KVTestFramework() {
-    if (!cleanup_done) {
-        Cleanup();
-    }
-}
-
-void KVTestFramework::InitializeServer() {
-    std::cout << "Initializing server on " << server_address << std::endl;
-    
     try {
         kvStore = std::make_unique<zdb::InMemoryKVStore>();
         serviceImpl = std::make_unique<zdb::KVStoreServiceImpl>(*kvStore);
@@ -251,32 +230,7 @@ void KVTestFramework::InitializeServer() {
     }
 }
 
-std::unique_ptr<zdb::KVStoreClient> KVTestFramework::MakeClerk() {
-    if (!server) {
-        InitializeServer();
-    }
-    
-    return std::make_unique<zdb::KVStoreClient>(*config);
-}
-
-void KVTestFramework::Begin(const std::string& test_name) {
-    current_test_name = test_name;
-    std::cout << "Starting test: " << test_name << std::endl;
-    
-    // Initialize server if not already done
-    if (!server) {
-        InitializeServer();
-    }
-    
-    // Clear any previous porcupine operations
-    if (porcupine_checker) {
-        porcupine_checker->Clear();
-    }
-}
-
-void KVTestFramework::Cleanup() {
-    if (cleanup_done) return;
-    
+KVTestFramework::~KVTestFramework() {    
     if (server) {
         server->shutdown();
         if (serverThread.joinable()) {
@@ -285,15 +239,23 @@ void KVTestFramework::Cleanup() {
         server.reset();
     }
     
-    cleanup_done = true;
-    
     if (!current_test_name.empty()) {
         std::cout << "Completed test: " << current_test_name << std::endl;
     }
 }
 
-void KVTestFramework::CheckPorcupine() {
-    CheckPorcupineT(std::chrono::seconds(1));
+std::unique_ptr<zdb::KVStoreClient> KVTestFramework::MakeClerk() {    
+    return std::make_unique<zdb::KVStoreClient>(*config);
+}
+
+void KVTestFramework::Begin(const std::string& test_name) {
+    current_test_name = test_name;
+    std::cout << "Starting test: " << test_name << std::endl;
+    
+    // Clear any previous porcupine operations
+    if (porcupine_checker) {
+        porcupine_checker->Clear();
+    }
 }
 
 void KVTestFramework::CheckPorcupineT(std::chrono::seconds timeout) {
@@ -311,19 +273,13 @@ void KVTestFramework::CheckPorcupineT(std::chrono::seconds timeout) {
     if (!is_linearizable) {
         throw std::runtime_error("History is not linearizable");
     }
-    
-    std::cout << "Linearizability check passed." << std::endl;
 }
 
 std::vector<ClientResult> KVTestFramework::SpawnClientsAndWait(
     int num_clients, 
     std::chrono::seconds duration,
     std::function<ClientResult(int, std::unique_ptr<zdb::KVStoreClient>&, std::atomic<bool>&)> client_fn) {
-    
-    // Initialize server before starting any client threads to avoid race condition
-    if (!server) {
-        InitializeServer();
-    }
+
     
     std::vector<std::thread> threads;
     std::vector<std::promise<ClientResult>> promises(static_cast<size_t>(num_clients));
