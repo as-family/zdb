@@ -194,40 +194,18 @@ KVTestFramework::KVTestFramework(bool reliable)
     
     network_sim = std::make_unique<NetworkSimulator>(reliable);
     porcupine_checker = std::make_unique<PorcupineChecker>();
-    try {
-        kvStore = std::make_unique<zdb::InMemoryKVStore>();
-        serviceImpl = std::make_unique<zdb::KVStoreServiceImpl>(*kvStore);
-        server = std::make_unique<zdb::KVStoreServer>(server_address, *serviceImpl);
-        
-        std::cout << "Server created, starting thread..." << std::endl;
-        serverThread = std::thread([this]() { 
-            std::cout << "Server thread started, calling wait()..." << std::endl;
-            server->wait(); 
-        });
-        
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Allow server to start
-        std::cout << "Server initialization complete" << std::endl;
-        
-        // Test server connectivity
-        try {
-            zdb::RetryPolicy test_policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 1, 1};
-            std::vector<std::string> test_addresses{server_address};
-            zdb::Config test_config(test_addresses, test_policy);
-            auto test_client = std::make_unique<zdb::KVStoreClient>(test_config);
-            auto test_result = test_client->get(zdb::Key{"test_connectivity"});
-            std::cout << "Server connectivity test completed" << std::endl;
-        } catch (const std::exception& e) {
-            std::cout << "Server connectivity test failed: " << e.what() << std::endl;
-        }
-        
-        // Create config for clients
-        zdb::RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 1, 1};
-        std::vector<std::string> addresses{server_address};
-        config = std::make_unique<zdb::Config>(addresses, policy);
-    } catch (const std::exception& e) {
-        std::cerr << "Server initialization failed: " << e.what() << std::endl;
-        throw;
-    }
+    kvStore = std::make_unique<zdb::InMemoryKVStore>();
+    serviceImpl = std::make_unique<zdb::KVStoreServiceImpl>(*kvStore);
+    server = std::make_unique<zdb::KVStoreServer>(server_address, *serviceImpl);
+    
+    serverThread = std::thread([this]() { 
+        server->wait(); 
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Allow server to start
+
+    zdb::RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 1, 1};
+    std::vector<std::string> addresses{server_address};
+    config = std::make_unique<zdb::Config>(addresses, policy);
 }
 
 KVTestFramework::~KVTestFramework() {    
@@ -244,7 +222,7 @@ KVTestFramework::~KVTestFramework() {
     }
 }
 
-std::unique_ptr<zdb::KVStoreClient> KVTestFramework::MakeClerk() {    
+std::unique_ptr<zdb::KVStoreClient> KVTestFramework::makeClient() {    
     return std::make_unique<zdb::KVStoreClient>(*config);
 }
 
@@ -322,7 +300,7 @@ void KVTestFramework::RunClient(int client_id,
                                std::atomic<bool>& done,
                                std::promise<ClientResult>& result_promise) {
     try {
-        auto ck = MakeClerk();
+        auto ck = makeClient();
         ClientResult result = client_fn(client_id, ck, done);
         result_promise.set_value(result);
     } catch (const std::exception& e) {
@@ -339,7 +317,7 @@ void KVTestFramework::CheckPutConcurrent(const std::string& key,
     }
     
     // Get current state of the key
-    auto ck = MakeClerk();
+    auto ck = makeClient();
     try {
         EntryV entry;
         TVersion current_version = GetJson(*ck, key, -1, entry);

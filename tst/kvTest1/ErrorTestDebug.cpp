@@ -20,7 +20,7 @@ protected:
 TEST_F(ErrorTestDebug, DebugVersionError) {
     ts->Begin("Debug version error handling");
     
-    auto ck = ts->MakeClerk();
+    auto ck = ts->makeClient();
     
     // First, put a value successfully with version 0
     auto result1 = ts->PutJson(*ck, "debug_key", "value1", 0, 1);

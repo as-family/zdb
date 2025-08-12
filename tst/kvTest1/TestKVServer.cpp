@@ -16,7 +16,7 @@ TEST_F(KVServerTest, ReliablePut) {
     
     ts->Begin("One client and reliable Put");
     
-    auto ck = ts->MakeClerk();
+    auto ck = ts->makeClient();
     
     // Test basic put - should succeed with version 0 for new key
     EXPECT_EQ(ts->PutJson(*ck, "k", VAL, VER, 1), KVError::OK);
@@ -55,7 +55,7 @@ TEST_F(KVServerTest, PutConcurrentReliable) {
             return ts->OneClientPut(client_id, ck, {"k"}, done);
         });
     
-    auto ck = ts->MakeClerk();
+    auto ck = ts->makeClient();
     ClientResult total_result;
     ts->CheckPutConcurrent(ck, "k", results, &total_result, ts->IsReliable());
     ts->CheckPorcupineT(PORCUPINE_TIME);
@@ -73,7 +73,7 @@ TEST_F(KVServerTest, MemPutManyClientsReliable) {
     
     // Create clients
     for (int i = 0; i < NCLIENT; i++) {
-        clients.push_back(ts->MakeClerk());
+        clients.push_back(ts->makeClient());
     }
     
     // Force allocation by trying put operations to the SAME key "k" (matching Go version)
@@ -116,7 +116,7 @@ TEST_F(KVServerTest, UnreliableNet) {
     auto unreliable_ts = std::make_unique<KVTestFramework>(false); // unreliable network
     unreliable_ts->Begin("One client unreliable network");
     
-    auto ck = unreliable_ts->MakeClerk();
+    auto ck = unreliable_ts->makeClient();
     
     bool retried = false;
     for (int try_num = 0; try_num < NTRY; try_num++) {
@@ -153,7 +153,7 @@ TEST_F(KVServerTest, BasicOperations) {
     ts = std::make_unique<KVTestFramework>(true);
     ts->Begin("Basic operations test");
     
-    auto ck = ts->MakeClerk();
+    auto ck = ts->makeClient();
     
     // Test JSON operations
     EntryV entry1{1, 5};

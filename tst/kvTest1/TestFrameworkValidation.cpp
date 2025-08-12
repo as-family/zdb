@@ -32,15 +32,15 @@ TEST_F(FrameworkValidationTest, BasicFrameworkLifecycle) {
     ts->Begin("Test framework lifecycle");
     
     // Framework should be able to create clients
-    auto ck = ts->MakeClerk();
-    EXPECT_NE(ck, nullptr) << "MakeClerk should return a valid client";
+    auto ck = ts->makeClient();
+    EXPECT_NE(ck, nullptr) << "makeClient should return a valid client";
     
     // Should be able to cleanup without issues
     ts->~KVTestFramework();
     
     // Should be able to create new framework after cleanup
     ts = std::make_unique<KVTestFramework>(true);
-    auto ck2 = ts->MakeClerk();
+    auto ck2 = ts->makeClient();
     EXPECT_NE(ck2, nullptr) << "Should be able to create client after recreating framework";
 }
 
@@ -48,7 +48,7 @@ TEST_F(FrameworkValidationTest, BasicFrameworkLifecycle) {
 TEST_F(FrameworkValidationTest, BasicPutGet) {
     ts->Begin("Test basic Put/Get operations");
     
-    auto ck = ts->MakeClerk();
+    auto ck = ts->makeClient();
     
     // Test simple string put/get
     auto put_result = ts->PutJson(*ck, "test_key", "test_value", 0, 1);
@@ -64,7 +64,7 @@ TEST_F(FrameworkValidationTest, BasicPutGet) {
 TEST_F(FrameworkValidationTest, JSONSerialization) {
     ts->Begin("Test JSON serialization");
     
-    auto ck = ts->MakeClerk();
+    auto ck = ts->makeClient();
     
     // Test EntryV structure serialization
     EntryV original_entry{42, 100};
@@ -91,7 +91,7 @@ TEST_F(FrameworkValidationTest, JSONSerialization) {
 TEST_F(FrameworkValidationTest, VersionValidation) {
     ts->Begin("Test version validation");
     
-    auto ck = ts->MakeClerk();
+    auto ck = ts->makeClient();
     
     // Put with version 0 should succeed for new key
     auto result1 = ts->PutJson(*ck, "ver_key", "value1", 0, 1);
@@ -116,7 +116,7 @@ TEST_F(FrameworkValidationTest, VersionValidation) {
 TEST_F(FrameworkValidationTest, NonExistentKeyHandling) {
     ts->Begin("Test non-existent key handling");
     
-    auto ck = ts->MakeClerk();
+    auto ck = ts->makeClient();
     
     // Get on non-existent key should fail with ErrNoKey (matching Go behavior)
     std::string dummy_value;
@@ -169,7 +169,7 @@ TEST_F(FrameworkValidationTest, UnreliableNetworkFramework) {
     auto unreliable_ts = std::make_unique<KVTestFramework>(false);
     unreliable_ts->Begin("Test unreliable network framework");
     
-    auto ck = unreliable_ts->MakeClerk();
+    auto ck = unreliable_ts->makeClient();
     
     // Operations should still work, but may return ErrMaybe or fail
     bool saw_maybe = false;
@@ -249,7 +249,7 @@ TEST_F(FrameworkValidationTest, MultipleClients) {
     
     // Create multiple clients
     for (int i = 0; i < NUM_CLIENTS; i++) {
-        auto ck = ts->MakeClerk();
+        auto ck = ts->makeClient();
         EXPECT_NE(ck, nullptr) << "Client " << i << " should be created successfully";
         clients.push_back(std::move(ck));
     }
@@ -288,7 +288,7 @@ TEST_F(FrameworkValidationTest, UtilityFunctions) {
 TEST_F(FrameworkValidationTest, RapidOperations) {
     ts->Begin("Test rapid operations");
     
-    auto ck = ts->MakeClerk();
+    auto ck = ts->makeClient();
     
     const int NUM_OPS = 50;
     

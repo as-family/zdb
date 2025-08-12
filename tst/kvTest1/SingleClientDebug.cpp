@@ -18,7 +18,7 @@ TEST_F(SingleClientTest, SingleClientErrorTest) {
     ts->Begin("Single client error test");
     
     // Create just one client
-    auto client = ts->MakeClerk();
+    auto client = ts->makeClient();
     
     // Test the exact same operation that's failing in the main test
     std::cout << "Testing Put with version 1 on non-existent key 'k'...\n";

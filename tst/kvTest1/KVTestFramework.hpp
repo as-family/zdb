@@ -187,7 +187,7 @@ public:
     ~KVTestFramework();
     
     // Core test utilities
-    std::unique_ptr<zdb::KVStoreClient> MakeClerk();
+    std::unique_ptr<zdb::KVStoreClient> makeClient();
     void Begin(const std::string& test_name);
     
     // JSON helpers (equivalent to Go's PutJson/GetJson)
