@@ -203,12 +203,9 @@ public:
     
     // Concurrency testing
     std::vector<ClientResult> SpawnClientsAndWait(
-        int num_clients, 
+        size_t num_clients, 
         std::chrono::seconds duration,
         std::function<ClientResult(int, std::unique_ptr<zdb::KVStoreClient>&, std::atomic<bool>&)> client_fn);
-    
-    void CheckPutConcurrent(const std::string& key, 
-                           const std::vector<ClientResult>& results);
     
     // Additional overload for compatibility
     void CheckPutConcurrent(std::unique_ptr<zdb::KVStoreClient>& ck, const std::string& key, 

@@ -228,9 +228,7 @@ std::unique_ptr<zdb::KVStoreClient> KVTestFramework::makeClient() {
 
 void KVTestFramework::Begin(const std::string& test_name) {
     current_test_name = test_name;
-    std::cout << "Starting test: " << test_name << std::endl;
     
-    // Clear any previous porcupine operations
     if (porcupine_checker) {
         porcupine_checker->Clear();
     }
@@ -238,13 +236,11 @@ void KVTestFramework::Begin(const std::string& test_name) {
 
 void KVTestFramework::CheckPorcupineT(std::chrono::seconds timeout) {
     if (!porcupine_checker) {
-        std::cerr << "Warning: Porcupine checker not available" << std::endl;
+        spdlog::error("Porcupine checker not available");
         return;
     }
     
-    std::cout << "Checking linearizability with " 
-              << porcupine_checker->GetOperationCount() 
-              << " operations..." << std::endl;
+    spdlog::info("Checking linearizability with {} operations...", porcupine_checker->GetOperationCount());
     
     bool is_linearizable = porcupine_checker->CheckLinearizability(timeout);
     
@@ -254,40 +250,34 @@ void KVTestFramework::CheckPorcupineT(std::chrono::seconds timeout) {
 }
 
 std::vector<ClientResult> KVTestFramework::SpawnClientsAndWait(
-    int num_clients, 
+    size_t num_clients, 
     std::chrono::seconds duration,
     std::function<ClientResult(int, std::unique_ptr<zdb::KVStoreClient>&, std::atomic<bool>&)> client_fn) {
 
     
     std::vector<std::thread> threads;
-    std::vector<std::promise<ClientResult>> promises(static_cast<size_t>(num_clients));
+    std::vector<std::promise<ClientResult>> promises(num_clients);
     std::vector<std::future<ClientResult>> futures;
     std::atomic<bool> done{false};
     
-    // Get futures from promises
     for (auto& promise : promises) {
         futures.push_back(promise.get_future());
     }
     
-    // Start all client threads
     for (int i = 0; i < num_clients; i++) {
         threads.emplace_back(&KVTestFramework::RunClient, this, i, client_fn, 
                            std::ref(done), std::ref(promises[static_cast<size_t>(i)]));
     }
-    
-    // Wait for specified duration
+
     std::this_thread::sleep_for(duration);
-    
-    // Signal all clients to stop
+
     done = true;
-    
-    // Collect results
+
     std::vector<ClientResult> results;
     for (auto& future : futures) {
         results.push_back(future.get());
     }
-    
-    // Wait for all threads to complete
+
     for (auto& thread : threads) {
         thread.join();
     }
@@ -304,53 +294,8 @@ void KVTestFramework::RunClient(int client_id,
         ClientResult result = client_fn(client_id, ck, done);
         result_promise.set_value(result);
     } catch (const std::exception& e) {
-        std::cerr << "Client " << client_id << " failed: " << e.what() << std::endl;
+        spdlog::error("Client {} encountered an error: {}", client_id, e.what());
         result_promise.set_exception(std::current_exception());
-    }
-}
-
-void KVTestFramework::CheckPutConcurrent(const std::string& key, 
-                                        const std::vector<ClientResult>& results) {
-    ClientResult total_result;
-    for (const auto& result : results) {
-        total_result += result;
-    }
-    
-    // Get current state of the key
-    auto ck = makeClient();
-    try {
-        EntryV entry;
-        TVersion current_version = GetJson(*ck, key, -1, entry);
-        
-        if (IsReliable()) {
-            if (current_version != static_cast<TVersion>(total_result.nok)) {
-                throw std::runtime_error(
-                    "Reliable: Wrong number of puts: server version " + 
-                    std::to_string(current_version) + 
-                    " but clients succeeded " + std::to_string(total_result.nok) + 
-                    " times (maybe " + std::to_string(total_result.nmaybe) + ")");
-            }
-        } else {
-            if (current_version > static_cast<TVersion>(total_result.nok + total_result.nmaybe)) {
-                throw std::runtime_error(
-                    "Unreliable: Wrong number of puts: server version " + 
-                    std::to_string(current_version) + 
-                    " but clients succeeded at most " + 
-                    std::to_string(total_result.nok + total_result.nmaybe) + " times");
-            }
-        }
-        
-        std::cout << "Concurrent put check passed: version=" << current_version 
-                  << " nok=" << total_result.nok 
-                  << " nmaybe=" << total_result.nmaybe << std::endl;
-        
-    } catch (const std::runtime_error& e) {
-        // Key might not exist if no operations succeeded
-        if (total_result.nok == 0) {
-            std::cout << "No successful puts, key doesn't exist (expected)" << std::endl;
-        } else {
-            throw;
-        }
     }
 }
 
@@ -395,7 +340,6 @@ ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<zdb::K
     ClientResult result;
     std::map<std::string, TVersion> version_map;
     
-    // Initialize versions to 0 for all keys (matching Go semantics)
     for (const auto& key : keys) {
         version_map[key] = 0;
     }
