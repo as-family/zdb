@@ -65,7 +65,7 @@ TEST_F(KVStoreClientTest, SetAndGetSuccess) {
     EXPECT_TRUE(setResult.has_value());
     auto getResult = client.get(Key{"foo"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), Value{"bar"});
+    EXPECT_EQ(getResult.value().data, "bar");
 }
 
 TEST_F(KVStoreClientTest, GetNonExistentKey) {
@@ -83,7 +83,7 @@ TEST_F(KVStoreClientTest, OverwriteValue) {
     EXPECT_TRUE(client.set(Key{"foo"}, Value{"baz"}).has_value());
     auto getResult = client.get(Key{"foo"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), Value{"baz"});
+    EXPECT_EQ(getResult.value().data, "baz");
 }
 
 TEST_F(KVStoreClientTest, EraseExistingKey) {
@@ -92,7 +92,7 @@ TEST_F(KVStoreClientTest, EraseExistingKey) {
     EXPECT_TRUE(client.set(Key{"foo"}, Value{"bar"}).has_value());
     auto eraseResult = client.erase(Key{"foo"});
     ASSERT_TRUE(eraseResult.has_value());
-    EXPECT_EQ(eraseResult.value(), Value{"bar"});
+    EXPECT_EQ(eraseResult.value().data, "bar");
     auto getResult = client.get(Key{"foo"});
     EXPECT_FALSE(getResult.has_value());
     EXPECT_EQ(getResult.error().code, ErrorCode::NotFound);
@@ -114,7 +114,7 @@ TEST_F(KVStoreClientTest, SizeReflectsSetAndErase) {
     auto sizeResult = client.size();
     ASSERT_TRUE(sizeResult.has_value());
     EXPECT_EQ(sizeResult.value(), 2);
-    EXPECT_EQ(client.erase(Key{"a"}), Value{"1"});
+    EXPECT_EQ(client.erase(Key{"a"}).value().data, "1");
     auto sizeResult2 = client.size();
     ASSERT_TRUE(sizeResult2.has_value());
     EXPECT_EQ(sizeResult2.value(), 1);
@@ -176,10 +176,10 @@ TEST_F(KVStoreClientTest, EmptyKeySetGetErase) {
     EXPECT_TRUE(setResult.has_value());
     auto getResult = client.get(Key{""});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), Value{"empty"});
+    EXPECT_EQ(getResult.value().data, "empty");
     auto eraseResult = client.erase(Key{""});
     ASSERT_TRUE(eraseResult.has_value());
-    EXPECT_EQ(eraseResult.value(), Value{"empty"});
+    EXPECT_EQ(eraseResult.value().data, "empty");
 }
 
 // Edge case: large value
@@ -191,7 +191,7 @@ TEST_F(KVStoreClientTest, LargeValueSetGet) {
     EXPECT_TRUE(setResult.has_value());
     auto getResult = client.get(Key{"big"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), Value{largeValue});
+    EXPECT_EQ(getResult.value().data, largeValue);
 }
 
 // Test behavior with servicesToTry = 0 (should fail immediately)
@@ -218,7 +218,7 @@ TEST_F(KVStoreClientTest, ServicesToTryOneTriesOnlyOnce) {
     
     auto getResult = client.get(Key{"test"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), Value{"value"});
+    EXPECT_EQ(getResult.value().data, "value");
 }
 
 // Test with multiple services and different servicesToTry values
@@ -298,7 +298,7 @@ TEST_F(KVStoreClientTest, ServicesToTryLargerThanAvailableServices) {
     
     auto getResult = client.get(Key{"test"});
     ASSERT_TRUE(getResult.has_value());
-    EXPECT_EQ(getResult.value(), Value{"value"});
+    EXPECT_EQ(getResult.value().data, "value");
 }
 
 // Test that Config properly exposes the RetryPolicy
@@ -348,7 +348,7 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
     
     auto getRecoveryResult = client.get(Key{"recovery"});
     ASSERT_TRUE(getRecoveryResult.has_value());
-    EXPECT_EQ(getRecoveryResult.value(), Value{"test"});
+    EXPECT_EQ(getRecoveryResult.value().data, "test");
 }
 
 // Test client behavior with multiple server restarts

@@ -16,7 +16,7 @@ RetryPolicy::RetryPolicy(
         spdlog::error("RetryPolicy: Failure threshold must be >= zero. Throwing invalid_argument.");
         throw std::invalid_argument("Failure threshold must be >= zero.");
     }
-    if (services <= 0) {
+    if (services < 0) {
         spdlog::error("RetryPolicy: Services to try must be > zero. Throwing invalid_argument.");
         throw std::invalid_argument("Services to try must be > zero.");
     }

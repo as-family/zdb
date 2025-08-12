@@ -72,7 +72,7 @@ TEST_F(KVStoreServerTest, SetAndGetSuccess) {
     auto ctx2 = grpc::ClientContext();
     status = stub->get(&ctx2, getReq, &getRep);
     ASSERT_TRUE(status.ok());
-    ASSERT_EQ(getRep.value(), Value{"bar"});
+    ASSERT_EQ(getRep.value().data(), "bar");
 }
 
 TEST_F(KVStoreServerTest, GetNotFound) {
@@ -132,7 +132,7 @@ TEST_F(KVStoreServerTest, EraseSuccess) {
     grpc::ClientContext ctx2;
     status = stub->erase(&ctx2, eraseReq, &eraseRep);
     ASSERT_TRUE(status.ok());
-    ASSERT_EQ(eraseRep.value(), Value{"bar"});
+    ASSERT_EQ(eraseRep.value().data(), "bar");
 
     GetRequest getReq;
     getReq.mutable_key()->set_data("foo");

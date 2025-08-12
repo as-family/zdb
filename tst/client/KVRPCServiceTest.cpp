@@ -114,7 +114,7 @@ TEST_F(KVRPCServiceTest, CallGetSuccess) {
     GetReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep);
     EXPECT_TRUE(result.has_value());
-    EXPECT_EQ(rep.value(), Value{"bar"});
+    EXPECT_EQ(rep.value().data(), "bar");
 }
 
 
@@ -143,7 +143,7 @@ TEST_F(KVRPCServiceTest, CallEraseSuccess) {
     EraseReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::erase, req, rep);
     EXPECT_TRUE(result.has_value());
-    EXPECT_EQ(rep.value(), Value{"bar"});
+    EXPECT_EQ(rep.value().data(), "bar");
 }
 
 
