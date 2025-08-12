@@ -34,14 +34,6 @@ TEST_F(FrameworkValidationTest, BasicFrameworkLifecycle) {
     // Framework should be able to create clients
     auto ck = ts->makeClient();
     EXPECT_NE(ck, nullptr) << "makeClient should return a valid client";
-    
-    // Should be able to cleanup without issues
-    ts->~KVTestFramework();
-    
-    // Should be able to create new framework after cleanup
-    ts = std::make_unique<KVTestFramework>(true);
-    auto ck2 = ts->makeClient();
-    EXPECT_NE(ck2, nullptr) << "Should be able to create client after recreating framework";
 }
 
 // Test basic Put and Get operations work

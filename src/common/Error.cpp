@@ -14,6 +14,7 @@ std::ostream& operator<<(std::ostream& os, const ErrorCode& code) {
 std::string toString(const ErrorCode& code) {
     switch (code)
     {
+        case ErrorCode::OK: return "OK";
         case ErrorCode::Unknown: return "Unknown";
         case ErrorCode::InvalidArg: return "Invalid Argument";
         case ErrorCode::ServiceTemporarilyUnavailable: return "Service Temporarily Unavailable";

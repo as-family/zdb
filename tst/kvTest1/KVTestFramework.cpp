@@ -342,7 +342,7 @@ std::pair<TVersion, bool> KVTestFramework::OnePut(int client_id, zdb::KVStoreCli
         EntryV entry{client_id, version}; 
         auto err = PutJson(ck, key, entry, version, client_id);
 
-        if (!(err == zdb::ErrorCode::VersionMismatch || err == zdb::ErrorCode::Maybe)) {
+        if (!(err == zdb::ErrorCode::OK || err == zdb::ErrorCode::VersionMismatch || err == zdb::ErrorCode::Maybe)) {
             throw std::runtime_error("Unexpected error in OnePut: " + toString(err));
         }
         
