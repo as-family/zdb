@@ -111,7 +111,7 @@ nlohmann::json PorcupineChecker::OperationsToJson() const {
 
 bool PorcupineChecker::CallPorcupineChecker(const std::string& json_file) {
     // Call the Go porcupine checker
-    std::string command = "/home/ahmed/ws/zdb/tst/kvTest1/porcupine_checker " + json_file;
+    std::string command = "/home/ahmed/ws/zdb/tst/kvTest1/porcupine/porcupine_checker " + json_file;
     int result = system(command.c_str());
     return result == 0;
 }
