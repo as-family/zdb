@@ -11,6 +11,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <sys/resource.h>
+#include <sys/wait.h>
 #endif
 
 // Helper function implementations
@@ -134,9 +135,36 @@ nlohmann::json PorcupineChecker::OperationsToJson() const {
 
 bool PorcupineChecker::CallPorcupineChecker(const std::string& json_file) {
     // Call the Go porcupine checker (built by CMake in tst directory)
+    // Using fork/exec instead of system() for security and better error handling
+    
+#ifdef __linux__
+    pid_t pid = fork();
+    if (pid == -1) {
+        // Fork failed
+        std::cerr << "Failed to fork process" << std::endl;
+        return false;
+    } else if (pid == 0) {
+        // Child process
+        execl("./porcupine_checker", "porcupine_checker", json_file.c_str(), nullptr);
+        // If execl returns, it failed
+        std::cerr << "Failed to execute porcupine_checker" << std::endl;
+        _exit(EXIT_FAILURE);
+    } else {
+        // Parent process
+        int status;
+        if (waitpid(pid, &status, 0) == -1) {
+            std::cerr << "Failed to wait for child process" << std::endl;
+            return false;
+        }
+        return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+    }
+#else
+    // Fallback for non-Linux systems - use system() with a warning suppression
     std::string command = "./porcupine_checker " + json_file;
+    // NOLINTNEXTLINE(cert-env33-c) - Fallback for non-POSIX systems
     int result = system(command.c_str());
     return result == 0;
+#endif
 }
 
 bool PorcupineChecker::CheckLinearizability(std::chrono::seconds /* timeout */) {
@@ -164,7 +192,8 @@ bool PorcupineChecker::CheckLinearizability(std::chrono::seconds /* timeout */) 
     bool result = CallPorcupineChecker(temp_file);
     
     // Clean up temporary file
-    std::remove(temp_file.c_str());
+    // NOLINTNEXTLINE(cert-err33-c) - Temporary file cleanup, error not critical
+    static_cast<void>(std::remove(temp_file.c_str()));
     
     return result;
 }
