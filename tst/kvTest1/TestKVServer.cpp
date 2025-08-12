@@ -19,7 +19,7 @@ TEST_F(KVServerTest, ReliablePut) {
     auto ck = ts->makeClient();
     
     // Test basic put - should succeed with version 0 for new key
-    EXPECT_EQ(ts->PutJson(*ck, "k", VAL, VER, 1), KVError::OK);
+    EXPECT_EQ(ts->PutJson(*ck, "k", VAL, VER, 1), zdb::ErrorCode::OK);
     
     // Test get - should return the value and version 1 (server incremented it)
     std::string retrieved_val;
@@ -29,11 +29,11 @@ TEST_F(KVServerTest, ReliablePut) {
     
     // Test version mismatch - trying to put with old version should fail
     auto result = ts->PutJson(*ck, "k", VAL, 0, 1); // Use version 0 again
-    EXPECT_EQ(result, KVError::ErrVersion) << "Put should fail with ErrVersion when using old version";
+    EXPECT_EQ(result, zdb::ErrorCode::VersionMismatch) << "Put should fail with ErrVersion when using old version";
     
     // Test put to non-existent key with non-zero version - should fail  
     auto result2 = ts->PutJson(*ck, "y", VAL, TVersion(1), 1);
-    EXPECT_EQ(result2, KVError::ErrNoKey) << "Put to non-existent key with version > 0 should fail with ErrNoKey";
+    EXPECT_EQ(result2, zdb::ErrorCode::KeyNotFound) << "Put to non-existent key with version > 0 should fail with ErrNoKey";
     
     // Test get of non-existent key - should fail
     std::string dummy_val;
@@ -80,7 +80,7 @@ TEST_F(KVServerTest, MemPutManyClientsReliable) {
     for (int i = 0; i < NCLIENT; i++) {
         auto err = ts->PutJson(*clients[static_cast<size_t>(i)], "k", "", TVersion(1), i);
         // This should fail with ErrNoKey since key doesn't exist yet and we're using version 1
-        EXPECT_EQ(err, KVError::ErrNoKey);
+        EXPECT_EQ(err, zdb::ErrorCode::KeyNotFound);
     }
     
     // Measure initial memory
@@ -89,7 +89,7 @@ TEST_F(KVServerTest, MemPutManyClientsReliable) {
     // Perform operations with the SAME key "k" using sequential versions (matching Go version)
     for (int i = 0; i < NCLIENT; i++) {
         auto err = ts->PutJson(*clients[static_cast<size_t>(i)], "k", large_value, TVersion(i), i);
-        EXPECT_EQ(err, KVError::OK);
+        EXPECT_EQ(err, zdb::ErrorCode::OK);
     }
     
     // Measure final memory
@@ -124,10 +124,10 @@ TEST_F(KVServerTest, UnreliableNet) {
         for (int i = 0; true; i++) {
             std::cout << "  Attempt " << i << " for try " << try_num << std::endl;
             auto err = unreliable_ts->PutJson(*ck, "k", 0, TVersion(try_num), 0);
-            std::cout << "  PutJson returned: " << KVTestFramework::ErrorToString(err) << std::endl;
-            if (err != KVError::ErrMaybe) {
-                if (i > 0 && err != KVError::ErrVersion) {
-                    FAIL() << "Put shouldn't have happened more than once, got error: " << KVTestFramework::ErrorToString(err);
+            std::cout << "  PutJson returned: " << toString(err) << std::endl;
+            if (err != zdb::ErrorCode::Maybe) {
+                if (i > 0 && err != zdb::ErrorCode::VersionMismatch) {
+                    FAIL() << "Put shouldn't have happened more than once, got error: " << toString(err);
                 }
                 std::cout << "  Breaking from inner loop after " << (i+1) << " attempts" << std::endl;
                 break;
@@ -157,8 +157,8 @@ TEST_F(KVServerTest, BasicOperations) {
     
     // Test JSON operations
     EntryV entry1{1, 5};
-    EXPECT_EQ(ts->PutJson(*ck, "test_key", entry1, 0, 1), KVError::OK);
-    
+    EXPECT_EQ(ts->PutJson(*ck, "test_key", entry1, 0, 1), zdb::ErrorCode::OK);
+
     EntryV retrieved_entry;
     auto version = ts->GetJson(*ck, "test_key", 1, retrieved_entry);
     

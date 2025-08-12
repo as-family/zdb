@@ -52,7 +52,7 @@ TEST_F(FrameworkValidationTest, BasicPutGet) {
     
     // Test simple string put/get
     auto put_result = ts->PutJson(*ck, "test_key", "test_value", 0, 1);
-    EXPECT_EQ(put_result, KVError::OK) << "Basic put should succeed";
+    EXPECT_EQ(put_result, zdb::ErrorCode::OK) << "Basic put should succeed";
     
     std::string retrieved_value;
     auto version = ts->GetJson(*ck, "test_key", 1, retrieved_value);
@@ -69,7 +69,7 @@ TEST_F(FrameworkValidationTest, JSONSerialization) {
     // Test EntryV structure serialization
     EntryV original_entry{42, 100};
     auto put_result = ts->PutJson(*ck, "entry_key", original_entry, 0, 1);
-    EXPECT_EQ(put_result, KVError::OK) << "EntryV put should succeed";
+    EXPECT_EQ(put_result, zdb::ErrorCode::OK) << "EntryV put should succeed";
     
     EntryV retrieved_entry;
     auto version = ts->GetJson(*ck, "entry_key", 1, retrieved_entry);
@@ -80,7 +80,7 @@ TEST_F(FrameworkValidationTest, JSONSerialization) {
     // Test integer serialization
     int original_int = 12345;
     put_result = ts->PutJson(*ck, "int_key", original_int, 0, 1);
-    EXPECT_EQ(put_result, KVError::OK) << "Integer put should succeed";
+    EXPECT_EQ(put_result, zdb::ErrorCode::OK) << "Integer put should succeed";
     
     int retrieved_int;
     version = ts->GetJson(*ck, "int_key", 1, retrieved_int);
@@ -95,15 +95,15 @@ TEST_F(FrameworkValidationTest, VersionValidation) {
     
     // Put with version 0 should succeed for new key
     auto result1 = ts->PutJson(*ck, "ver_key", "value1", 0, 1);
-    EXPECT_EQ(result1, KVError::OK) << "Put with version 0 should succeed for new key";
+    EXPECT_EQ(result1, zdb::ErrorCode::OK) << "Put with version 0 should succeed for new key";
     
     // Put with old version should fail
     auto result2 = ts->PutJson(*ck, "ver_key", "value2", 0, 1);
-    EXPECT_EQ(result2, KVError::ErrVersion) << "Put with old version should fail with ErrVersion";
+    EXPECT_EQ(result2, zdb::ErrorCode::VersionMismatch) << "Put with old version should fail with ErrVersion";
     
     // Put with correct version should succeed
     auto result3 = ts->PutJson(*ck, "ver_key", "value3", 1, 1);
-    EXPECT_EQ(result3, KVError::OK) << "Put with correct version should succeed";
+    EXPECT_EQ(result3, zdb::ErrorCode::OK) << "Put with correct version should succeed";
     
     // Verify final state
     std::string final_value;
@@ -126,11 +126,11 @@ TEST_F(FrameworkValidationTest, NonExistentKeyHandling) {
     
     // Put with non-zero version on non-existent key should fail with ErrNoKey (matching Go behavior)
     auto result = ts->PutJson(*ck, "nonexistent", "value", 5, 1);
-    EXPECT_EQ(result, KVError::ErrNoKey) << "Put with non-zero version on non-existent key should fail with ErrNoKey";
+    EXPECT_EQ(result, zdb::ErrorCode::KeyNotFound) << "Put with non-zero version on non-existent key should fail with ErrNoKey";
     
     // Put with version 0 on non-existent key should succeed (matching Go behavior)
     auto result2 = ts->PutJson(*ck, "nonexistent", "value", 0, 1);
-    EXPECT_EQ(result2, KVError::OK) << "Put with version 0 on non-existent key should succeed";
+    EXPECT_EQ(result2, zdb::ErrorCode::OK) << "Put with version 0 on non-existent key should succeed";
     
     // Verify it was stored correctly
     std::string retrieved_value;
@@ -177,10 +177,10 @@ TEST_F(FrameworkValidationTest, UnreliableNetworkFramework) {
     
     for (int i = 0; i < 20; i++) {  // Try more times to increase chance of seeing unreliable behavior
         auto result = unreliable_ts->PutJson(*ck, "unreliable_key", i, 0, 1);
-        if (result == KVError::ErrMaybe) {
+        if (result == zdb::ErrorCode::Maybe) {
             saw_maybe = true;
             break;
-        } else if (result == KVError::OK) {
+        } else if (result == zdb::ErrorCode::OK) {
             saw_success = true;
             // Try to verify we can read it back (may also fail due to unreliable network)
             try {
@@ -258,30 +258,13 @@ TEST_F(FrameworkValidationTest, MultipleClients) {
     for (int i = 0; i < NUM_CLIENTS; i++) {
         std::string key = "multi_key_" + std::to_string(i);
         auto result = ts->PutJson(*clients[static_cast<size_t>(i)], key, i, 0, i);
-        EXPECT_EQ(result, KVError::OK) << "Client " << i << " put should succeed";
-        
+        EXPECT_EQ(result, zdb::ErrorCode::OK) << "Client " << i << " put should succeed";
+
         int retrieved_value;
         auto version = ts->GetJson(*clients[static_cast<size_t>(i)], key, i, retrieved_value);
         EXPECT_EQ(retrieved_value, i) << "Client " << i << " should retrieve correct value";
         EXPECT_EQ(version, 1) << "Version should be 1 for client " << i;
     }
-}
-
-// Test utility functions
-TEST_F(FrameworkValidationTest, UtilityFunctions) {
-    // Test RandValue
-    std::string rand_str = KVTestFramework::RandValue(10);
-    EXPECT_EQ(rand_str.length(), 10) << "RandValue should generate string of correct length";
-    
-    // Generate another and ensure they're different (very likely)
-    std::string rand_str2 = KVTestFramework::RandValue(10);
-    EXPECT_NE(rand_str, rand_str2) << "Random strings should be different";
-    
-    // Test ErrorToString
-    EXPECT_EQ(KVTestFramework::ErrorToString(KVError::OK), "OK");
-    EXPECT_EQ(KVTestFramework::ErrorToString(KVError::ErrNoKey), "ErrNoKey");
-    EXPECT_EQ(KVTestFramework::ErrorToString(KVError::ErrVersion), "ErrVersion");
-    EXPECT_EQ(KVTestFramework::ErrorToString(KVError::ErrMaybe), "ErrMaybe");
 }
 
 // Test framework can handle rapid operations
@@ -296,7 +279,7 @@ TEST_F(FrameworkValidationTest, RapidOperations) {
     for (int i = 0; i < NUM_OPS; i++) {
         std::string key = "rapid_" + std::to_string(i);
         auto result = ts->PutJson(*ck, key, i, 0, 1);
-        EXPECT_EQ(result, KVError::OK) << "Rapid put " << i << " should succeed";
+        EXPECT_EQ(result, zdb::ErrorCode::OK) << "Rapid put " << i << " should succeed";
     }
     
     // Rapid gets

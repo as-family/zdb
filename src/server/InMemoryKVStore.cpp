@@ -30,7 +30,7 @@ std::expected<void, Error> InMemoryKVStore::set(const Key& key, const Value& val
         i->second = Value{value.data, i->second.version + 1};
     } else {
         if (value.version != 0) {
-            return std::unexpected {Error {ErrorCode::NotFound, "Key does not exist, must use version 0 for new keys"}};
+            return std::unexpected {Error {ErrorCode::KeyNotFound, "Key does not exist, must use version 0 for new keys"}};
         }
         store[key] = Value{value.data, 1};
     }

@@ -9,12 +9,13 @@
 namespace zdb {
 
 enum class ErrorCode : char {
-    NotFound,
+    OK,
     InvalidArg,
     ServiceTemporarilyUnavailable,
     AllServicesUnavailable,
     VersionMismatch,
     Maybe,
+    KeyNotFound,
     Unknown
 };
 

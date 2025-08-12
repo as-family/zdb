@@ -23,16 +23,14 @@ TEST_F(SingleClientTest, SingleClientErrorTest) {
     // Test the exact same operation that's failing in the main test
     std::cout << "Testing Put with version 1 on non-existent key 'k'...\n";
     auto err = ts->PutJson(*client, "k", "", TVersion(1), 0);
-    std::cout << "Error result: " << KVTestFramework::ErrorToString(err) << " (" << static_cast<int>(err) << ")\n";
-    
+
     // This should be ErrNoKey
-    EXPECT_EQ(err, KVError::ErrNoKey);
+    EXPECT_EQ(err, zdb::ErrorCode::KeyNotFound);
     
     // Test with version 0 (should succeed)
     std::cout << "Testing Put with version 0 on non-existent key 'k2'...\n";
     auto err2 = ts->PutJson(*client, "k2", "value", TVersion(0), 0);
-    std::cout << "Error result: " << KVTestFramework::ErrorToString(err2) << " (" << static_cast<int>(err2) << ")\n";
     
     // This should succeed
-    EXPECT_EQ(err2, KVError::OK);
+    EXPECT_EQ(err2, zdb::ErrorCode::OK);
 }

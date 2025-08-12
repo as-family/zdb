@@ -73,7 +73,7 @@ TEST_F(KVStoreClientTest, GetNonExistentKey) {
     const KVStoreClient client {c};
     auto getResult = client.get(Key{"missing"});
     EXPECT_FALSE(getResult.has_value());
-    EXPECT_EQ(getResult.error().code, ErrorCode::NotFound);
+    EXPECT_EQ(getResult.error().code, ErrorCode::KeyNotFound);
 }
 
 TEST_F(KVStoreClientTest, OverwriteValue) {
@@ -105,7 +105,7 @@ TEST_F(KVStoreClientTest, EraseExistingKey) {
     EXPECT_EQ(eraseResult.value().data, "bar");
     auto getResult = client.get(Key{"foo"});
     EXPECT_FALSE(getResult.has_value());
-    EXPECT_EQ(getResult.error().code, ErrorCode::NotFound);
+    EXPECT_EQ(getResult.error().code, ErrorCode::KeyNotFound);
 }
 
 TEST_F(KVStoreClientTest, EraseNonExistentKey) {
@@ -113,7 +113,7 @@ TEST_F(KVStoreClientTest, EraseNonExistentKey) {
     KVStoreClient client {c};
     auto eraseResult = client.erase(Key{"missing"});
     EXPECT_FALSE(eraseResult.has_value());
-    EXPECT_EQ(eraseResult.error().code, ErrorCode::NotFound);
+    EXPECT_EQ(eraseResult.error().code, ErrorCode::KeyNotFound);
 }
 
 TEST_F(KVStoreClientTest, SizeReflectsSetAndErase) {

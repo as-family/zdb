@@ -14,49 +14,6 @@
 #include <sys/wait.h>
 #endif
 
-// Helper function implementations
-KVError ErrorFromZdb(const zdb::Error& err) {
-    KVError result;
-    switch (err.code) {
-        case zdb::ErrorCode::NotFound:
-            result = KVError::ErrNoKey;
-            break;
-        case zdb::ErrorCode::InvalidArg:
-            result = KVError::ErrVersion;
-            break;
-        case zdb::ErrorCode::VersionMismatch:
-            result = KVError::ErrVersion;
-            break;
-        case zdb::ErrorCode::Maybe:
-            result = KVError::ErrMaybe;
-            break;
-        default:
-            result = KVError::ErrMaybe;
-            break;
-    }
-    spdlog::info("ErrorFromZdb: zdb::ErrorCode::{} -> KVError::{}", 
-                 static_cast<int>(err.code), static_cast<int>(result));
-    return result;
-}
-
-KVError ErrorFromZdb(const std::expected<zdb::Value, zdb::Error>& result) {
-    if (result.has_value()) {
-        spdlog::info("ErrorFromZdb: expected<Value> has value -> KVError::OK");
-        return KVError::OK;
-    }
-    spdlog::info("ErrorFromZdb: expected<Value> has error");
-    return ErrorFromZdb(result.error());
-}
-
-KVError ErrorFromZdb(const std::expected<void, zdb::Error>& result) {
-    if (result.has_value()) {
-        spdlog::info("ErrorFromZdb: expected<void> has value -> KVError::OK");
-        return KVError::OK;
-    }
-    spdlog::info("ErrorFromZdb: expected<void> has error");
-    return ErrorFromZdb(result.error());
-}
-
 // NetworkSimulator Implementation
 NetworkSimulator::NetworkSimulator(bool isReliable) 
     : reliable(isReliable), gen(rd()), dis(0.0, 1.0) {
@@ -384,9 +341,9 @@ std::pair<TVersion, bool> KVTestFramework::OnePut(int client_id, zdb::KVStoreCli
         // Step 1: Try to put with the specified version (matching Go semantics exactly)
         EntryV entry{client_id, version}; 
         auto err = PutJson(ck, key, entry, version, client_id);
-        
-        if (!(err == KVError::OK || err == KVError::ErrVersion || err == KVError::ErrMaybe)) {
-            throw std::runtime_error("Unexpected error in OnePut: " + ErrorToString(err));
+
+        if (!(err == zdb::ErrorCode::VersionMismatch || err == zdb::ErrorCode::Maybe)) {
+            throw std::runtime_error("Unexpected error in OnePut: " + toString(err));
         }
         
         // Step 2: Get current state to see what version we're at now (matching Go exactly)
@@ -394,7 +351,7 @@ std::pair<TVersion, bool> KVTestFramework::OnePut(int client_id, zdb::KVStoreCli
         TVersion ver0 = GetJson(ck, key, client_id, current_entry);
         
         // Step 3: Check if our put succeeded (exactly like Go version)
-        if (err == KVError::OK && ver0 == version + 1) {
+        if (err == zdb::ErrorCode::OK && ver0 == version + 1) {
             // My put succeeded - verify the value is correct
             if (current_entry.id != client_id || current_entry.version != version) {
                 throw std::runtime_error("Wrong value stored after successful put");
@@ -405,25 +362,14 @@ std::pair<TVersion, bool> KVTestFramework::OnePut(int client_id, zdb::KVStoreCli
         version = ver0;
         
         // Step 5: Return based on result (exactly matching Go logic)
-        if (err == KVError::OK || err == KVError::ErrMaybe) {
+        if (err == zdb::ErrorCode::OK || err == zdb::ErrorCode::Maybe) {
             // In Go: return ver, err == rpc.OK
             // This means only return true if err was actually OK (not ErrMaybe)
-            return {version, err == KVError::OK};
+            return {version, err == zdb::ErrorCode::OK};
         }
         
         // If we got ErrVersion, retry with the new version (continue loop)
         // No explicit sleep in Go version, just retry immediately
-    }
-}
-
-// Static utility functions
-std::string KVTestFramework::ErrorToString(KVError err) {
-    switch (err) {
-    case KVError::OK: return "OK";
-    case KVError::ErrNoKey: return "ErrNoKey";
-    case KVError::ErrVersion: return "ErrVersion";
-    case KVError::ErrMaybe: return "ErrMaybe";
-    default: return "Unknown";
     }
 }
 

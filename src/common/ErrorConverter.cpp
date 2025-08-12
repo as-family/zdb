@@ -10,7 +10,7 @@ namespace zdb {
 
 grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
     switch (code) {
-        case ErrorCode::NotFound:
+        case ErrorCode::KeyNotFound:
             return grpc::StatusCode::NOT_FOUND;
         case ErrorCode::InvalidArg:
             return grpc::StatusCode::INVALID_ARGUMENT;
@@ -41,7 +41,7 @@ Error toError(const grpc::Status& status) {
             spdlog::error("Attempted to convert OK gRPC status to error. Throwing logic_error.");
             throw std::logic_error("Cannot convert OK status to error");
         case grpc::StatusCode::NOT_FOUND:
-            code = ErrorCode::NotFound;
+            code = ErrorCode::KeyNotFound;
             break;
         case grpc::StatusCode::INVALID_ARGUMENT:
             code = ErrorCode::InvalidArg;
@@ -56,6 +56,24 @@ Error toError(const grpc::Status& status) {
             code = ErrorCode::Unknown;
     }
     return Error(code, status.error_message());
+}
+
+ErrorCode errorCode(const zdb::Error& err) {
+    return err.code;
+}
+ErrorCode errorCode(const std::expected<zdb::Value, zdb::Error>& result) {
+    if (result.has_value()) {
+        return ErrorCode::OK;
+        throw std::logic_error("Expected error but got value");
+    }
+    return errorCode(result.error());
+}
+ErrorCode errorCode(const std::expected<void, zdb::Error>& result) {
+    if (result.has_value()) {
+        return ErrorCode::OK;
+        throw std::logic_error("Expected error but got value");
+    }
+    return errorCode(result.error());
 }
 
 } // namespace zdb

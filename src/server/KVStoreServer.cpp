@@ -26,7 +26,7 @@ grpc::Status KVStoreServiceImpl::get(
         return toGrpcStatus(v.error());
     }
     else if (!v->has_value()) {
-        return toGrpcStatus(Error {ErrorCode::NotFound, "key not found"});
+        return toGrpcStatus(Error {ErrorCode::KeyNotFound, "key not found"});
     } else {
         // Convert C++ Value to protobuf Value
         reply->mutable_value()->set_data(v->value().data);
@@ -60,7 +60,7 @@ grpc::Status KVStoreServiceImpl::erase(
         return toGrpcStatus(v.error());
     }
     else if (!v->has_value()) {
-        return toGrpcStatus(Error {ErrorCode::NotFound, "key not found"});
+        return toGrpcStatus(Error {ErrorCode::KeyNotFound, "key not found"});
     } else {
         // Convert C++ Value to protobuf Value
         reply->mutable_value()->set_data(v->value().data);

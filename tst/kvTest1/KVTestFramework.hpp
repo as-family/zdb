@@ -21,23 +21,11 @@
 #include "server/InMemoryKVStore.hpp"
 #include "common/Types.hpp"
 #include "common/Error.hpp"
+#include "common/ErrorConverter.hpp"
 #include "client/Config.hpp"
 
 class NetworkSimulator;
 class PorcupineChecker;
-
-// Error types matching the current project
-enum class KVError {
-    OK,
-    ErrNoKey,
-    ErrVersion,
-    ErrMaybe  // Client-side only
-};
-
-// Helper function to convert from current project errors
-KVError ErrorFromZdb(const zdb::Error& err);
-KVError ErrorFromZdb(const std::expected<zdb::Value, zdb::Error>& result);
-KVError ErrorFromZdb(const std::expected<void, zdb::Error>& result);
 
 // Version type
 using TVersion = uint64_t;
@@ -56,7 +44,7 @@ struct PutArgs {
 };
 
 struct PutReply {
-    KVError err;
+    zdb::ErrorCode err;
 };
 
 struct GetArgs {
@@ -66,7 +54,7 @@ struct GetArgs {
 struct GetReply {
     std::string value;
     TVersion version;
-    KVError err;
+    zdb::ErrorCode err;
 };
 
 // Porcupine operation tracking
@@ -192,7 +180,7 @@ public:
     
     // JSON helpers (equivalent to Go's PutJson/GetJson)
     template<typename T>
-    KVError PutJson(zdb::KVStoreClient& ck, const std::string& key, const T& value, 
+    zdb::ErrorCode PutJson(zdb::KVStoreClient& ck, const std::string& key, const T& value, 
                     TVersion version, int client_id = 0);
     
     template<typename T>
@@ -226,7 +214,6 @@ public:
     static size_t GetHeapUsage();
     
     // Utility functions
-    static std::string ErrorToString(KVError err);
     static std::string RandValue(int length);
 
 private:
@@ -238,20 +225,19 @@ private:
 
 // Template implementations
 template<typename T>
-KVError KVTestFramework::PutJson(zdb::KVStoreClient& ck, const std::string& key, 
+zdb::ErrorCode KVTestFramework::PutJson(zdb::KVStoreClient& ck, const std::string& key, 
                                 const T& value, TVersion version, int client_id) {
     nlohmann::json j = value;
     std::string json_str = j.dump();
 
     auto start_time = std::chrono::steady_clock::now();
 
-    KVError err;
+    zdb::ErrorCode err;
     if (network_sim && !network_sim->IsReliable()) {
         
         bool should_drop = network_sim->ShouldDropMessage();
         bool should_delay = network_sim->ShouldDelayMessage(); 
-        bool response_lost = network_sim->ShouldDropMessage();
-        
+
         if (should_drop) {
             while (network_sim->ShouldDropMessage()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -262,30 +248,18 @@ KVError KVTestFramework::PutJson(zdb::KVStoreClient& ck, const std::string& key,
             auto delay = network_sim->GetRandomDelay();
             std::this_thread::sleep_for(delay);
         }
-        
-        zdb::Key zdbKey{key};
-        zdb::Value zdbValue{json_str, version};
-        auto result = ck.set(zdbKey, zdbValue);
-        
-        err = ErrorFromZdb(result);
-
-        if ((err == KVError::OK || err == KVError::ErrVersion) && response_lost) {
-            err = KVError::ErrMaybe;
-        }
-    } else {
-        zdb::Key zdbKey{key};
-        zdb::Value zdbValue{json_str, version};
-        auto result = ck.set(zdbKey, zdbValue);
-        
-        err = ErrorFromZdb(result);
     }
+    zdb::Key zdbKey{key};
+    zdb::Value zdbValue{json_str, version};
+    auto result = ck.set(zdbKey, zdbValue);
+    err = errorCode(result);
     
     auto end_time = std::chrono::steady_clock::now();
     
     if (porcupine_checker) {
         PorcupineOperation op;
         op.input = {OpType::PUT, key, json_str, version};
-        op.output = {"", 0, ErrorToString(err)};
+        op.output = {"", 0, toString(err)};
         op.call_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
             start_time.time_since_epoch()).count();
         op.return_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -328,7 +302,7 @@ TVersion KVTestFramework::GetJson(zdb::KVStoreClient& ck, const std::string& key
         if (porcupine_checker) {
             PorcupineOperation op;
             op.input = {OpType::GET, key, "", 0};
-            op.output = {getResult.value().data, getResult.value().version, ErrorToString(KVError::OK)};
+            op.output = {getResult.value().data, getResult.value().version, "OK"};
             op.call_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 start_time.time_since_epoch()).count();
             op.return_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -342,7 +316,7 @@ TVersion KVTestFramework::GetJson(zdb::KVStoreClient& ck, const std::string& key
         if (porcupine_checker) {
             PorcupineOperation op;
             op.input = {OpType::GET, key, "", 0};
-            op.output = {"", 0, ErrorToString(KVError::ErrNoKey)};
+            op.output = {"", 0, toString(zdb::ErrorCode::KeyNotFound)};
             op.call_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 start_time.time_since_epoch()).count();
             op.return_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -350,6 +324,6 @@ TVersion KVTestFramework::GetJson(zdb::KVStoreClient& ck, const std::string& key
             op.client_id = client_id;
             porcupine_checker->LogOperation(op);
         }
-        throw std::runtime_error("Get failed for key '" + key + "': " + ErrorToString(KVError::ErrNoKey));
+        throw std::runtime_error("Get failed for key '" + key + "': " + toString(zdb::ErrorCode::KeyNotFound));
     }
 }
