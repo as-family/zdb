@@ -257,44 +257,46 @@ KVError KVTestFramework::PutJson(zdb::KVStoreClient& ck, const std::string& key,
     auto start_time = std::chrono::steady_clock::now();
     
     // Simulate network effects for unreliable network
+    bool should_send_request = true;
+    bool should_return_maybe = false;
+    
     if (network_sim && !network_sim->IsReliable()) {
-        // Simulate message drop
+        // Simulate request drop (don't send the request at all)
         if (network_sim->ShouldDropMessage()) {
-            auto end_time = std::chrono::steady_clock::now();
-            if (porcupine_checker) {
-                PorcupineOperation op;
-                op.input = {OpType::PUT, key, json_str, version};
-                op.output = {"", 0, ErrorToString(KVError::ErrMaybe)};
-                op.call_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    start_time.time_since_epoch()).count();
-                op.return_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    end_time.time_since_epoch()).count();
-                op.client_id = client_id;
-                porcupine_checker->LogOperation(op);
-            }
-            return KVError::ErrMaybe;
+            should_send_request = false;
+            should_return_maybe = true;
         }
         
         // Simulate message delay
-        if (network_sim->ShouldDelayMessage()) {
+        if (should_send_request && network_sim->ShouldDelayMessage()) {
             std::this_thread::sleep_for(network_sim->GetRandomDelay());
         }
     }
     
-    // Use the current project's client interface
-    zdb::Key zdbKey{key};
-    zdb::Value zdbValue{json_str, version};
-    auto result = ck.set(zdbKey, zdbValue);
+    KVError err = KVError::ErrMaybe;
+    
+    if (should_send_request) {
+        // Use the current project's client interface
+        zdb::Key zdbKey{key};
+        zdb::Value zdbValue{json_str, version};
+        auto result = ck.set(zdbKey, zdbValue);
+        
+        err = ErrorFromZdb(result);
+        
+        // For unreliable networks, sometimes return ErrMaybe even on success
+        // (simulate response loss - request succeeded but response was lost)
+        if (network_sim && !network_sim->IsReliable() && err == KVError::OK) {
+            if (network_sim->ShouldDuplicateMessage()) {
+                should_return_maybe = true;
+            }
+        }
+    }
     
     auto end_time = std::chrono::steady_clock::now();
     
-    KVError err = ErrorFromZdb(result);
-    
-    // For unreliable networks, sometimes return ErrMaybe even on success
-    if (network_sim && !network_sim->IsReliable() && err == KVError::OK) {
-        if (network_sim->ShouldDuplicateMessage()) {
-            err = KVError::ErrMaybe;
-        }
+    // Return ErrMaybe if network simulation dictates it
+    if (should_return_maybe) {
+        err = KVError::ErrMaybe;
     }
     
     if (porcupine_checker) {
@@ -317,56 +319,73 @@ TVersion KVTestFramework::GetJson(zdb::KVStoreClient& ck, const std::string& key
                                  int client_id, T& result) {
     auto start_time = std::chrono::steady_clock::now();
     
-    // Simulate network effects for unreliable network
-    if (network_sim && !network_sim->IsReliable()) {
-        // Simulate message drop
-        if (network_sim->ShouldDropMessage()) {
-            throw std::runtime_error("Get failed for key '" + key + "': " + ErrorToString(KVError::ErrMaybe));
+    // For unreliable networks, retry Get operations for verification
+    const int max_get_retries = 10;
+    for (int retry = 0; retry < max_get_retries; retry++) {
+        bool should_retry = false;
+        
+        // Simulate network effects for unreliable network
+        if (network_sim && !network_sim->IsReliable()) {
+            // Simulate message drop
+            if (network_sim->ShouldDropMessage()) {
+                should_retry = true;
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
+            }
+            
+            // Simulate message delay
+            if (network_sim->ShouldDelayMessage()) {
+                std::this_thread::sleep_for(network_sim->GetRandomDelay());
+            }
         }
         
-        // Simulate message delay
-        if (network_sim->ShouldDelayMessage()) {
-            std::this_thread::sleep_for(network_sim->GetRandomDelay());
+        // Use the current project's client interface
+        zdb::Key zdbKey{key};
+        auto getResult = ck.get(zdbKey);
+        
+        auto end_time = std::chrono::steady_clock::now();
+        
+        if (getResult.has_value()) {
+            nlohmann::json j = nlohmann::json::parse(getResult.value().data);
+            result = j.get<T>();
+            
+            if (porcupine_checker) {
+                PorcupineOperation op;
+                op.input = {OpType::GET, key, "", 0};
+                op.output = {getResult.value().data, getResult.value().version, ErrorToString(KVError::OK)};
+                op.call_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    start_time.time_since_epoch()).count();
+                op.return_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    end_time.time_since_epoch()).count();
+                op.client_id = client_id;
+                porcupine_checker->LogOperation(op);
+            }
+            
+            return getResult.value().version;
+        } else {
+            // Get failed - check if we should retry
+            if (network_sim && !network_sim->IsReliable() && retry < max_get_retries - 1) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
+            }
+            
+            // Final failure
+            if (porcupine_checker) {
+                PorcupineOperation op;
+                op.input = {OpType::GET, key, "", 0};
+                op.output = {"", 0, ErrorToString(KVError::ErrNoKey)};
+                op.call_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    start_time.time_since_epoch()).count();
+                op.return_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    end_time.time_since_epoch()).count();
+                op.client_id = client_id;
+                porcupine_checker->LogOperation(op);
+            }
+            
+            throw std::runtime_error("Get failed for key '" + key + "': " + ErrorToString(KVError::ErrNoKey));
         }
     }
     
-    // Use the current project's client interface
-    zdb::Key zdbKey{key};
-    auto getResult = ck.get(zdbKey);
-    
-    auto end_time = std::chrono::steady_clock::now();
-    
-    if (getResult.has_value()) {
-        nlohmann::json j = nlohmann::json::parse(getResult.value().data);
-        result = j.get<T>();
-        
-        if (porcupine_checker) {
-            PorcupineOperation op;
-            op.input = {OpType::GET, key, "", 0};
-            op.output = {getResult.value().data, getResult.value().version, ErrorToString(KVError::OK)};
-            op.call_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                start_time.time_since_epoch()).count();
-            op.return_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                end_time.time_since_epoch()).count();
-            op.client_id = client_id;
-            porcupine_checker->LogOperation(op);
-        }
-        
-        return getResult.value().version;
-    } else {
-        if (porcupine_checker) {
-            KVError err = ErrorFromZdb(getResult);
-            PorcupineOperation op;
-            op.input = {OpType::GET, key, "", 0};
-            op.output = {"", 0, ErrorToString(err)};
-            op.call_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                start_time.time_since_epoch()).count();
-            op.return_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                end_time.time_since_epoch()).count();
-            op.client_id = client_id;
-            porcupine_checker->LogOperation(op);
-        }
-        
-        throw std::runtime_error("Get failed for key '" + key + "': " + ErrorToString(ErrorFromZdb(getResult)));
-    }
+    // If we get here, all retries failed
+    throw std::runtime_error("Get failed for key '" + key + "' after " + std::to_string(max_get_retries) + " retries: " + ErrorToString(KVError::ErrMaybe));
 }

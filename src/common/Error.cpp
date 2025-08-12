@@ -20,6 +20,7 @@ std::string toString(const ErrorCode& code) {
         case ErrorCode::ServiceTemporarilyUnavailable: return "Service Temporarily Unavailable";
         case ErrorCode::AllServicesUnavailable: return "All Services Unavailable";
         case ErrorCode::VersionMismatch: return "Version Mismatch";
+        case ErrorCode::Maybe: return "Maybe";
     }
     std::unreachable();
 }

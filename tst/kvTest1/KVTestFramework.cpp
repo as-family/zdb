@@ -22,6 +22,8 @@ KVError ErrorFromZdb(const zdb::Error& err) {
             return KVError::ErrVersion;
         case zdb::ErrorCode::VersionMismatch:
             return KVError::ErrVersion;
+        case zdb::ErrorCode::Maybe:
+            return KVError::ErrMaybe;
         default:
             return KVError::ErrMaybe;
     }

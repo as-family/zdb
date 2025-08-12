@@ -14,6 +14,7 @@ enum class ErrorCode : char {
     ServiceTemporarilyUnavailable,
     AllServicesUnavailable,
     VersionMismatch,
+    Maybe,
     Unknown
 };
 

@@ -127,7 +127,7 @@ TEST_F(KVServerTest, UnreliableNet) {
     bool retried = false;
     for (int try_num = 0; try_num < NTRY; try_num++) {
         for (int i = 0; true; i++) {
-            auto err = unreliable_ts->PutJson(*ck, "k", i, TVersion(try_num), 0);
+            auto err = unreliable_ts->PutJson(*ck, "k", 0, TVersion(try_num), 0);
             if (err != KVError::ErrMaybe) {
                 if (i > 0 && err != KVError::ErrVersion) {
                     FAIL() << "Put shouldn't have happened more than once, got error: " << KVTestFramework::ErrorToString(err);

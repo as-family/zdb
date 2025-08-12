@@ -15,7 +15,7 @@ TEST(ErrorConverterTest, ToGrpcStatusCodeAllCodes) {
     EXPECT_EQ(toGrpcStatusCode(ErrorCode::NotFound), grpc::StatusCode::NOT_FOUND);
     EXPECT_EQ(toGrpcStatusCode(ErrorCode::InvalidArg), grpc::StatusCode::INVALID_ARGUMENT);
     EXPECT_EQ(toGrpcStatusCode(ErrorCode::Unknown), grpc::StatusCode::UNKNOWN);
-    EXPECT_EQ(toGrpcStatusCode(ErrorCode::ServiceTemporarilyUnavailable), grpc::StatusCode::UNKNOWN); // fallback
+    EXPECT_EQ(toGrpcStatusCode(ErrorCode::ServiceTemporarilyUnavailable), grpc::StatusCode::UNAVAILABLE);
 }
 
 TEST(ErrorConverterTest, ToGrpcStatusValidError) {
