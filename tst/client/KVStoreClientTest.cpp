@@ -80,7 +80,17 @@ TEST_F(KVStoreClientTest, OverwriteValue) {
     Config c {addresses, policy};
     KVStoreClient client {c};
     EXPECT_TRUE(client.set(Key{"foo"}, Value{"bar"}).has_value());
-    EXPECT_TRUE(client.set(Key{"foo"}, Value{"baz"}).has_value());
+    
+    // Get the current value and its version
+    auto getResult1 = client.get(Key{"foo"});
+    ASSERT_TRUE(getResult1.has_value());
+    EXPECT_EQ(getResult1.value().data, "bar");
+    
+    // Overwrite with the correct version
+    Value updateValue{"baz"};
+    updateValue.version = getResult1.value().version;
+    EXPECT_TRUE(client.set(Key{"foo"}, updateValue).has_value());
+    
     auto getResult = client.get(Key{"foo"});
     ASSERT_TRUE(getResult.has_value());
     EXPECT_EQ(getResult.value().data, "baz");
