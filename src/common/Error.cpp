@@ -15,6 +15,7 @@ std::string toString(const ErrorCode& code) {
     switch (code)
     {
         case ErrorCode::OK: return "OK";
+        case ErrorCode::TimeOut: return "Time Out";
         case ErrorCode::Unknown: return "Unknown";
         case ErrorCode::InvalidArg: return "Invalid Argument";
         case ErrorCode::ServiceTemporarilyUnavailable: return "Service Temporarily Unavailable";
@@ -27,7 +28,12 @@ std::string toString(const ErrorCode& code) {
 }
 
 std::unordered_set<ErrorCode> retriableErrorCodes() {
-    return {ErrorCode::Unknown, ErrorCode::ServiceTemporarilyUnavailable, ErrorCode::AllServicesUnavailable};
+    return {
+        ErrorCode::Unknown,
+        ErrorCode::ServiceTemporarilyUnavailable,
+        ErrorCode::AllServicesUnavailable,
+        ErrorCode::TimeOut
+    };
 }
 
 bool isRetriable(const ErrorCode& code) {

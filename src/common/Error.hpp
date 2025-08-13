@@ -16,6 +16,7 @@ enum class ErrorCode : char {
     VersionMismatch,
     Maybe,
     KeyNotFound,
+    TimeOut,
     Unknown
 };
 

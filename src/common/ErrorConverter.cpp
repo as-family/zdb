@@ -20,6 +20,10 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
             return grpc::StatusCode::UNAVAILABLE;
         case ErrorCode::AllServicesUnavailable:
             return grpc::StatusCode::UNAVAILABLE;
+        case ErrorCode::TimeOut:
+            return grpc::StatusCode::DEADLINE_EXCEEDED;
+        case ErrorCode::Maybe:
+            return grpc::StatusCode::DATA_LOSS;
         default:
             return grpc::StatusCode::UNKNOWN;
     }
@@ -51,6 +55,12 @@ Error toError(const grpc::Status& status) {
             break;
         case grpc::StatusCode::UNAVAILABLE:
             code = ErrorCode::ServiceTemporarilyUnavailable;
+            break;
+        case grpc::StatusCode::DEADLINE_EXCEEDED:
+            code = ErrorCode::TimeOut;
+            break;
+        case grpc::StatusCode::DATA_LOSS:
+            code = ErrorCode::Maybe;
             break;
         default:
             code = ErrorCode::Unknown;

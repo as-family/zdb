@@ -50,9 +50,6 @@ std::expected<void, Error> KVStoreClient::set(const Key& key, const Value& value
     } else {
         spdlog::error("KVStoreClient::set: RPC call failed with error: {} (code: {})", 
                      t.error().what, static_cast<int>(t.error().code));
-        if (t.error().code == ErrorCode::VersionMismatch) {
-            return std::unexpected{Error(ErrorCode::Maybe, "Maybe there")};
-        }
         return std::unexpected{t.error()};
     }
 }
