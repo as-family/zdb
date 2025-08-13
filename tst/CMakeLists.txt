@@ -40,6 +40,10 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/tst/server/KVStoreServerTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/client/KVStoreClientTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/client/ConfigTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTestFramework.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/ProxyKVStoreService.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/NetworkConfig.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTest.cpp
   )
 
   target_link_libraries(tests PRIVATE
