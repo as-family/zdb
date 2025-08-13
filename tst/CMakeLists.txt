@@ -40,11 +40,6 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/tst/server/KVStoreServerTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/client/KVStoreClientTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/client/ConfigTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTestFramework.cpp
-    ${CMAKE_SOURCE_DIR}/tst/kvTest1/TestKVServer.cpp
-    ${CMAKE_SOURCE_DIR}/tst/kvTest1/TestFrameworkValidation.cpp
-    ${CMAKE_SOURCE_DIR}/tst/kvTest1/ErrorTestDebug.cpp
-    ${CMAKE_SOURCE_DIR}/tst/kvTest1/SingleClientDebug.cpp
   )
 
   target_link_libraries(tests PRIVATE
@@ -99,7 +94,7 @@ if(${BUILD_TESTING})
       COMMAND ${GO_EXECUTABLE} build -o ${CMAKE_CURRENT_BINARY_DIR}/porcupine
       WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine
       DEPENDS 
-        ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/porcupine_checker.go
+        ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/main.go
         ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/go.mod
         ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/go.sum
       COMMENT "Building Go porcupine checker"

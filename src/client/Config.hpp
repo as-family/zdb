@@ -18,7 +18,7 @@ public:
     Config& operator=(const Config&) = delete;
     [[nodiscard]] std::expected<KVRPCService*, Error> currentService();
     std::expected<KVRPCService*, Error> nextService();
-    const RetryPolicy policy;  // Store by value, not reference!
+    const RetryPolicy policy;
 private:
     iterator nextActiveServiceIterator();
     map services;

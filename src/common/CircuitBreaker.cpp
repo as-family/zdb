@@ -10,7 +10,7 @@
 
 namespace zdb {
 
-CircuitBreaker::CircuitBreaker(const RetryPolicy& p)
+CircuitBreaker::CircuitBreaker(const RetryPolicy p)
     : policy{p}, repeater {p} {}
 
 grpc::Status CircuitBreaker::call(const std::function<grpc::Status()>& rpc) {

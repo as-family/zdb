@@ -11,7 +11,7 @@
 
 namespace zdb {
 
-Repeater::Repeater(const RetryPolicy& p)
+Repeater::Repeater(const RetryPolicy p)
     : backoff {p} {}
 
 grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
@@ -28,15 +28,15 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
                 backoff.reset();
                 return status;
             }
-            // auto delay = backoff.nextDelay()
-            //     .and_then([this](std::chrono::microseconds v) {
-            //         return std::optional<std::chrono::microseconds> {fullJitter.jitter(v)};
-            //     });
+            auto delay = backoff.nextDelay()
+                .and_then([this](std::chrono::microseconds v) {
+                    return std::optional<std::chrono::microseconds> {fullJitter.jitter(v)};
+                });
             
-            // if (delay.has_value()) {
-                // spdlog::warn("Repeater: delaying:  {}", delay.value().count());
+            if (delay.has_value()) {
+                spdlog::warn("Repeater: delaying:  {}", delay.value().count());
                 std::this_thread::sleep_for(std::chrono::microseconds(100));
-            // } else {
+            } else {
                 if (initialStatus.error_code() == status.error_code()) {
                     return status;
                 } else {
@@ -46,7 +46,7 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
                         "Maybe: " + status.error_message()
                     );
                 }
-            // }
+            }
         }
         status = rpc();
     }

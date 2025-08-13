@@ -9,7 +9,7 @@
 
 namespace zdb {
 
-ExponentialBackoff::ExponentialBackoff(const RetryPolicy& p)
+ExponentialBackoff::ExponentialBackoff(const RetryPolicy p)
     : policy {p} {}
 
 std::optional<std::chrono::microseconds> ExponentialBackoff::nextDelay() {
