@@ -156,18 +156,96 @@ private:
     nlohmann::json OperationsToJson() const;
 };
 
+
+// gRPC Proxy for network simulation
+class KVStoreProxyService final : public zdb::kvStore::KVStoreService::Service {
+public:
+    KVStoreProxyService(const std::string& real_server_addr, std::unique_ptr<NetworkSimulator> net_sim)
+        : real_server_addr_(real_server_addr), network_sim_(std::move(net_sim)) {
+        channel_ = grpc::CreateChannel(real_server_addr_, grpc::InsecureChannelCredentials());
+        stub_ = zdb::kvStore::KVStoreService::NewStub(channel_);
+    }
+
+    grpc::Status get(grpc::ServerContext* context, const zdb::kvStore::GetRequest* request, zdb::kvStore::GetReply* reply) override {
+        if (network_sim_ && network_sim_->ShouldDropMessage()) {
+            return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Simulated drop");
+        }
+        if (network_sim_ && network_sim_->ShouldDelayMessage()) {
+            std::this_thread::sleep_for(network_sim_->GetRandomDelay());
+        }
+        grpc::ClientContext client_ctx;
+        return stub_->get(&client_ctx, *request, reply);
+    }
+
+    grpc::Status set(grpc::ServerContext* context, const zdb::kvStore::SetRequest* request, zdb::kvStore::SetReply* reply) override {
+        if (network_sim_ && network_sim_->ShouldDropMessage()) {
+            return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Simulated drop");
+        }
+        if (network_sim_ && network_sim_->ShouldDelayMessage()) {
+            std::this_thread::sleep_for(network_sim_->GetRandomDelay());
+        }
+        grpc::ClientContext client_ctx;
+        return stub_->set(&client_ctx, *request, reply);
+    }
+
+    grpc::Status erase(grpc::ServerContext* context, const zdb::kvStore::EraseRequest* request, zdb::kvStore::EraseReply* reply) override {
+        if (network_sim_ && network_sim_->ShouldDropMessage()) {
+            return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Simulated drop");
+        }
+        if (network_sim_ && network_sim_->ShouldDelayMessage()) {
+            std::this_thread::sleep_for(network_sim_->GetRandomDelay());
+        }
+        grpc::ClientContext client_ctx;
+        return stub_->erase(&client_ctx, *request, reply);
+    }
+
+    grpc::Status size(grpc::ServerContext* context, const zdb::kvStore::SizeRequest* request, zdb::kvStore::SizeReply* reply) override {
+        if (network_sim_ && network_sim_->ShouldDropMessage()) {
+            return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Simulated drop");
+        }
+        if (network_sim_ && network_sim_->ShouldDelayMessage()) {
+            std::this_thread::sleep_for(network_sim_->GetRandomDelay());
+        }
+        grpc::ClientContext client_ctx;
+        return stub_->size(&client_ctx, *request, reply);
+    }
+
+private:
+    std::string real_server_addr_;
+    std::unique_ptr<NetworkSimulator> network_sim_;
+    std::shared_ptr<grpc::Channel> channel_;
+    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub_;
+};
+
+class KVStoreServerProxy {
+public:
+    KVStoreServerProxy(const std::string& address, std::unique_ptr<KVStoreProxyService> s);
+
+    void wait();
+    void shutdown();
+
+private:
+    std::string addr;
+    std::unique_ptr<KVStoreProxyService> service;
+    std::unique_ptr<grpc::Server> server;
+};
+
 // Main test framework
 class KVTestFramework {
 private:
     bool reliable_network;
     std::unique_ptr<NetworkSimulator> network_sim;
     std::unique_ptr<zdb::InMemoryKVStore> kvStore;
-    std::unique_ptr<zdb::KVStoreServiceImpl> serviceImpl;
-    std::unique_ptr<zdb::KVStoreServer> server;
-    std::thread serverThread;
+    std::unique_ptr<zdb::KVStoreServiceImpl> realServiceImpl;
+    std::unique_ptr<zdb::KVStoreServer> realServer;
+    std::thread realServerThread;
+    std::unique_ptr<KVStoreProxyService> proxyService;
+    std::unique_ptr<KVStoreServerProxy> proxyServer;
+    std::thread proxyServerThread;
     std::unique_ptr<PorcupineChecker> porcupine_checker;
     std::string current_test_name;
-    std::string server_address;
+    std::string real_server_address;
+    std::string proxy_server_address;
     std::unique_ptr<zdb::Config> config; // Store config for clients
     
 public:
@@ -233,22 +311,6 @@ zdb::ErrorCode KVTestFramework::PutJson(zdb::KVStoreClient& ck, const std::strin
     auto start_time = std::chrono::steady_clock::now();
 
     zdb::ErrorCode err;
-    if (!network_sim->IsReliable()) {
-        
-        bool should_drop = network_sim->ShouldDropMessage();
-        bool should_delay = network_sim->ShouldDelayMessage(); 
-
-        if (should_drop) {
-            while (network_sim->ShouldDropMessage()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            }
-        }
-        
-        if (should_delay) {
-            auto delay = network_sim->GetRandomDelay();
-            std::this_thread::sleep_for(delay);
-        }
-    }
     zdb::Key zdbKey{key};
     zdb::Value zdbValue{json_str, version};
     auto result = ck.set(zdbKey, zdbValue);
@@ -275,20 +337,6 @@ template<typename T>
 TVersion KVTestFramework::GetJson(zdb::KVStoreClient& ck, const std::string& key, 
                                  int client_id, T& result) {
     auto start_time = std::chrono::steady_clock::now();
-    
-    bool should_drop = network_sim->ShouldDropMessage();
-    bool should_delay = network_sim->ShouldDelayMessage(); 
-
-    if (should_drop) {
-        while (network_sim->ShouldDropMessage()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-    }
-    
-    if (should_delay) {
-        auto delay = network_sim->GetRandomDelay();
-        std::this_thread::sleep_for(delay);
-    }
     
     zdb::Key zdbKey{key};
     auto getResult = ck.get(zdbKey);

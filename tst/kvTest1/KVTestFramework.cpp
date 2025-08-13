@@ -147,31 +147,45 @@ bool PorcupineChecker::CheckLinearizability(std::chrono::seconds timeout) {
 
 // KVTestFramework Implementation
 KVTestFramework::KVTestFramework(bool reliable) 
-    : reliable_network(reliable), server_address("localhost:50051") {
-    
+    : reliable_network(reliable), real_server_address("localhost:50051"), proxy_server_address("localhost:50052") {
+
     network_sim = std::make_unique<NetworkSimulator>(reliable);
     porcupine_checker = std::make_unique<PorcupineChecker>();
     kvStore = std::make_unique<zdb::InMemoryKVStore>();
-    serviceImpl = std::make_unique<zdb::KVStoreServiceImpl>(*kvStore);
-    server = std::make_unique<zdb::KVStoreServer>(server_address, *serviceImpl);
-    
-    serverThread = std::thread([this]() { 
-        server->wait(); 
+    realServiceImpl = std::make_unique<zdb::KVStoreServiceImpl>(*kvStore);
+    realServer = std::make_unique<zdb::KVStoreServer>(real_server_address, *realServiceImpl);
+
+    proxyService = std::make_unique<KVStoreProxyService>(real_server_address, std::move(network_sim));
+    proxyServer = std::make_unique<KVStoreServerProxy>(proxy_server_address, std::move(proxyService));
+
+    realServerThread = std::thread([this]() { 
+        realServer->wait(); 
+    });
+    proxyServerThread = std::thread([this]() { 
+        proxyServer->wait(); 
     });
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Allow server to start
 
     zdb::RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 1, 1};
-    std::vector<std::string> addresses{server_address};
+    std::vector<std::string> addresses{proxy_server_address};
     config = std::make_unique<zdb::Config>(addresses, policy);
 }
 
 KVTestFramework::~KVTestFramework() {    
-    if (server) {
-        server->shutdown();
-        if (serverThread.joinable()) {
-            serverThread.join();
+    if (realServer) {
+        realServer->shutdown();
+        if (realServerThread.joinable()) {
+            realServerThread.join();
         }
-        server.reset();
+        realServer.reset();
+    }
+
+    if (proxyServer) {
+        proxyServer->shutdown();
+        if (proxyServerThread.joinable()) {
+            proxyServerThread.join();
+        }
+        proxyServer.reset();
     }
     
     if (!current_test_name.empty()) {
@@ -410,4 +424,24 @@ size_t KVTestFramework::GetHeapUsage() {
     }
 #endif
     return 0; // Fallback - unable to determine memory usage
+}
+
+
+KVStoreServerProxy::KVStoreServerProxy(const std::string& address, std::unique_ptr<KVStoreProxyService> s)
+    : addr{address}, service {std::move(s)} {
+    grpc::ServerBuilder sb{};
+    sb.AddListeningPort(addr, grpc::InsecureServerCredentials());
+    sb.RegisterService(service.get());
+    server = sb.BuildAndStart();
+}
+
+void KVStoreServerProxy::wait() {
+    server->Wait();
+}
+
+void KVStoreServerProxy::shutdown() {
+    if (server) {
+        server->Shutdown();
+        server.reset();
+    }
 }
