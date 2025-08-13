@@ -14,8 +14,9 @@ Repeater::Repeater(const RetryPolicy& p)
     : backoff {p} {}
 
 grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
+    grpc::Status initialStatus = rpc();
+    auto status = initialStatus;
     while (true) {
-        auto status = rpc();
         if (status.ok()) {
             backoff.reset();
             return status;
@@ -31,9 +32,17 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
             if (delay.has_value()) {
                 std::this_thread::sleep_for(delay.value());
             } else {
-                return status;
+                if (initialStatus.error_code() == status.error_code()) {
+                    return status;
+                } else {
+                    return grpc::Status(
+                        grpc::StatusCode::DATA_LOSS,
+                        "Maybe: " + status.error_message()
+                    );
+                }
             }
         }
+        status = rpc();
     }
 }
 
