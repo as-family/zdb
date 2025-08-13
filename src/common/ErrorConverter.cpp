@@ -15,7 +15,7 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
         case ErrorCode::InvalidArg:
             return grpc::StatusCode::INVALID_ARGUMENT;
         case ErrorCode::VersionMismatch:
-            return grpc::StatusCode::ABORTED;
+            return grpc::StatusCode::INVALID_ARGUMENT;
         case ErrorCode::ServiceTemporarilyUnavailable:
             return grpc::StatusCode::UNAVAILABLE;
         case ErrorCode::AllServicesUnavailable:
@@ -23,7 +23,7 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
         case ErrorCode::TimeOut:
             return grpc::StatusCode::DEADLINE_EXCEEDED;
         case ErrorCode::Maybe:
-            return grpc::StatusCode::DATA_LOSS;
+            return grpc::StatusCode::UNKNOWN;
         default:
             return grpc::StatusCode::UNKNOWN;
     }
@@ -39,28 +39,28 @@ grpc::Status toGrpcStatus(const Error& error) {
 }
 
 Error toError(const grpc::Status& status) {
+    if (status.error_code() == grpc::StatusCode::OK) {
+        spdlog::error("Attempted to convert OK gRPC status to error. Throwing logic_error.");
+        throw std::logic_error("Cannot convert OK status to error");
+    }
     ErrorCode code = ErrorCode::Unknown;
+    proto::ErrorDetails details;
+    google::protobuf::Any any;
+    if (any.ParseFromString(status.error_details())) {
+        if (any.UnpackTo(&details)) {
+            code = static_cast<ErrorCode>(details.code());
+            return Error(code, details.what());
+        }
+    }
     switch (status.error_code()) {
-        case grpc::StatusCode::OK:
-            spdlog::error("Attempted to convert OK gRPC status to error. Throwing logic_error.");
-            throw std::logic_error("Cannot convert OK status to error");
         case grpc::StatusCode::NOT_FOUND:
             code = ErrorCode::KeyNotFound;
             break;
         case grpc::StatusCode::INVALID_ARGUMENT:
             code = ErrorCode::InvalidArg;
             break;
-        case grpc::StatusCode::ABORTED:
-            code = ErrorCode::VersionMismatch;
-            break;
         case grpc::StatusCode::UNAVAILABLE:
             code = ErrorCode::ServiceTemporarilyUnavailable;
-            break;
-        case grpc::StatusCode::DEADLINE_EXCEEDED:
-            code = ErrorCode::TimeOut;
-            break;
-        case grpc::StatusCode::DATA_LOSS:
-            code = ErrorCode::Maybe;
             break;
         default:
             code = ErrorCode::Unknown;
