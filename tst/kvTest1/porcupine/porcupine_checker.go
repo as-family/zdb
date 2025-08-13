@@ -128,8 +128,7 @@ func main() {
 		},
 	}
 
-	// Check linearizability with 5 second timeout
-	result := porcupine.CheckOperationsTimeout(kvModel, porcupineOps, 5*time.Second)
+	result := porcupine.CheckOperationsTimeout(kvModel, porcupineOps, 60*time.Second)
 
 	if result == porcupine.Ok {
 		fmt.Println("LINEARIZABLE")

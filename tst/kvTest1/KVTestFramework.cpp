@@ -166,7 +166,7 @@ KVTestFramework::KVTestFramework(bool reliable)
     });
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Allow server to start
 
-    zdb::RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 1, 1};
+    zdb::RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 1000, 1};
     std::vector<std::string> addresses{proxy_server_address};
     config = std::make_unique<zdb::Config>(addresses, policy);
 }
@@ -326,7 +326,7 @@ ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<zdb::K
             key = keys[key_dist(gen)];
         }
         
-        auto [new_version, success] = OnePut(client_id, *ck, key, version_map[key], done);
+        auto [new_version, success] = OnePut(client_id, *ck, key, version_map[key]);
         
         // Update our version tracker to the current server version
         version_map[key] = new_version;
@@ -335,55 +335,42 @@ ClientResult KVTestFramework::OneClientPut(int client_id, std::unique_ptr<zdb::K
             result.nok++;
         } else {
             result.nmaybe++;
-        }
-        
-        if (done.load()) break;
+        }        
     }
     
     return result;
 }
 
 std::pair<TVersion, bool> KVTestFramework::OnePut(int client_id, zdb::KVStoreClient& ck, 
-                                                 const std::string& key, TVersion version, 
-                                                 std::atomic<bool>& done) {
-    while (true) {
-        // Check if we should stop due to test timeout
-        if (done.load()) {
-            return {0, false};
-        }
-        
-        // Step 1: Try to put with the specified version (matching Go semantics exactly)
-        EntryV entry{client_id, version}; 
-        auto err = PutJson(ck, key, entry, version, client_id);
+                                                 const std::string key, TVersion version) {
+    // Step 1: Try to put with the specified version (matching Go semantics exactly)
+    EntryV entry{client_id, version}; 
+    auto err = PutJson(ck, key, entry, version, client_id);
 
-        if (!(err == zdb::ErrorCode::OK || err == zdb::ErrorCode::VersionMismatch || err == zdb::ErrorCode::Maybe)) {
-            throw std::runtime_error("Unexpected error in OnePut: " + toString(err));
+    if (!(err == zdb::ErrorCode::OK || err == zdb::ErrorCode::VersionMismatch || err == zdb::ErrorCode::Maybe)) {
+        throw std::runtime_error("Unexpected error in OnePut: " + toString(err));
+    }
+    
+    // Step 2: Get current state to see what version we're at now (matching Go exactly)
+    EntryV current_entry;
+    TVersion ver0 = GetJson(ck, key, client_id, current_entry);
+
+    spdlog::info("OnePut: err={}, ver0={}, current_entry.id={}, current_entry.version={}",
+                 toString(err), ver0, current_entry.id, current_entry.version);
+
+    // Step 3: Check if our put succeeded (exactly like Go version)
+    if (err == zdb::ErrorCode::OK && ver0 == version + 1) {
+        // My put succeeded - verify the value is correct
+        if (current_entry.id != client_id || current_entry.version != version) {
+            throw std::runtime_error("Wrong value stored after successful put");
         }
-        
-        // Step 2: Get current state to see what version we're at now (matching Go exactly)
-        EntryV current_entry;
-        TVersion ver0 = GetJson(ck, key, client_id, current_entry);
-        
-        // Step 3: Check if our put succeeded (exactly like Go version)
-        if (err == zdb::ErrorCode::OK && ver0 == version + 1) {
-            // My put succeeded - verify the value is correct
-            if (current_entry.id != client_id || current_entry.version != version) {
-                throw std::runtime_error("Wrong value stored after successful put");
-            }
-        }
-        
-        // Step 4: Update version to current state (ver = ver0 in Go)
-        version = ver0;
-        
-        // Step 5: Return based on result (exactly matching Go logic)
-        if (err == zdb::ErrorCode::OK || err == zdb::ErrorCode::Maybe) {
-            // In Go: return ver, err == rpc.OK
-            // This means only return true if err was actually OK (not ErrMaybe)
-            return {version, err == zdb::ErrorCode::OK};
-        }
-        
-        // If we got ErrVersion, retry with the new version (continue loop)
-        // No explicit sleep in Go version, just retry immediately
+    }
+    
+    // Step 5: Return based on result (exactly matching Go logic)
+    if (err == zdb::ErrorCode::OK || err == zdb::ErrorCode::Maybe) {
+        // In Go: return ver, err == rpc.OK
+        // This means only return true if err was actually OK (not ErrMaybe)
+        return {ver0, err == zdb::ErrorCode::OK};
     }
 }
 
