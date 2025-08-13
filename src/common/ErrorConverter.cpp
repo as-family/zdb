@@ -10,6 +10,8 @@ namespace zdb {
 
 grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
     switch (code) {
+        case ErrorCode::OK:
+            return grpc::StatusCode::OK;
         case ErrorCode::KeyNotFound:
             return grpc::StatusCode::NOT_FOUND;
         case ErrorCode::InvalidArg:
@@ -42,6 +44,8 @@ Error toError(const grpc::Status& status) {
     ErrorCode code = ErrorCode::Unknown;
     switch (status.error_code()) {
         case grpc::StatusCode::OK:
+            code = ErrorCode::OK;
+            break;
             spdlog::error("Attempted to convert OK gRPC status to error. Throwing logic_error.");
             throw std::logic_error("Cannot convert OK status to error");
         case grpc::StatusCode::NOT_FOUND:

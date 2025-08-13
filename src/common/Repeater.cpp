@@ -7,6 +7,7 @@
 #include <chrono>
 #include <thread>
 #include <grpcpp/support/status.h>
+#include <spdlog/spdlog.h>
 
 namespace zdb {
 
@@ -21,6 +22,7 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
             backoff.reset();
             return status;
         } else {
+            spdlog::warn("Repeater: Status:  {}", status.error_message());
             if (!isRetriable(toError(status).code)) {
                 backoff.reset();
                 return status;
@@ -35,6 +37,7 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
                 if (initialStatus.error_code() == status.error_code()) {
                     return status;
                 } else {
+                    spdlog::warn("Repeater: changing to Maybe:  {}", status.error_message());
                     return grpc::Status(
                         grpc::StatusCode::DATA_LOSS,
                         "Maybe: " + status.error_message()

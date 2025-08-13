@@ -105,7 +105,7 @@ func main() {
 						}
 					}
 					return false, st
-				} else if out.Error == "ErrNoKey" {
+				} else if out.Error == "KeyNotFound" {
 					_, exists := data[inp.Key]
 					return !exists, st
 				}

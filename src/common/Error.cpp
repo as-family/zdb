@@ -15,14 +15,14 @@ std::string toString(const ErrorCode& code) {
     switch (code)
     {
         case ErrorCode::OK: return "OK";
-        case ErrorCode::TimeOut: return "Time Out";
+        case ErrorCode::TimeOut: return "TimeOut";
         case ErrorCode::Unknown: return "Unknown";
-        case ErrorCode::InvalidArg: return "Invalid Argument";
-        case ErrorCode::ServiceTemporarilyUnavailable: return "Service Temporarily Unavailable";
-        case ErrorCode::AllServicesUnavailable: return "All Services Unavailable";
-        case ErrorCode::VersionMismatch: return "Version Mismatch";
+        case ErrorCode::InvalidArg: return "InvalidArgument";
+        case ErrorCode::ServiceTemporarilyUnavailable: return "ServiceTemporarilyUnavailable";
+        case ErrorCode::AllServicesUnavailable: return "AllServicesUnavailable";
+        case ErrorCode::VersionMismatch: return "VersionMismatch";
         case ErrorCode::Maybe: return "Maybe";
-        case ErrorCode::KeyNotFound: return "Key Not Found";
+        case ErrorCode::KeyNotFound: return "KeyNotFound";
     }
     std::unreachable();
 }
