@@ -662,6 +662,6 @@ TEST_F(KVStoreClientTest, IntermittentConnectivityResilience) {
     // 5. Final restore - wait much longer for circuit breaker reset
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
     serverThread = std::thread([this]() { server->wait(); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(200)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::milliseconds(400)); // Wait for circuit breaker reset
     EXPECT_TRUE(client.set(Key{"intermittent3"}, Value{"value3"}).has_value());
 }

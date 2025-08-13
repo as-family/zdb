@@ -13,7 +13,7 @@ ExponentialBackoff::ExponentialBackoff(const RetryPolicy p)
     : policy {p} {}
 
 std::optional<std::chrono::microseconds> ExponentialBackoff::nextDelay() {
-    if (attempt >= policy.failureThreshold) {
+    if (attempt >= policy.failureThreshold - 1) {
         return std::nullopt;
     }
     auto baseCount = static_cast<uint64_t>(policy.baseDelay.count());
