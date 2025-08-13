@@ -8,11 +8,49 @@
 #include "server/KVStoreServer.hpp"
 #include "client/KVStoreClient.hpp"
 #include "client/Config.hpp"
+#include <vector>
+#include <functional>
+#include <atomic>
+#include "common/Types.hpp"
+#include <expected>
+#include "Porcupine.hpp"
+#include "common/RetryPolicy.hpp"
 
 class KVTestFramework {
 public:
+    struct ClientResult {
+        int nOK;
+        int nMaybe;
+    };
     KVTestFramework(std::string a, std::string r, NetworkConfig& c);
     zdb::KVStoreClient makeClient(zdb::Config& config);
+    std::vector<ClientResult> spawnClientsAndWait(
+        int nClients,
+        std::chrono::seconds timeout,
+        std::vector<std::string> addresses,
+        zdb::RetryPolicy policy,
+        std::function<ClientResult(int id, zdb::KVStoreClient& client, std::atomic<bool>& done)> f
+    );
+    ClientResult oneClientSet(
+        int clientId,
+        zdb::KVStoreClient& client,
+        std::vector<zdb::Key> keys,
+        bool randomKeys,
+        std::atomic<bool>& done
+    );
+    std::pair<int, bool> oneSet(
+        int clientId,
+        zdb::KVStoreClient& client,
+        zdb::Key key,
+        uint64_t version
+    );
+    std::expected<void, zdb::Error> setJson(int clientId, zdb::KVStoreClient& client, zdb::Key key, zdb::Value value);
+    zdb::Value getJson(int clientId, zdb::KVStoreClient& client, zdb::Key key);
+    bool checkSetConcurrent(
+        zdb::KVStoreClient& client,
+        zdb::Key key,
+        std::vector<ClientResult> results
+    );
     ~KVTestFramework();
 private:
     std::string addr;
@@ -25,6 +63,7 @@ private:
     std::unique_ptr<grpc::Server> server;
     std::thread serverThread;
     std::thread targetServerThread;
+    Porcupine porcupine;
 };
 
 #endif // KV_TEST_FRAMEWORK_H

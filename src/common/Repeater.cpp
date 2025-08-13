@@ -41,10 +41,7 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
                     return status;
                 } else {
                     spdlog::warn("Repeater: changing to Maybe:  {}", status.error_message());
-                    return grpc::Status(
-                        grpc::StatusCode::DATA_LOSS,
-                        "Maybe: " + status.error_message()
-                    );
+                    return toGrpcStatus(Error(ErrorCode::Maybe, "Maybe success"));
                 }
             }
         }

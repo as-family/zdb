@@ -9,6 +9,7 @@
 namespace zdb {
 
 enum class ErrorCode {
+    OK,
     InvalidArg,
     ServiceTemporarilyUnavailable,
     AllServicesUnavailable,
