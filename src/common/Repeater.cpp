@@ -24,10 +24,10 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
         } else {
             if (!isRetriable(toError(status).code)) {
                 backoff.reset();
-                if (initialStatus.error_code() == status.error_code()) {
-                    return status;
-                } else {
+                if (isRetriable(toError(initialStatus).code)) {
                     return toGrpcStatus(Error(ErrorCode::Maybe, "Maybe success"));
+                } else {
+                    return status;
                 }
                 return status;
             }
@@ -39,11 +39,7 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
             if (delay.has_value()) {
                 std::this_thread::sleep_for(std::chrono::microseconds(100));
             } else {
-                if (initialStatus.error_code() == status.error_code()) {
-                    return status;
-                } else {
-                    return toGrpcStatus(Error(ErrorCode::Maybe, "Maybe success"));
-                }
+                return status;
             }
         }
         status = rpc();
