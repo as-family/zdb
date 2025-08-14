@@ -62,4 +62,5 @@ TEST(KVTest, TestPutConcurrentReliable) {
     zdb::Config config {{proxyAddress}, policy};
     auto client = kvTest.makeClient(config);
     ASSERT_TRUE(kvTest.checkSetConcurrent(client, zdb::Key{"k"}, results));
+    ASSERT_TRUE(kvTest.porcupine.check(10));
 }

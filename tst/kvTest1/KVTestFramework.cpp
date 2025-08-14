@@ -9,7 +9,6 @@
 #include <unordered_map>
 #include <expected>
 #include "common/Types.hpp"
-#include <nlohmann/json.hpp>
 #include "Porcupine.hpp"
 #include <cinttypes>
 #include <sstream>

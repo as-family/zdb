@@ -22,6 +22,7 @@ public:
         int nOK;
         int nMaybe;
     };
+    Porcupine porcupine;
     KVTestFramework(std::string a, std::string r, NetworkConfig& c);
     zdb::KVStoreClient makeClient(zdb::Config& config);
     std::vector<ClientResult> spawnClientsAndWait(
@@ -63,7 +64,6 @@ private:
     std::unique_ptr<grpc::Server> server;
     std::thread serverThread;
     std::thread targetServerThread;
-    Porcupine porcupine;
 };
 
 #endif // KV_TEST_FRAMEWORK_H

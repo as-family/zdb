@@ -19,11 +19,9 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
     auto status = initialStatus;
     while (true) {
         if (status.ok()) {
-            spdlog::info("Repeater: Status OK:  {}", status.error_message());
             backoff.reset();
             return status;
         } else {
-            spdlog::warn("Repeater: Status:  {}", status.error_message());
             if (!isRetriable(toError(status).code)) {
                 backoff.reset();
                 return status;
@@ -34,13 +32,11 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
                 });
             
             if (delay.has_value()) {
-                spdlog::warn("Repeater: delaying:  {}", delay.value().count());
                 std::this_thread::sleep_for(std::chrono::microseconds(100));
             } else {
                 if (initialStatus.error_code() == status.error_code()) {
                     return status;
                 } else {
-                    spdlog::warn("Repeater: changing to Maybe:  {}", status.error_message());
                     return toGrpcStatus(Error(ErrorCode::Maybe, "Maybe success"));
                 }
             }

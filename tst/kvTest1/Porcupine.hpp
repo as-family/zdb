@@ -34,6 +34,7 @@ public:
     void append(Operation op);
     size_t size() const;
     std::vector<Operation> read() const;
+    bool check(int timeout) const;
 private:
     mutable std::mutex mtx;
     std::vector<Operation> operations;
