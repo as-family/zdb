@@ -48,5 +48,4 @@ private:
     NetworkConfig& networkConfig;
 };
 
-
 #endif // PROXY_KV_STORE_SERVICE_H

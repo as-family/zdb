@@ -64,6 +64,7 @@ private:
     std::unique_ptr<grpc::Server> server;
     std::thread serverThread;
     std::thread targetServerThread;
+    std::default_random_engine rng;
 };
 
 #endif // KV_TEST_FRAMEWORK_H

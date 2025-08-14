@@ -81,7 +81,7 @@ TEST(KVTest, TestUnreliableNet) {
     auto client = kvTest.makeClient(c);
     const int nTries = 100;
     auto retried = false;
-    for (int t = 0; t < nTries; ++t) {
+    for (uint64_t t = 0; t < nTries; ++t) {
         for (int i = 0; true; ++i) {
             auto r = kvTest.setJson(0, client, zdb::Key{"k"}, zdb::Value{std::to_string(i), t});
             if (r.has_value() || r.error().code != zdb::ErrorCode::Maybe) {

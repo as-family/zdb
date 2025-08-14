@@ -5,7 +5,6 @@
 #include <optional>
 #include <chrono>
 #include <cstdint>
-#include <spdlog/spdlog.h>
 
 namespace zdb {
 

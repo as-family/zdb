@@ -19,7 +19,8 @@ KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c)
       networkConfig(c),
       service {ProxyKVStoreService {targetServerAddr, networkConfig}},
       mem {zdb::InMemoryKVStore {}},
-      targetService {zdb::KVStoreServiceImpl {mem}} {
+      targetService {zdb::KVStoreServiceImpl {mem}},
+      rng(std::random_device{}()) {
     grpc::ServerBuilder targetSB{};
     targetSB.AddListeningPort(targetServerAddr, grpc::InsecureServerCredentials());
     targetSB.RegisterService(&targetService);
@@ -69,6 +70,7 @@ KVTestFramework::ClientResult KVTestFramework::oneClientSet(
     bool randomKeys,
     std::atomic<bool>& done
 ) {
+    std::uniform_int_distribution<int> dist {0, static_cast<int>(keys.size()) - 1};
     ClientResult result {0, 0};
     std::unordered_map<zdb::Key, int, zdb::KeyHash> versions{};
     for (const auto& key : keys) {
@@ -77,7 +79,7 @@ KVTestFramework::ClientResult KVTestFramework::oneClientSet(
     while(!done.load()) {
         auto key = keys[0];
         if (randomKeys) {
-            key = keys[rand() % keys.size()];
+            key = keys[dist(rng)];
         }
         auto [version, ok] = oneSet(clientId, client, key, versions[key]);
         if (ok) {

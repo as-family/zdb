@@ -7,7 +7,6 @@
 #include <chrono>
 #include <thread>
 #include <grpcpp/support/status.h>
-#include <spdlog/spdlog.h>
 
 namespace zdb {
 
@@ -37,7 +36,7 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
                 });
             
             if (delay.has_value()) {
-                std::this_thread::sleep_for(std::chrono::microseconds(100));
+                std::this_thread::sleep_for(delay.value());
             } else {
                 return status;
             }
