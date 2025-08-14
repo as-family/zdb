@@ -24,7 +24,7 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
         } else {
             if (!isRetriable(toError(status).code)) {
                 backoff.reset();
-                if (isRetriable(toError(initialStatus).code)) {
+                if (isRetriable(toError(initialStatus).code) && toError(status).code == ErrorCode::VersionMismatch) {
                     return toGrpcStatus(Error(ErrorCode::Maybe, "Maybe success"));
                 } else {
                     return status;
