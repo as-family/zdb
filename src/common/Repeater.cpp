@@ -24,6 +24,11 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
         } else {
             if (!isRetriable(toError(status).code)) {
                 backoff.reset();
+                if (initialStatus.error_code() == status.error_code()) {
+                    return status;
+                } else {
+                    return toGrpcStatus(Error(ErrorCode::Maybe, "Maybe success"));
+                }
                 return status;
             }
             auto delay = backoff.nextDelay()

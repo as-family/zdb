@@ -27,7 +27,7 @@ public:
         Rep& reply) {
         auto bound = [this, f, &request, &reply] {
             auto c = grpc::ClientContext();
-            c.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
+            c.set_deadline(std::chrono::system_clock::now() + std::chrono::microseconds(200));
             return (stub.get()->*f)(&c, request, &reply);
         };
         auto status = circuitBreaker.call(bound);

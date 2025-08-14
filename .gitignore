@@ -5,4 +5,4 @@ vcpkg_installed/
 clang-tidy-reports/
 cppcheck-report.xml
 6.5840/
-
+porcupine_operations.json

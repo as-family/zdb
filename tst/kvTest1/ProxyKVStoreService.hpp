@@ -4,6 +4,7 @@
 #include "proto/kvStore.grpc.pb.h"
 #include "NetworkConfig.hpp"
 #include <thread>
+#include <spdlog/spdlog.h>
 
 class ProxyKVStoreService : public zdb::kvStore::KVStoreService::Service {
 public:
@@ -21,10 +22,7 @@ public:
             if (networkConfig.drop()) {
                 return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped");
             }
-            if (networkConfig.delay()) {
-                std::this_thread::sleep_for(networkConfig.delayTime());
-                return status;
-            }
+            return status;
         }
     }
     grpc::Status get(

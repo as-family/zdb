@@ -64,3 +64,44 @@ TEST(KVTest, TestPutConcurrentReliable) {
     ASSERT_TRUE(kvTest.checkSetConcurrent(client, zdb::Key{"k"}, results));
     ASSERT_TRUE(kvTest.porcupine.check(10));
 }
+
+TEST(KVTest, TestUnreliableNet) {
+    NetworkConfig networkConfig {false, 0.1, 0.1};
+    std::string targetAddress {"localhost:50052"};
+    std::string proxyAddress {"localhost:50051"};
+    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};
+    zdb::RetryPolicy policy{
+        std::chrono::microseconds(100),
+        std::chrono::microseconds(1000),
+        std::chrono::microseconds(5000),
+        10000,
+        1
+    };
+    zdb::Config c {{proxyAddress}, policy};
+    auto client = kvTest.makeClient(c);
+    const int nTries = 100;
+    auto retried = false;
+    for (int t = 0; t < nTries; ++t) {
+        for (int i = 0; true; ++i) {
+            auto r = kvTest.setJson(0, client, zdb::Key{"k"}, zdb::Value{std::to_string(i), t});
+            if (r.has_value() || r.error().code != zdb::ErrorCode::Maybe) {
+                if (i > 0 && (r.has_value() || r.error().code != zdb::ErrorCode::VersionMismatch)) {
+                    FAIL() << "shouldn't have happen more than once " << r.error().what;
+                }
+                break;
+            }
+            retried = true;
+        }
+        auto value = kvTest.getJson(0, client, zdb::Key{"k"});
+        if (value.version != t + 1) {
+            FAIL() << "Wrong version " << value.version << " expect " << t + 1;
+        }
+        if (value.data != std::to_string(0)) {
+            FAIL() << "Wrong value " << value.data << " expect " << std::to_string(0);
+        }
+    }
+    if (!retried) {
+        FAIL() << "never returned ErrMaybe";
+    }
+    ASSERT_TRUE(kvTest.porcupine.check(10));
+}

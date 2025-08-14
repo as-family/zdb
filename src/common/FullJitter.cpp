@@ -13,7 +13,6 @@ std::chrono::microseconds FullJitter::jitter(const std::chrono::microseconds v) 
         spdlog::error("FullJitter: Negative duration is not supported. Throwing invalid_argument.");
         throw std::invalid_argument("Negative duration is not supported");
     }
-    spdlog::info("FullJitter: Jittering duration: {}", v.count());
     std::uniform_int_distribution<std::chrono::microseconds::rep> dist(0, v.count());
     return std::chrono::microseconds(dist(rng));
 }
