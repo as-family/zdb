@@ -22,7 +22,18 @@ std::expected<std::optional<Value>, Error> InMemoryKVStore::get(const Key& key) 
 
 std::expected<void, Error> InMemoryKVStore::set(const Key& key, const Value& value) {
     const std::unique_lock lock {m};
-    store[key] = value;
+    auto i = store.find(key);
+    if (i != store.end()) {
+        if (value.version != i->second.version) {
+            return std::unexpected {Error {ErrorCode::VersionMismatch, "Version mismatch: expected " + std::to_string(i->second.version) + " but got " + std::to_string(value.version)}};
+        }
+        i->second = Value{value.data, i->second.version + 1};
+    } else {
+        if (value.version != 0) {
+            return std::unexpected {Error {ErrorCode::KeyNotFound, "Key does not exist, must use version 0 for new keys"}};
+        }
+        store[key] = Value{value.data, 1};
+    }
     return {};
 }
 

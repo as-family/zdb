@@ -111,3 +111,71 @@ TEST(RepeaterTest, ZeroDelayNoSleep) {
     EXPECT_EQ(callCount, 2);
     EXPECT_LT(std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(), 10);
 }
+
+// Measures the time spent in the repeater and compares to expected policy delay
+TEST(RepeaterTest, TimeSpentMatchesPolicyDelay) {
+    const int retries = 3;
+    const std::chrono::microseconds baseDelay(50000); // 50ms
+    const std::chrono::microseconds maxDelay(200000); // 200ms
+    const RetryPolicy policy{baseDelay, maxDelay, std::chrono::microseconds(0), retries, 0};
+    Repeater repeater(policy);
+    int callCount = 0;
+    auto rpc = [&]() {
+        ++callCount;
+        return retriableError();
+    };
+    auto start = std::chrono::steady_clock::now();
+    auto status = repeater.attempt(rpc);
+    auto end = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    // Expected delay: sum of backoff delays (with jitter, so allow some tolerance)
+    int64_t expectedMin = 0;
+    int64_t expectedMax = 0;
+    for (int i = 0; i < retries; ++i) {
+        int64_t delay = std::min<int64_t>(baseDelay.count() * (1UL << i), static_cast<int64_t>(maxDelay.count()));
+        expectedMin += 0; // FullJitter can be 0
+        expectedMax += delay / 1000; // convert to ms
+    }
+    EXPECT_FALSE(status.ok());
+    EXPECT_EQ(callCount, retries);
+    EXPECT_GE(elapsed, 0);
+    EXPECT_LE(elapsed, expectedMax + 100); // allow 100ms tolerance for thread scheduling
+}
+
+// Test negative delay handling in jitter (should throw)
+TEST(RepeaterTest, NegativeDelayThrows) {
+    zdb::FullJitter jitter;
+    EXPECT_THROW(jitter.jitter(std::chrono::microseconds(-1)), std::invalid_argument);
+}
+
+// Test max threshold: should not exceed failureThreshold
+TEST(RepeaterTest, MaxThresholdRespected) {
+    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 1, 0};
+    Repeater repeater(policy);
+    int callCount = 0;
+    auto rpc = [&]() {
+        ++callCount;
+        return retriableError();
+    };
+    auto status = repeater.attempt(rpc);
+    EXPECT_FALSE(status.ok());
+    EXPECT_EQ(callCount, 1);
+}
+
+// Test with large baseDelay and maxDelay
+TEST(RepeaterTest, LargeDelays) {
+    const RetryPolicy policy{std::chrono::microseconds(500000), std::chrono::microseconds(1000000), std::chrono::microseconds(0), 2, 0};
+    Repeater repeater(policy);
+    int callCount = 0;
+    auto rpc = [&]() {
+        ++callCount;
+        return retriableError();
+    };
+    auto start = std::chrono::steady_clock::now();
+    auto status = repeater.attempt(rpc);
+    auto end = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    EXPECT_FALSE(status.ok());
+    EXPECT_EQ(callCount, 2);
+    EXPECT_GE(elapsed, 0);
+}

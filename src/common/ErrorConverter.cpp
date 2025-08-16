@@ -10,10 +10,18 @@ namespace zdb {
 
 grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
     switch (code) {
-        case ErrorCode::NotFound:
+        case ErrorCode::KeyNotFound:
             return grpc::StatusCode::NOT_FOUND;
         case ErrorCode::InvalidArg:
             return grpc::StatusCode::INVALID_ARGUMENT;
+        case ErrorCode::VersionMismatch:
+            return grpc::StatusCode::INVALID_ARGUMENT;
+        case ErrorCode::ServiceTemporarilyUnavailable:
+            return grpc::StatusCode::UNAVAILABLE;
+        case ErrorCode::AllServicesUnavailable:
+            return grpc::StatusCode::UNAVAILABLE;
+        case ErrorCode::TimeOut:
+            return grpc::StatusCode::DEADLINE_EXCEEDED;
         default:
             return grpc::StatusCode::UNKNOWN;
     }
@@ -29,13 +37,22 @@ grpc::Status toGrpcStatus(const Error& error) {
 }
 
 Error toError(const grpc::Status& status) {
+    if (status.error_code() == grpc::StatusCode::OK) {
+        spdlog::error("Attempted to convert OK gRPC status to error. Throwing logic_error.");
+        throw std::logic_error("Cannot convert OK status to error");
+    }
     ErrorCode code = ErrorCode::Unknown;
+    proto::ErrorDetails details;
+    google::protobuf::Any any;
+    if (any.ParseFromString(status.error_details())) {
+        if (any.UnpackTo(&details)) {
+            code = static_cast<ErrorCode>(details.code());
+            return Error(code, details.what());
+        }
+    }
     switch (status.error_code()) {
-        case grpc::StatusCode::OK:
-            spdlog::error("Attempted to convert OK gRPC status to error. Throwing logic_error.");
-            throw std::logic_error("Cannot convert OK status to error");
         case grpc::StatusCode::NOT_FOUND:
-            code = ErrorCode::NotFound;
+            code = ErrorCode::KeyNotFound;
             break;
         case grpc::StatusCode::INVALID_ARGUMENT:
             code = ErrorCode::InvalidArg;
@@ -43,10 +60,29 @@ Error toError(const grpc::Status& status) {
         case grpc::StatusCode::UNAVAILABLE:
             code = ErrorCode::ServiceTemporarilyUnavailable;
             break;
+        case grpc::StatusCode::DEADLINE_EXCEEDED:
+            code = ErrorCode::TimeOut;
+            break;
         default:
             code = ErrorCode::Unknown;
     }
     return Error(code, status.error_message());
+}
+
+ErrorCode errorCode(const zdb::Error& err) {
+    return err.code;
+}
+ErrorCode errorCode(const std::expected<zdb::Value, zdb::Error>& result) {
+    if (result.has_value()) {
+        throw std::logic_error("Expected error but got value");
+    }
+    return errorCode(result.error());
+}
+ErrorCode errorCode(const std::expected<void, zdb::Error>& result) {
+    if (result.has_value()) {
+        throw std::logic_error("Expected error but got value");
+    }
+    return errorCode(result.error());
 }
 
 } // namespace zdb

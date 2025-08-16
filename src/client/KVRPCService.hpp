@@ -10,6 +10,7 @@
 #include <expected>
 #include <memory>
 #include <functional>
+#include <chrono>
 
 namespace zdb {
 
@@ -26,6 +27,7 @@ public:
         Rep& reply) {
         auto bound = [this, f, &request, &reply] {
             auto c = grpc::ClientContext();
+            c.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(2));
             return (stub.get()->*f)(&c, request, &reply);
         };
         auto status = circuitBreaker.call(bound);

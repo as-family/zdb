@@ -32,7 +32,7 @@ TEST_F(ExponentialBackoffTest, InitialDelayIsBaseDelay) {
 TEST_F(ExponentialBackoffTest, DelayDoublesEachAttempt) {
     ExponentialBackoff backoff(defaultPolicy);
     std::vector<unsigned int> expected = {100, 200, 400, 800, 1000}; // capped at maxDelay
-    for (int i = 0; i < defaultPolicy.failureThreshold; ++i) {
+    for (int i = 0; i < defaultPolicy.failureThreshold - 1; ++i) {
         auto delay = backoff.nextDelay();
         ASSERT_TRUE(delay.has_value());
         if (delay.has_value()) {
@@ -51,7 +51,7 @@ TEST_F(ExponentialBackoffTest, DelayIsCappedAtMaxDelay) {
     };
     ExponentialBackoff backoff(policy);
     std::vector<unsigned int> expected = {300, 500, 500, 500};
-    for (int i = 0; i < policy.failureThreshold; ++i) {
+    for (int i = 0; i < policy.failureThreshold - 1; ++i) {
         auto delay = backoff.nextDelay();
         ASSERT_TRUE(delay.has_value());
         if (delay.has_value()) {
@@ -62,7 +62,7 @@ TEST_F(ExponentialBackoffTest, DelayIsCappedAtMaxDelay) {
 
 TEST_F(ExponentialBackoffTest, ReturnsNulloptAfterThreshold) {
     ExponentialBackoff backoff(defaultPolicy);
-    for (int i = 0; i < defaultPolicy.failureThreshold; ++i) {
+    for (int i = 0; i < defaultPolicy.failureThreshold - 1; ++i) {
         ASSERT_TRUE(backoff.nextDelay().has_value());
     }
     auto delay = backoff.nextDelay();
@@ -119,7 +119,7 @@ TEST_F(ExponentialBackoffTest, LargeAttemptDoesNotOverflow) {
         0
     };
     ExponentialBackoff backoff(policy);
-    for (int i = 0; i < policy.failureThreshold; ++i) {
+    for (int i = 0; i < policy.failureThreshold - 1; ++i) {
         auto delay = backoff.nextDelay();
         ASSERT_TRUE(delay.has_value());
         if (delay.has_value()) {

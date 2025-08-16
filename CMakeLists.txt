@@ -22,6 +22,7 @@ set(BUILD_TESTING ON)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 add_library(protobuf_generated STATIC)
 
@@ -53,6 +54,12 @@ target_link_libraries(protobuf_generated PRIVATE
 target_include_directories(protobuf_generated PRIVATE
   ${CMAKE_BINARY_DIR}
 )
+
+# Enable testing at the root level for proper CTest integration
+if(${BUILD_TESTING})
+  include(CTest)
+  enable_testing()
+endif()
 
 add_subdirectory(src)
 add_subdirectory(tst)

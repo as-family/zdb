@@ -2,6 +2,7 @@ if(${BUILD_TESTING})
   include(CTest)
 
   find_package(GTest CONFIG REQUIRED)
+  find_package(nlohmann_json CONFIG REQUIRED)
   include(GoogleTest)
 
   add_executable(tests)
@@ -28,17 +29,23 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp
     ${CMAKE_SOURCE_DIR}/src/client/Config.cpp
     ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
-    ${CMAKE_SOURCE_DIR}/tst/InMemoryKVStoreTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/ExponentialBackoffTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/RetryPolicyTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/FullJitterTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/ErrorConverterTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/RepeaterTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/CircuitBreakerTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/KVRPCServiceTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/KVStoreServerTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/KVStoreClientTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/ConfigTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/server/InMemoryKVStoreTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/ExponentialBackoffTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/RetryPolicyTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/FullJitterTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/ErrorConverterTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/RepeaterTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/common/CircuitBreakerTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/client/KVRPCServiceTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/server/KVStoreServerTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/client/KVStoreClientTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/client/ConfigTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTestFramework.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/ProxyKVStoreService.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/NetworkConfig.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTestFrameworkTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/Porcupine.cpp
   )
 
   target_link_libraries(tests PRIVATE
@@ -48,6 +55,7 @@ if(${BUILD_TESTING})
     protobuf::libprotobuf
     protobuf_generated
     spdlog::spdlog
+    nlohmann_json::nlohmann_json
   )
 
   target_compile_options(tests PRIVATE
@@ -83,6 +91,30 @@ if(${BUILD_TESTING})
     # -fsanitize=undefined
     # -fsanitize=thread
   )
+
+  # Build the Go porcupine checker
+  find_program(GO_EXECUTABLE go)
+  if(GO_EXECUTABLE)
+    add_custom_command(
+      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/porcupine
+      COMMAND ${GO_EXECUTABLE} build -o ${CMAKE_CURRENT_BINARY_DIR}/porcupine
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine
+      DEPENDS 
+        ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/main.go
+        ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/go.mod
+        ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/go.sum
+      COMMENT "Building Go porcupine checker"
+      VERBATIM
+    )
+
+    add_custom_target(porcupine_checker ALL
+      DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/porcupine
+    )
+
+    add_dependencies(tests porcupine_checker)
+  else()
+    message(WARNING "Go not found. Porcupine checker will not be built.")
+  endif()
 
   gtest_discover_tests(tests)
 endif()

@@ -62,7 +62,7 @@ protected:
     void SetUp() override {
         testServer = std::make_unique<TestKVServer>(address);
         // Give server time to start
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     void TearDown() override {
         testServer->shutdown();
@@ -114,7 +114,7 @@ TEST_F(KVRPCServiceTest, CallGetSuccess) {
     GetReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep);
     EXPECT_TRUE(result.has_value());
-    EXPECT_EQ(rep.value(), Value{"bar"});
+    EXPECT_EQ(rep.value().data(), "bar");
 }
 
 
@@ -143,7 +143,7 @@ TEST_F(KVRPCServiceTest, CallEraseSuccess) {
     EraseReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::erase, req, rep);
     EXPECT_TRUE(result.has_value());
-    EXPECT_EQ(rep.value(), Value{"bar"});
+    EXPECT_EQ(rep.value().data(), "bar");
 }
 
 
@@ -171,7 +171,7 @@ TEST_F(KVRPCServiceTest, CallFailureReturnsError) {
     GetReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep);
     EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code, ErrorCode::NotFound);
+    EXPECT_EQ(result.error().code, ErrorCode::KeyNotFound);
 }
 
 // Test connection reuse when channel is already READY

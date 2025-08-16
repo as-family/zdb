@@ -72,7 +72,7 @@ TEST_F(KVStoreServerTest, SetAndGetSuccess) {
     auto ctx2 = grpc::ClientContext();
     status = stub->get(&ctx2, getReq, &getRep);
     ASSERT_TRUE(status.ok());
-    ASSERT_EQ(getRep.value(), Value{"bar"});
+    ASSERT_EQ(getRep.value().data(), "bar");
 }
 
 TEST_F(KVStoreServerTest, GetNotFound) {
@@ -100,7 +100,18 @@ TEST_F(KVStoreServerTest, SetOverwrite) {
     auto status = stub->set(&ctx1, setReq, &setRep);
     ASSERT_TRUE(status.ok());
 
+    // Get the current value and its version
+    GetRequest getReq1;
+    getReq1.mutable_key()->set_data("foo");
+    GetReply getRep1;
+    grpc::ClientContext ctx_get;
+    status = stub->get(&ctx_get, getReq1, &getRep1);
+    ASSERT_TRUE(status.ok());
+    ASSERT_EQ(getRep1.value().data(), "bar");
+
+    // Overwrite with the correct version
     setReq.mutable_value()->set_data("baz");
+    setReq.mutable_value()->set_version(getRep1.value().version());
     grpc::ClientContext ctx2;
     status = stub->set(&ctx2, setReq, &setRep);
     ASSERT_TRUE(status.ok());
@@ -111,7 +122,7 @@ TEST_F(KVStoreServerTest, SetOverwrite) {
     grpc::ClientContext ctx3;
     status = stub->get(&ctx3, getReq, &getRep);
     ASSERT_TRUE(status.ok());
-    ASSERT_EQ(getRep.value(), Value{"baz"});
+    ASSERT_EQ(getRep.value().data(), "baz");
 }
 
 TEST_F(KVStoreServerTest, EraseSuccess) {
@@ -132,7 +143,7 @@ TEST_F(KVStoreServerTest, EraseSuccess) {
     grpc::ClientContext ctx2;
     status = stub->erase(&ctx2, eraseReq, &eraseRep);
     ASSERT_TRUE(status.ok());
-    ASSERT_EQ(eraseRep.value(), Value{"bar"});
+    ASSERT_EQ(eraseRep.value().data(), "bar");
 
     GetRequest getReq;
     getReq.mutable_key()->set_data("foo");

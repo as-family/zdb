@@ -2,6 +2,7 @@
 #define ERROR_CONVERTER_H
 
 #include "common/Error.hpp"
+#include "common/Types.hpp"
 #include <grpcpp/support/status.h>
 #include <expected>
 #include <optional>
@@ -37,6 +38,10 @@ std::expected<void, Error> toExpected(const grpc::Status& status) {
     }
     return std::unexpected {toError(status)};
 }
+
+ErrorCode errorCode(const zdb::Error& err);
+ErrorCode errorCode(const std::expected<zdb::Value, zdb::Error>& result);
+ErrorCode errorCode(const std::expected<void, zdb::Error>& result);
 
 } // namespace zdb
 

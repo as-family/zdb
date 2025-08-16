@@ -36,16 +36,19 @@ std::expected<void, Error> KVStoreClient::set(const Key& key, const Value& value
     request.mutable_value()->set_data(value.data);
     request.mutable_value()->set_version(value.version);
     kvStore::SetReply reply;
+
     auto t = call(
         &kvStore::KVStoreService::Stub::set,
         request,
         reply
     );
+
     if (t.has_value()) {
         return {};
     } else {
-        spdlog::error("Failed to set value for key '{}': {}", key.data, t.error().what);
-        return std::unexpected {t.error()};
+        spdlog::error("KVStoreClient::set: RPC call failed with error: {} (code: {})", 
+                     t.error().what, static_cast<int>(t.error().code));
+        return std::unexpected{t.error()};
     }
 }
 

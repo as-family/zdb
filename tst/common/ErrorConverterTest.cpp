@@ -12,17 +12,17 @@ using zdb::toError;
 using zdb::toExpected;
 
 TEST(ErrorConverterTest, ToGrpcStatusCodeAllCodes) {
-    EXPECT_EQ(toGrpcStatusCode(ErrorCode::NotFound), grpc::StatusCode::NOT_FOUND);
+    EXPECT_EQ(toGrpcStatusCode(ErrorCode::KeyNotFound), grpc::StatusCode::NOT_FOUND);
     EXPECT_EQ(toGrpcStatusCode(ErrorCode::InvalidArg), grpc::StatusCode::INVALID_ARGUMENT);
     EXPECT_EQ(toGrpcStatusCode(ErrorCode::Unknown), grpc::StatusCode::UNKNOWN);
-    EXPECT_EQ(toGrpcStatusCode(ErrorCode::ServiceTemporarilyUnavailable), grpc::StatusCode::UNKNOWN); // fallback
+    EXPECT_EQ(toGrpcStatusCode(ErrorCode::ServiceTemporarilyUnavailable), grpc::StatusCode::UNAVAILABLE);
 }
 
 TEST(ErrorConverterTest, ToGrpcStatusValidError) {
-    const Error err(ErrorCode::NotFound, "not found");
+    const Error err(ErrorCode::KeyNotFound, "not found");
     const grpc::Status status = toGrpcStatus(err);
     EXPECT_EQ(status.error_code(), grpc::StatusCode::NOT_FOUND);
-    EXPECT_EQ(status.error_message(), toString(ErrorCode::NotFound));
+    EXPECT_EQ(status.error_message(), toString(ErrorCode::KeyNotFound));
     EXPECT_FALSE(status.ok());
 }
 
@@ -51,7 +51,7 @@ TEST(ErrorConverterTest, ToErrorAllGrpcCodes) {
     const Error e2 = toError(invalid);
     const Error e3 = toError(unavailable);
     const Error e4 = toError(unknown);
-    EXPECT_EQ(e1.code, ErrorCode::NotFound);
+    EXPECT_EQ(e1.code, ErrorCode::KeyNotFound);
     EXPECT_EQ(e2.code, ErrorCode::InvalidArg);
     EXPECT_EQ(e3.code, ErrorCode::ServiceTemporarilyUnavailable);
     EXPECT_EQ(e4.code, ErrorCode::Unknown);
@@ -80,6 +80,6 @@ TEST(ErrorConverterTest, ToExpectedVoid) {
     EXPECT_TRUE(v.has_value());
     auto e = toExpected<void>(err);
     EXPECT_FALSE(e.has_value());
-    EXPECT_EQ(e.error().code, ErrorCode::NotFound);
+    EXPECT_EQ(e.error().code, ErrorCode::KeyNotFound);
     EXPECT_EQ(e.error().what, "nf");
 }

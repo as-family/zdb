@@ -2,7 +2,7 @@
     "version": 3,
     "configurePresets": [
         {
-            "name": "gcc-13-config",
+            "name": "gcc-13",
             "displayName": "GCC 13 Preset",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/gcc-13",
@@ -22,7 +22,7 @@
             }
         },
         {
-            "name": "llvm-18-config",
+            "name": "llvm-18",
             "displayName": "LLVM 18 Preset",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/llvm-18",
@@ -45,7 +45,7 @@
             }
         },
         {
-            "name": "gcc-14-config",
+            "name": "gcc-14",
             "displayName": "GCC 14 Config",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/gcc-14",
@@ -67,24 +67,24 @@
     ],
     "buildPresets": [
         {
-            "name": "gcc-13-build",
-            "configurePreset": "gcc-13-config"
+            "name": "gcc-13",
+            "configurePreset": "gcc-13"
         },
         {
-            "name": "llvm-18-build",
-            "configurePreset": "llvm-18-config"
+            "name": "llvm-18",
+            "configurePreset": "llvm-18"
         },
         {
-            "name": "gcc-14-build",
-            "configurePreset": "gcc-14-config"
+            "name": "gcc-14",
+            "configurePreset": "gcc-14"
         }
     ],
     "testPresets": [
         {
-            "name": "gcc-14-test",
+            "name": "gcc-14",
             "description": "",
             "displayName": "",
-            "configurePreset": "gcc-14-config"
+            "configurePreset": "gcc-14"
         }
     ]
 }

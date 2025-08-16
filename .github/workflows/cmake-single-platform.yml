@@ -69,13 +69,13 @@ jobs:
           cmake-build-${{ runner.os }}-gcc-14-
 
     - name: Configure CMake using preset
-      # Use the gcc-14-config preset from CMakePresets.json
-      run: cmake --preset gcc-14-config
+      # Use the gcc-14 preset from CMakePresets.json
+      run: cmake --preset gcc-14
 
     - name: Get build directory from CMake
       id: build-dir
       run: |
-        BUILD_DIR=$(cmake -L --preset gcc-14-config | grep ZDB_BUILD_DIR | cut -d= -f2)
+        BUILD_DIR=$(cmake -L --preset gcc-14 | grep ZDB_BUILD_DIR | cut -d= -f2)
         if [ -z "$BUILD_DIR" ]; then
           BUILD_DIR="${{github.workspace}}/out/build/gcc-14"
         fi
@@ -84,7 +84,7 @@ jobs:
 
     - name: Build using preset
       # Build using the gcc-14-build preset
-      run: cmake --build --preset gcc-14-build
+      run: cmake --build --preset gcc-14
 
     - name: Run cppcheck (complementary analysis)
       run: |

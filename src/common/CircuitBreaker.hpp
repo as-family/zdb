@@ -15,12 +15,12 @@ public:
         Closed,
         HalfOpen
     };
-    explicit CircuitBreaker(const RetryPolicy& p);
+    explicit CircuitBreaker(const RetryPolicy p);
     grpc::Status call(const std::function<grpc::Status()>& rpc);
     [[nodiscard]] bool open();
 private:
     State state{State::Closed};
-    const RetryPolicy& policy;
+    const RetryPolicy policy;
     Repeater repeater;
     std::chrono::steady_clock::time_point lastFailureTime;
 };
