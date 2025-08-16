@@ -2,20 +2,18 @@
 #define REPEATER_H
 
 #include <functional>
-#include <optional>
-#include <thread>
-#include <chrono>
 #include "RetryPolicy.hpp"
 #include "ExponentialBackoff.hpp"
 #include "FullJitter.hpp"
 #include <grpcpp/support/status.h>
+#include <vector>
 
 namespace zdb {
 
 class Repeater {
 public:
     explicit Repeater(const RetryPolicy p);
-    grpc::Status attempt(const std::function<grpc::Status()>& rpc);
+    std::vector<grpc::Status> attempt(const std::function<grpc::Status()>& rpc);
 private:
     ExponentialBackoff backoff;
     FullJitter fullJitter;

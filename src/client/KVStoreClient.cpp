@@ -25,8 +25,7 @@ std::expected<Value, Error> KVStoreClient::get(const Key& key) const {
     if (t.has_value()) {
         return reply.value();
     } else {
-        spdlog::error("Failed to get value for key '{}': {}", key.data, t.error().what);
-        return std::unexpected {t.error()};
+        return std::unexpected {t.error().back()};
     }
 }
 
@@ -46,9 +45,11 @@ std::expected<void, Error> KVStoreClient::set(const Key& key, const Value& value
     if (t.has_value()) {
         return {};
     } else {
-        spdlog::error("KVStoreClient::set: RPC call failed with error: {} (code: {})", 
-                     t.error().what, static_cast<int>(t.error().code));
-        return std::unexpected{t.error()};
+        if (isRetriable(t.error().front().code) && t.error().back().code == ErrorCode::VersionMismatch) {
+            return std::unexpected {Error(ErrorCode::Maybe, "Maybe success")};
+        } else {
+            return std::unexpected {t.error().back()};
+        }
     }
 }
 
@@ -64,8 +65,7 @@ std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
     if (t.has_value()) {
         return reply.value();
     } else {
-        spdlog::error("Failed to erase value for key '{}': {}", key.data, t.error().what);
-        return std::unexpected {t.error()};
+        return std::unexpected {t.error().back()};
     }
 }
 
@@ -80,8 +80,7 @@ std::expected<size_t, Error> KVStoreClient::size() const {
     if (t.has_value()) {
         return reply.size();
     } else {
-        spdlog::error("Failed to get size: {}", t.error().what);
-        return std::unexpected {t.error()};
+        return std::unexpected {t.error().back()};
     }
 }
 

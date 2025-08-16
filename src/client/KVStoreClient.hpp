@@ -12,6 +12,7 @@
 #include "client/Config.hpp"
 #include <spdlog/spdlog.h>
 #include "common/Types.hpp"
+#include <vector>
 
 namespace zdb {
 
@@ -26,7 +27,7 @@ public:
     [[nodiscard]] std::expected<size_t, Error> size() const;
 private:
     template<typename Req, typename Rep>
-    std::expected<void, Error> call(
+    std::expected<void, std::vector<Error>> call(
         grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
         Rep& reply) const {
@@ -37,13 +38,13 @@ private:
                 if (callResult.has_value()) {
                     return {};
                 } else {
-                    if (!isRetriable(callResult.error().code)) {
+                    if (!isRetriable(callResult.error().back().code)) {
                         return callResult;
                     }
                 }
             }
         }
-        return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "All services are unavailable")};
+        return std::unexpected {std::vector {Error(ErrorCode::AllServicesUnavailable, "All services are unavailable")}};
     }
     Config& config;
 };

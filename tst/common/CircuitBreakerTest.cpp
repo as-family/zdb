@@ -23,7 +23,7 @@ TEST_F(CircuitBreakerTest, InitialStateClosed) {
 TEST_F(CircuitBreakerTest, SuccessfulCallKeepsClosed) {
     const std::function<grpc::Status()> rpc = [] { return grpc::Status::OK; };
     auto status = breaker.call(rpc);
-    EXPECT_TRUE(status.ok());
+    EXPECT_TRUE(status.back().ok());
     EXPECT_FALSE(breaker.open());
 }
 
@@ -32,7 +32,7 @@ TEST_F(CircuitBreakerTest, RetriableFailureOpensBreaker) {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail");
     };
     auto status = breaker.call(rpc);
-    EXPECT_EQ(status.error_code(), grpc::StatusCode::UNAVAILABLE);
+    EXPECT_EQ(status.back().error_code(), grpc::StatusCode::UNAVAILABLE);
     EXPECT_TRUE(breaker.open());
 }
 
@@ -41,7 +41,7 @@ TEST_F(CircuitBreakerTest, NonRetriableFailureKeepsClosed) {
         return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "fail");
     };
     auto status = breaker.call(rpc);
-    EXPECT_EQ(status.error_code(), grpc::StatusCode::INVALID_ARGUMENT);
+    EXPECT_EQ(status.back().error_code(), grpc::StatusCode::INVALID_ARGUMENT);
     EXPECT_FALSE(breaker.open());
 }
 
@@ -54,8 +54,8 @@ TEST_F(CircuitBreakerTest, OpenBreakerBlocksCalls) {
     EXPECT_TRUE(breaker.open());
     // Should block
     auto status = breaker.call(rpc);
-    EXPECT_EQ(status.error_code(), grpc::StatusCode::UNAVAILABLE);
-    EXPECT_EQ(status.error_message(), "Circuit breaker is open");
+    EXPECT_EQ(status.back().error_code(), grpc::StatusCode::UNAVAILABLE);
+    EXPECT_EQ(status.back().error_message(), "Circuit breaker is open");
 }
 
 TEST_F(CircuitBreakerTest, HalfOpenAllowsTestCall) {
@@ -75,7 +75,7 @@ TEST_F(CircuitBreakerTest, HalfOpenAllowsTestCall) {
     };
     auto status = breaker.call(testRpc);
     EXPECT_TRUE(called);
-    EXPECT_TRUE(status.ok());
+    EXPECT_TRUE(status.back().ok());
     EXPECT_FALSE(breaker.open());
 }
 
@@ -93,7 +93,7 @@ TEST_F(CircuitBreakerTest, HalfOpenFailureReopensBreaker) {
         return grpc::Status(grpc::StatusCode::UNAVAILABLE, "fail again");
     };
     auto status = breaker.call(failRpc);
-    EXPECT_EQ(status.error_code(), grpc::StatusCode::UNAVAILABLE);
+    EXPECT_EQ(status.back().error_code(), grpc::StatusCode::UNAVAILABLE);
     EXPECT_TRUE(breaker.open());
 }
 
@@ -111,7 +111,7 @@ TEST_F(CircuitBreakerTest, HalfOpenNonRetriableFailureClosesBreaker) {
         return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "fail");
     };
     auto status = breaker.call(nonRetriableRpc);
-    EXPECT_EQ(status.error_code(), grpc::StatusCode::INVALID_ARGUMENT);
+    EXPECT_EQ(status.back().error_code(), grpc::StatusCode::INVALID_ARGUMENT);
     EXPECT_FALSE(breaker.open());
 }
 
@@ -135,8 +135,8 @@ TEST_F(CircuitBreakerTest, RapidCallsRespectTimeout) {
     EXPECT_TRUE(breaker.open());
     // Rapid call should still be blocked
     auto status = breaker.call(rpc);
-    EXPECT_EQ(status.error_code(), grpc::StatusCode::UNAVAILABLE);
-    EXPECT_EQ(status.error_message(), "Circuit breaker is open");
+    EXPECT_EQ(status.back().error_code(), grpc::StatusCode::UNAVAILABLE);
+    EXPECT_EQ(status.back().error_message(), "Circuit breaker is open");
 }
 
 // Edge case: call with nullptr
@@ -222,7 +222,7 @@ TEST_F(CircuitBreakerTest, StateTransitionsWithOpenCalls) {
         return grpc::Status::OK;
     };
     auto status = breaker.call(successRpc);
-    EXPECT_TRUE(status.ok());
+    EXPECT_TRUE(status.back().ok());
     EXPECT_FALSE(breaker.open()); // Now Closed
 }
 
@@ -254,8 +254,8 @@ TEST_F(CircuitBreakerTest, OpenStateTransitionAffectsCallBehavior) {
     
     // Immediate call should be blocked
     auto blockedStatus = breaker.call(failRpc);
-    EXPECT_EQ(blockedStatus.error_code(), grpc::StatusCode::UNAVAILABLE);
-    EXPECT_EQ(blockedStatus.error_message(), "Circuit breaker is open");
+    EXPECT_EQ(blockedStatus.back().error_code(), grpc::StatusCode::UNAVAILABLE);
+    EXPECT_EQ(blockedStatus.back().error_message(), "Circuit breaker is open");
     
     // Wait for reset timeout
     std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
@@ -271,7 +271,7 @@ TEST_F(CircuitBreakerTest, OpenStateTransitionAffectsCallBehavior) {
     };
     auto status = breaker.call(testRpc);
     EXPECT_TRUE(called);
-    EXPECT_TRUE(status.ok());
+    EXPECT_TRUE(status.back().ok());
 }
 
 // Test open() with concurrent access simulation
@@ -329,7 +329,7 @@ TEST_F(CircuitBreakerTest, OpenDoesNotAffectClosedState) {
         return grpc::Status::OK;
     };
     auto status = breaker.call(successRpc);
-    EXPECT_TRUE(status.ok());
+    EXPECT_TRUE(status.back().ok());
     EXPECT_FALSE(breaker.open());
 }
 
@@ -348,7 +348,7 @@ TEST_F(CircuitBreakerTest, OpenAfterHalfOpenFailure) {
     
     // Fail in HalfOpen state (should reopen)
     auto status = breaker.call(failRpc);
-    EXPECT_FALSE(status.ok());
+    EXPECT_FALSE(status.back().ok());
     EXPECT_TRUE(breaker.open()); // Should be Open again
 }
 

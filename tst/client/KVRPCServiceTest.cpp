@@ -171,7 +171,7 @@ TEST_F(KVRPCServiceTest, CallFailureReturnsError) {
     GetReply rep;
     auto result = service.call(&zdb::kvStore::KVStoreService::Stub::get, req, rep);
     EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code, ErrorCode::KeyNotFound);
+    EXPECT_EQ(result.error().back().code, ErrorCode::KeyNotFound);
 }
 
 // Test connection reuse when channel is already READY
