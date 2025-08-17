@@ -28,11 +28,11 @@ public:
         Rep& reply) {
         auto bound = [this, f, &request, &reply] {
             auto c = grpc::ClientContext();
-            c.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(2));
+            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(50));
             return (stub.get()->*f)(&c, request, &reply);
         };
         auto statuses = circuitBreaker.call(bound);
-        if (!statuses.empty() && statuses.back().ok()) {
+        if (statuses.back().ok()) {
             return {};
         } else {
             std::vector<Error> errors(statuses.size(), Error(ErrorCode::Unknown, "Unknown error"));

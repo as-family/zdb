@@ -44,7 +44,7 @@ std::vector<grpc::Status> CircuitBreaker::call(const std::function<grpc::Status(
         case State::Closed:
         {
             auto statuses = repeater.attempt(rpc);
-            if (!statuses.empty() && !statuses.back().ok()) {
+            if (!statuses.back().ok()) {
                 if (isRetriable(toError(statuses.back()).code)) {
                     state = State::Open;
                     lastFailureTime = std::chrono::steady_clock::now();
