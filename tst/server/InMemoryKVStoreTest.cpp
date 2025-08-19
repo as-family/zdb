@@ -85,6 +85,36 @@ TEST_F(InMemoryKVStoreTest, SizeReflectsChanges) {
     EXPECT_EQ(kv.size(), 0);
 }
 
+TEST_F(InMemoryKVStoreTest, SetEraseSetSameKey) {
+    // Set key to value1
+    auto setResult1 = kv.set(Key{"mykey"}, Value{"value1"});
+    EXPECT_TRUE(setResult1.has_value());
+    // Confirm value1
+    auto getResult1 = kv.get(Key{"mykey"});
+    ASSERT_TRUE(getResult1.has_value());
+    ASSERT_TRUE(getResult1.value().has_value());
+    EXPECT_EQ(getResult1.value().value().data, "value1");
+
+    // Erase key
+    auto eraseResult = kv.erase(Key{"mykey"});
+    ASSERT_TRUE(eraseResult.has_value());
+    ASSERT_TRUE(eraseResult.value().has_value());
+    EXPECT_EQ(eraseResult.value().value().data, "value1");
+    // Confirm erased
+    auto getResult2 = kv.get(Key{"mykey"});
+    ASSERT_TRUE(getResult2.has_value());
+    EXPECT_FALSE(getResult2.value().has_value());
+
+    // Set key to value2
+    auto setResult2 = kv.set(Key{"mykey"}, Value{"value2"});
+    EXPECT_TRUE(setResult2.has_value());
+    // Confirm value2
+    auto getResult3 = kv.get(Key{"mykey"});
+    ASSERT_TRUE(getResult3.has_value());
+    ASSERT_TRUE(getResult3.value().has_value());
+    EXPECT_EQ(getResult3.value().value().data, "value2");
+}
+
 TEST_F(InMemoryKVStoreTest, EmptyValue) {
     auto setResult = kv.set(Key{"empty"}, Value{""});
     EXPECT_TRUE(setResult.has_value());

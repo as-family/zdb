@@ -12,4 +12,6 @@ message ErrorDetails {
     ErrorCode code = 1;
     string what = 2;
     string key = 3;
+    string value = 4;
+    uint64 version = 5;
 }

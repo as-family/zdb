@@ -15,13 +15,14 @@ namespace zdb {
 
 class InMemoryKVStore : public StorageEngine {
 public:
+    InMemoryKVStore();
     std::expected<std::optional<Value>, Error> get(const Key& key) const override;
     std::expected<void, Error> set(const Key& key, const Value& value) override;
     std::expected<std::optional<Value>, Error> erase(const Key& key) override;
     size_t size() const;
 private:
     std::unordered_map<Key, Value, KeyHash> store;
-    mutable std::shared_mutex m;
+    mutable std::mutex m;
 };
 
 } // namespace zdb

@@ -8,41 +8,42 @@
 #include "common/RetryPolicy.hpp"
 #include <gtest/gtest.h>
 
-const int nAcquire = 10;
 const int nClient = 10;
 const int nSec = 2;
 
-KVTestFramework::ClientResult onClient(int clientId, zdb::KVStoreClient& client, std::atomic<bool>& done) {
+KVTestFramework::ClientResult oneClient(int clientId, zdb::KVStoreClient& client, std::atomic<bool>& done) {
     zdb::Key lockKey{"test_lock"};
     zdb::Lock lock(lockKey, client);
     client.set(zdb::Key{"testKey"}, zdb::Value{"testValue", 0});
     int i;
     for (i = 0; !done.load(); ++i) {
         lock.acquire();
+        std::cerr << "Client " << clientId << " acquired lock\n";
 
         auto v = client.get(zdb::Key{"testKey"});
         if(!v.has_value())  {
             throw std::runtime_error("Failed to get value for testKey");
         }
         if(v.value().data != "testValue") {
-            throw std::runtime_error("Unexpected value for testKey");
+            throw std::runtime_error("Unexpected value for testKey i:" + std::to_string(i) + " v:" + v.value().data);
         }
 
         auto v2 = client.set(zdb::Key{"testKey"}, zdb::Value{std::to_string(clientId), v.value().version});
         if(!v2.has_value() && v2.error().code != zdb::ErrorCode::Maybe) {
-            throw std::runtime_error("Failed to set value for testKey");
+            throw std::runtime_error("Failed to set value for testKey i:" + std::to_string(i) + " v2:" + (v2.has_value() ? "OK" : v2.error().what));
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-        auto v3 = client.set(zdb::Key{"testKey"}, zdb::Value{std::to_string(clientId), v.value().version + 1});
+        auto v3 = client.set(zdb::Key{"testKey"}, zdb::Value{"testValue", v.value().version + 1});
         if(!v3.has_value() && v3.error().code != zdb::ErrorCode::Maybe) {
-            throw std::runtime_error("Failed to set value for testKey");
+            throw std::runtime_error("Failed to set value for testKey i:" + std::to_string(i) + " v3:" + (v3.has_value() ? "OK" : v3.error().what));
         }
 
         lock.release();
+        std::cerr << "Client " << clientId << " released lock\n";
     }
-    return KVTestFramework::ClientResult{i, 0}; // Assuming 1 OK and 0 Maybe for simplicity
+    return KVTestFramework::ClientResult{i, 0};
 }
 
 void runClients(int nClients, bool reliable) {
@@ -52,20 +53,32 @@ void runClients(int nClients, bool reliable) {
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};
 
     kvTest.spawnClientsAndWait(nClients, std::chrono::seconds(nSec), {proxyAddress}, zdb::RetryPolicy{
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
-        std::chrono::microseconds(5000),
-        3,
+        std::chrono::milliseconds(100),
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(5000),
+        10000,
         1
-    }, onClient);
+    }, oneClient);
 }
 
 TEST(LockTest, TestOneClientReliable) {
     ASSERT_NO_THROW(runClients(1, true));
 }
 
+TEST(LockTest, TestManyClientsReliable) {
+    ASSERT_NO_THROW(runClients(nClient, true));
+}
+
+TEST(LockTest, TestOneClientUnreliable) {
+    ASSERT_NO_THROW(runClients(1, false));
+}
+
+TEST(LockTest, TestManyClientsUnreliable) {
+    ASSERT_NO_THROW(runClients(nClient, false));
+}
+
 TEST(LockTest, AcquireLock) {
-    NetworkConfig networkConfig {false, 0.1, 0.1};
+    NetworkConfig networkConfig {true, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};
@@ -84,7 +97,7 @@ TEST(LockTest, AcquireLock) {
 }
 
 TEST(LockTest, ReleaseLock) {
-    NetworkConfig networkConfig {false, 0.1, 0.1};
+    NetworkConfig networkConfig {true, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};

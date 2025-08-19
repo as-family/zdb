@@ -30,8 +30,12 @@ std::string toString(const ErrorCode& code);
 struct Error {
     ErrorCode code;
     std::string what;
+    std::string key;
+    std::string value;
+    uint64_t version;
 
     Error(const ErrorCode& c, std::string w);
+    Error(const ErrorCode& c, std::string w, std::string k, std::string v, uint64_t ver);
     explicit Error(const ErrorCode& c);
 };
 

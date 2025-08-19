@@ -4,13 +4,12 @@
 #include <string>
 #include <cstdint>
 #include "proto/types.pb.h"
+#include <ostream>
 
 namespace zdb {
 
 struct Key {
     std::string data;
-    
-    Key() = default;
     
     Key(const std::string& d) : data(d) {}
     
@@ -31,17 +30,22 @@ struct Value {
     std::string data;
     uint64_t version = 0;
     
-    Value() = default;
-    
     Value(const std::string& d, uint64_t v = 0) : data(d), version(v) {}
     
     Value(const proto::Value& protoValue);
+
+    Value& operator=(const Value& other) {
+        if (this != &other) {
+            data = other.data;
+            version = other.version;
+        }
+        return *this;
+    }
 
     bool operator==(const Value& other) const {
         return data == other.data && version == other.version;
     }
 };
-
 
 } // namespace zdb
 

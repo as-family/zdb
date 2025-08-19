@@ -4,17 +4,20 @@
 #include "client/KVStoreClient.hpp"
 #include <string>
 #include "common/Types.hpp"
+#include <mutex>
 
 namespace zdb {
 
 class Lock {
 public:
-    Lock(Key key, KVStoreClient& c);
+    Lock(const Key& key, KVStoreClient& c);
     bool acquire();
     bool release();
 private:
-    Key lock_key;
+    const Key& lock_key;
     KVStoreClient& client;
+    std::mutex m;
+    std::string clientID;
 };
 
 } // namespace zdb

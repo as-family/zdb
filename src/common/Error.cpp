@@ -40,8 +40,8 @@ bool isRetriable(const ErrorCode& code) {
     return retriableErrorCodes().contains(code);
 }
 
-
-Error::Error(const ErrorCode& c, std::string w) : code {c}, what {std::move(w)} {}
-Error::Error(const ErrorCode& c) : code {c}, what {toString(c)} {}
+Error::Error(const ErrorCode& c, std::string w, std::string k, std::string v, uint64_t ver) : code {c}, what {w}, key {k}, value {v}, version {ver} {}
+Error::Error(const ErrorCode& c, std::string w) : code {c}, what {w}, key{}, value{}, version{} {}
+Error::Error(const ErrorCode& c) : code {c}, what {toString(c)}, key{}, value{}, version{} {}
 
 } // namespace zdb

@@ -31,6 +31,9 @@ grpc::Status toGrpcStatus(const Error& error) {
     proto::ErrorDetails details;
     details.set_code(static_cast<proto::ErrorCode>(error.code));
     details.set_what(error.what);
+    details.set_key(error.key);
+    details.set_value(error.value);
+    details.set_version(error.version);
     google::protobuf::Any anyDetail;
     anyDetail.PackFrom(details);
     return grpc::Status(toGrpcStatusCode(error.code), toString(error.code), anyDetail.SerializeAsString());
@@ -47,8 +50,10 @@ Error toError(const grpc::Status& status) {
     if (any.ParseFromString(status.error_details())) {
         if (any.UnpackTo(&details)) {
             code = static_cast<ErrorCode>(details.code());
-            return Error(code, details.what());
+            return Error(code, details.what(), details.key(), details.value(), details.version());
         }
+    } else {
+        throw std::runtime_error("Failed to parse error details from gRPC status");
     }
     switch (status.error_code()) {
         case grpc::StatusCode::NOT_FOUND:
