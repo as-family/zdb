@@ -13,6 +13,8 @@ public:
     Lock(const Key& key, KVStoreClient& c);
     bool acquire();
     bool release();
+    bool wait(std::string c, uint64_t version);
+    bool waitGet(std::string c, uint64_t version);
 private:
     const Key& lock_key;
     KVStoreClient& client;

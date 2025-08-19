@@ -108,21 +108,21 @@ int main() {
    zdb::KVStoreClient client{ config };
 
    if (auto r = client.set("hello", "world"); !r.has_value()) {
-      std::cerr << "set failed: " << r.error().what << "\n";
+      std::cerr << "set failed: " << r.error().what << std::endl;
    }
 
    if (auto g = client.get("hello"); g.has_value()) {
-      std::cout << "value: " << g.value() << "\n";
+      std::cout << "value: " << g.value() << std::endl;
    } else {
-      std::cerr << "get failed: " << g.error().what << "\n";
+      std::cerr << "get failed: " << g.error().what << std::endl;
    }
 
    if (auto s = client.size(); s.has_value()) {
-      std::cout << "size: " << s.value() << "\n";
+      std::cout << "size: " << s.value() << std::endl;
    }
 
    if (auto e = client.erase("hello"); !e.has_value()) {
-      std::cerr << "erase failed: " << e.error().what << "\n";
+      std::cerr << "erase failed: " << e.error().what << std::endl;
    }
 }
 ```

@@ -32,72 +32,59 @@ auto generate_random_alphanumeric_string(std::size_t len) -> std::string {
     return result;
 }
 
-bool Lock::acquire() {
-    auto c = generate_random_alphanumeric_string(16);
-    while (true) {
-        auto v = client.set(lock_key, Value{c, 0});
+bool Lock::wait(std::string c, uint64_t version) {
+    while(true) {
+        auto v = client.set(lock_key, Value{c, version});
         if (v.has_value()) {
-            std::cerr << "clientID: " << c << " Acquired lock\n";
-            clientID = c;
             return true;
-        }
-        if (v.error().code == ErrorCode::VersionMismatch) {
-            if (v.error().version == 1 && v.error().value == c) {
-                std::cerr << "Maybe clientID: " << clientID << "\n";
-                clientID = c;
+        } else {
+            if (waitGet(c, version + 1)) {
                 return true;
             }
         }
-        std::cerr << "retry aquire " << v.error().what << " " << c << " " << v.error().value << "\n";
     }
-    throw std::runtime_error("Failed to acquire lock");
+    std::unreachable();
+}
+
+bool Lock::waitGet(std::string c, uint64_t version) {
+    while (true) {
+        auto t = client.get(lock_key);
+        if(t.has_value()) {
+            if(t.value().version == version) {
+                if (t.value().data == c) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        } else {
+            if (t.error().code == ErrorCode::KeyNotFound) {
+                return false;
+            }
+        }
+    }
+    std::unreachable();
+}
+
+bool Lock::acquire() {
+    auto c = generate_random_alphanumeric_string(16);
+    return wait(c, 0);
 }
 
 bool Lock::release() {
-    auto c = "";
-    std::cerr << "Releasing lock for clientID: " << c << "\n";
+    auto c = generate_random_alphanumeric_string(16);
+    wait(c, 1);
     while(true) {
-        auto s = client.set(lock_key, Value{c, 1});
-        if (s.has_value()) {
-           break;
-        }
-        if (s.error().code == ErrorCode::KeyNotFound) {
-            throw std::runtime_error("Lock is not held by anyone");
-        }
-        if (s.error().code == ErrorCode::VersionMismatch) {
-            if (s.error().version == 0) {
-                throw std::runtime_error("Lock is not held by anyone");
-            } else if (s.error().version == 2) {
-                break;
-            } else {
-                throw std::runtime_error("Unexpected version mismatch: " + s.error().what);
-            }
-        }
-        std::cerr << "release front " << s.error().what << "\n";
-    }
-    while (true) {
         auto v = client.erase(lock_key);
         if (v.has_value()) {
-            if (v.value().version == 2) {
-                std::cerr << "Second try Lock released successfully\n";
-                return true;
-            } else if (v.value().version == 1) {
-                std::cerr << "some packets dropped\n";
-                return true;
-            } else {
-                throw std::runtime_error("Unexpected version mismatch: " + v.error().what);
-            }
+            return true;
         } else {
-            if (v.error().code == ErrorCode::KeyNotFound) {
-                std::cerr << "Lock already released or never acquired by clientID: " << c << "\n";
+            if (!waitGet(c, 2)) {
                 return true;
-            } else {
-                throw std::runtime_error("Failed to release lock");
             }
         }
-        std::cerr << "release back " << v.error().what << "\n";
     }
-    throw std::runtime_error("Failed to release lock");
+    std::unreachable();
 }
 
 } // namespace zdb
