@@ -93,7 +93,7 @@ TEST(LockTest, AcquireLock) {
     auto client = kvTest.makeClient(c);
     zdb::Key lockKey{"test_lock"};
     zdb::Lock lock(lockKey, client);
-    EXPECT_TRUE(lock.acquire());
+    lock.acquire();
 }
 
 TEST(LockTest, ReleaseLock) {
@@ -112,6 +112,6 @@ TEST(LockTest, ReleaseLock) {
     auto client = kvTest.makeClient(c);
     zdb::Key lockKey{"test_lock"};
     zdb::Lock lock(lockKey, client);
-    EXPECT_TRUE(lock.acquire());
-    EXPECT_TRUE(lock.release());
+    lock.acquire();
+    lock.release();
 }

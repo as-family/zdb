@@ -32,14 +32,14 @@ auto generate_random_alphanumeric_string(std::size_t len) -> std::string {
     return result;
 }
 
-bool Lock::wait(std::string c, uint64_t version) {
+void Lock::wait(std::string c, uint64_t version) {
     while(true) {
         auto v = client.set(lock_key, Value{c, version});
         if (v.has_value()) {
-            return true;
+            return;
         } else {
             if (waitGet(c, version + 1)) {
-                return true;
+                return;
             }
         }
     }
@@ -66,21 +66,39 @@ bool Lock::waitGet(std::string c, uint64_t version) {
     std::unreachable();
 }
 
-bool Lock::acquire() {
-    auto c = generate_random_alphanumeric_string(16);
-    return wait(c, 0);
+bool Lock::waitNotFound() {
+    while (true) {
+        auto t = client.get(lock_key);
+        if (t.has_value()) {
+            return false;
+        } else {
+            if (t.error().code == ErrorCode::KeyNotFound) {
+                return true;
+            }
+        }
+    }
+    std::unreachable();
 }
 
-bool Lock::release() {
+void Lock::acquire() {
+    auto c = generate_random_alphanumeric_string(16);
+    wait(c, 0);
+}
+
+void Lock::release() {
     auto c = generate_random_alphanumeric_string(16);
     wait(c, 1);
     while(true) {
         auto v = client.erase(lock_key);
         if (v.has_value()) {
-            return true;
+            return;
         } else {
-            if (!waitGet(c, 2)) {
-                return true;
+            if (waitNotFound()) {
+                return;
+            } else {
+                if (!waitGet(c, 2)) {
+                    return;
+                }
             }
         }
     }
