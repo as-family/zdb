@@ -56,6 +56,8 @@ bool Lock::waitGet(std::string c, uint64_t version) {
                 } else {
                     return false;
                 }
+            } else {
+                return false;
             }
         } else {
             if (t.error().code == ErrorCode::KeyNotFound) {
@@ -82,13 +84,27 @@ bool Lock::waitNotFound() {
 
 void Lock::acquire() {
     auto c = generate_random_alphanumeric_string(16);
-    wait(c, 0);
+    while(true) {
+        while(!waitNotFound());
+        wait(c, 0);
+        if (waitGet(c, 1)) {
+            return;
+        }
+    }
 }
 
 void Lock::release() {
     auto c = generate_random_alphanumeric_string(16);
+    while (true) {
+        auto t = client.get(lock_key);
+        if (t.has_value()) {
+            if (t.value().version == 1) {
+                break;
+            }
+        }
+    }
     wait(c, 1);
-    while(true) {
+    while (true) {
         auto v = client.erase(lock_key);
         if (v.has_value()) {
             return;
