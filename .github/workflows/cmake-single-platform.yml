@@ -83,7 +83,7 @@ jobs:
         echo "Build directory: $BUILD_DIR"
 
     - name: Build using preset
-      # Build using the gcc-14-build preset
+      # Build using the gcc-14 preset
       run: cmake --build --preset gcc-14
 
     - name: Run cppcheck (complementary analysis)

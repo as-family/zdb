@@ -7,28 +7,26 @@
 #include <chrono>
 #include <thread>
 #include <grpcpp/support/status.h>
+#include <vector>
+#include <string>
 
 namespace zdb {
 
 Repeater::Repeater(const RetryPolicy p)
     : backoff {p} {}
 
-grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
-    grpc::Status initialStatus = rpc();
-    auto status = initialStatus;
+std::vector<grpc::Status> Repeater::attempt(const std::string& op, const std::function<grpc::Status()>& rpc) {
+    std::vector<grpc::Status> statuses;
     while (true) {
+        auto status = rpc();
+        statuses.push_back(status);
         if (status.ok()) {
             backoff.reset();
-            return status;
+            return statuses;
         } else {
-            if (!isRetriable(toError(status).code)) {
+            if (!isRetriable(op, toError(status).code)) {
                 backoff.reset();
-                if (isRetriable(toError(initialStatus).code) && toError(status).code == ErrorCode::VersionMismatch) {
-                    return toGrpcStatus(Error(ErrorCode::Maybe, "Maybe success"));
-                } else {
-                    return status;
-                }
-                return status;
+                return statuses;
             }
             auto delay = backoff.nextDelay()
                 .and_then([this](std::chrono::microseconds v) {
@@ -38,10 +36,9 @@ grpc::Status Repeater::attempt(const std::function<grpc::Status()>& rpc) {
             if (delay.has_value()) {
                 std::this_thread::sleep_for(delay.value());
             } else {
-                return status;
+                return statuses;
             }
         }
-        status = rpc();
     }
 }
 

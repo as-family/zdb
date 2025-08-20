@@ -48,20 +48,17 @@ Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p) :
     cService = services.end();
     cService = nextActiveServiceIterator();
     if (cService == services.end()) {
-        spdlog::error("KVStoreClient: Could not connect to any server. Throwing runtime_error.");
         throw std::runtime_error("KVStoreClient: Could not connect to any server"); 
     }
 }
 
 std::expected<KVRPCService*, Error> Config::currentService() {
     if (cService == services.end()) {
-        spdlog::error("No current service available. ");
         return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "No service available")};
     }
     
     // Check if current service is available (circuit breaker not open)
     if (!cService->second.available()) {
-        spdlog::warn("Current service {} is not available (circuit breaker may be open)", cService->second.address());
         return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "Current service not available")};
     }
     

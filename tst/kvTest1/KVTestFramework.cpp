@@ -34,10 +34,6 @@ KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c)
     serverThread = std::thread([this]() { server->Wait(); });
 }
 
-zdb::KVStoreClient KVTestFramework::makeClient(zdb::Config& config) {
-    return zdb::KVStoreClient {config};
-}
-
 std::vector<KVTestFramework::ClientResult> KVTestFramework::spawnClientsAndWait(
     int nClients,
     std::chrono::seconds timeout,
@@ -51,7 +47,7 @@ std::vector<KVTestFramework::ClientResult> KVTestFramework::spawnClientsAndWait(
     for (int i = 0; i < nClients; ++i) {
         threads.emplace_back([&, i]() {
             zdb::Config config {addresses, policy};
-            zdb::KVStoreClient client = makeClient(config);
+            zdb::KVStoreClient client {config};
             results[i] = f(i, client, done);
         });
     }
@@ -179,7 +175,7 @@ zdb::Value KVTestFramework::getJson(
             .clientId = clientId
         }
     );
-    return result.has_value() ? result.value() : zdb::Value{};
+    return result.has_value() ? result.value() : zdb::Value{"", 0};
 }
 
 bool KVTestFramework::checkSetConcurrent(

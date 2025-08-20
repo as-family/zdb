@@ -11,6 +11,8 @@
 #include <memory>
 #include <functional>
 #include <chrono>
+#include <algorithm>
+#include <string>
 
 namespace zdb {
 
@@ -21,20 +23,25 @@ public:
     KVRPCService& operator=(const KVRPCService&) = delete;
     std::expected<void, Error> connect();
     template<typename Req, typename Rep>
-    std::expected<void, Error> call(
+    std::expected<void, std::vector<Error>> call(
+        const std::string& op,
         grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
         Rep& reply) {
         auto bound = [this, f, &request, &reply] {
             auto c = grpc::ClientContext();
-            c.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(2));
+            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(25));
             return (stub.get()->*f)(&c, request, &reply);
         };
-        auto status = circuitBreaker.call(bound);
-        if (status.ok()) {
+        auto statuses = circuitBreaker.call(op, bound);
+        if (statuses.back().ok()) {
             return {};
         } else {
-            return std::unexpected {toError(status)};
+            std::vector<Error> errors(statuses.size(), Error(ErrorCode::Unknown, "Unknown error"));
+            std::transform(statuses.begin(), statuses.end(), errors.begin(), [](const grpc::Status& s) {
+                return toError(s);
+            });
+            return std::unexpected {errors};
         }
     }
     [[nodiscard]] bool available();

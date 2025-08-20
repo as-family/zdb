@@ -29,6 +29,7 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp
     ${CMAKE_SOURCE_DIR}/src/client/Config.cpp
     ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
+    ${CMAKE_SOURCE_DIR}/src/lock/Lock.cpp
     ${CMAKE_SOURCE_DIR}/tst/server/InMemoryKVStoreTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/ExponentialBackoffTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/RetryPolicyTest.cpp
@@ -46,6 +47,7 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTestFrameworkTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/kvTest1/Porcupine.cpp
+    ${CMAKE_SOURCE_DIR}/tst/kvTest1/LockTest.cpp
   )
 
   target_link_libraries(tests PRIVATE

@@ -5,6 +5,8 @@
 #include "RetryPolicy.hpp"
 #include "Repeater.hpp"
 #include <grpcpp/support/status.h>
+#include <vector>
+#include <string>
 
 namespace zdb {
 
@@ -16,11 +18,11 @@ public:
         HalfOpen
     };
     explicit CircuitBreaker(const RetryPolicy p);
-    grpc::Status call(const std::function<grpc::Status()>& rpc);
+    std::vector<grpc::Status> call(const std::string& op, const std::function<grpc::Status()>& rpc);
     [[nodiscard]] bool open();
 private:
     State state{State::Closed};
-    const RetryPolicy policy;
+    RetryPolicy policy;
     Repeater repeater;
     std::chrono::steady_clock::time_point lastFailureTime;
 };

@@ -19,7 +19,7 @@ TEST(KVTest, TestReliablePut) {
         3,
         1
     }};
-    zdb::KVStoreClient client = kvTest.makeClient(config);
+    zdb::KVStoreClient client = zdb::KVStoreClient {config};
 
     auto setResult = client.set(zdb::Key{"testKey"}, zdb::Value{"testValue", 0});
     ASSERT_TRUE(setResult.has_value());
@@ -60,7 +60,7 @@ TEST(KVTest, TestPutConcurrentReliable) {
         return kvTest.oneClientSet(id, client, {zdb::Key{"k"}}, false, done);
     });
     zdb::Config config {{proxyAddress}, policy};
-    auto client = kvTest.makeClient(config);
+    auto client = zdb::KVStoreClient {config};
     ASSERT_TRUE(kvTest.checkSetConcurrent(client, zdb::Key{"k"}, results));
     ASSERT_TRUE(kvTest.porcupine.check(10));
 }
@@ -78,7 +78,7 @@ TEST(KVTest, TestUnreliableNet) {
         1
     };
     zdb::Config c {{proxyAddress}, policy};
-    auto client = kvTest.makeClient(c);
+    auto client = zdb::KVStoreClient {c};
     const int nTries = 100;
     auto retried = false;
     for (uint64_t t = 0; t < nTries; ++t) {

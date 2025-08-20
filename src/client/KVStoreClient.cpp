@@ -18,6 +18,7 @@ std::expected<Value, Error> KVStoreClient::get(const Key& key) const {
     request.mutable_key()->set_data(key.data);
     kvStore::GetReply reply;
     auto t = call(
+        "get",
         &kvStore::KVStoreService::Stub::get,
         request,
         reply
@@ -25,8 +26,7 @@ std::expected<Value, Error> KVStoreClient::get(const Key& key) const {
     if (t.has_value()) {
         return reply.value();
     } else {
-        spdlog::error("Failed to get value for key '{}': {}", key.data, t.error().what);
-        return std::unexpected {t.error()};
+        return std::unexpected {t.error().back()};
     }
 }
 
@@ -38,6 +38,7 @@ std::expected<void, Error> KVStoreClient::set(const Key& key, const Value& value
     kvStore::SetReply reply;
 
     auto t = call(
+        "set",
         &kvStore::KVStoreService::Stub::set,
         request,
         reply
@@ -46,9 +47,11 @@ std::expected<void, Error> KVStoreClient::set(const Key& key, const Value& value
     if (t.has_value()) {
         return {};
     } else {
-        spdlog::error("KVStoreClient::set: RPC call failed with error: {} (code: {})", 
-                     t.error().what, static_cast<int>(t.error().code));
-        return std::unexpected{t.error()};
+        if (isRetriable("set", t.error().front().code) && t.error().back().code == ErrorCode::VersionMismatch) {
+            return std::unexpected {Error(ErrorCode::Maybe)};
+        } else {
+            return std::unexpected {t.error().back()};
+        }
     }
 }
 
@@ -57,6 +60,7 @@ std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
     request.mutable_key()->set_data(key.data);
     kvStore::EraseReply reply;
     auto t = call(
+        "erase",
         &kvStore::KVStoreService::Stub::erase,
         request,
         reply
@@ -64,8 +68,7 @@ std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
     if (t.has_value()) {
         return reply.value();
     } else {
-        spdlog::error("Failed to erase value for key '{}': {}", key.data, t.error().what);
-        return std::unexpected {t.error()};
+        return std::unexpected {t.error().back()};
     }
 }
 
@@ -73,6 +76,7 @@ std::expected<size_t, Error> KVStoreClient::size() const {
     const kvStore::SizeRequest request;
     kvStore::SizeReply reply;
     auto t = call(
+        "size",
         &kvStore::KVStoreService::Stub::size,
         request,
         reply
@@ -80,9 +84,67 @@ std::expected<size_t, Error> KVStoreClient::size() const {
     if (t.has_value()) {
         return reply.size();
     } else {
-        spdlog::error("Failed to get size: {}", t.error().what);
-        return std::unexpected {t.error()};
+        return std::unexpected {t.error().back()};
     }
+}
+
+
+void KVStoreClient::waitSet(Key key, Value value) {
+    while(true) {
+        auto v = set(key, value);
+        if (v.has_value()) {
+            return;
+        } else {
+            if (waitGet(key, Value{value.data, value.version + 1})) {
+                return;
+            }
+        }
+    }
+    std::unreachable();
+}
+
+bool KVStoreClient::waitGet(Key key, Value value) {
+    while (true) {
+        auto t = get(key);
+        if(t.has_value()) {
+            if(t.value() == value) {
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            if (t.error().code == ErrorCode::KeyNotFound) {
+                return false;
+            }
+        }
+    }
+    std::unreachable();
+}
+
+bool KVStoreClient::waitNotFound(Key key) {
+    while (true) {
+        auto t = get(key);
+        if (t.has_value()) {
+            return false;
+        } else {
+            if (t.error().code == ErrorCode::KeyNotFound) {
+                return true;
+            }
+        }
+    }
+    std::unreachable();
+}
+
+Value KVStoreClient::waitGet(Key key, uint64_t version) {
+    while (true) {
+        auto t = get(key);
+        if (t.has_value()) {
+            if (t.value().version == version) {
+                return t.value();
+            }
+        }
+    }
+    std::unreachable();
 }
 
 } // namespace zdb

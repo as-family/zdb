@@ -15,6 +15,7 @@ namespace zdb {
 
 class InMemoryKVStore : public StorageEngine {
 public:
+    InMemoryKVStore();
     std::expected<std::optional<Value>, Error> get(const Key& key) const override;
     std::expected<void, Error> set(const Key& key, const Value& value) override;
     std::expected<std::optional<Value>, Error> erase(const Key& key) override;

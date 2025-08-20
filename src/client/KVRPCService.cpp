@@ -27,7 +27,6 @@ std::expected<void, Error> KVRPCService::connect() {
                 if (!stub) {
                     stub = kvStore::KVStoreService::NewStub(channel);
                 }
-                spdlog::debug("Service @ {} already connected", addr);
                 return {};
             }
             // For IDLE or CONNECTING, trigger connection attempt
@@ -36,7 +35,6 @@ std::expected<void, Error> KVRPCService::connect() {
                 if (!stub) {
                     stub = kvStore::KVStoreService::NewStub(channel);
                 }
-                spdlog::info("Reconnected to service @ {}", addr);
                 return {};
             }
         }
@@ -50,7 +48,6 @@ std::expected<void, Error> KVRPCService::connect() {
         return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
     }
     stub = kvStore::KVStoreService::NewStub(channel);
-    spdlog::info("Connected to service @ {}", addr);
     return {};
 }
 

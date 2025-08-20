@@ -24,7 +24,6 @@ public:
     };
     Porcupine porcupine;
     KVTestFramework(std::string a, std::string r, NetworkConfig& c);
-    zdb::KVStoreClient makeClient(zdb::Config& config);
     std::vector<ClientResult> spawnClientsAndWait(
         int nClients,
         std::chrono::seconds timeout,

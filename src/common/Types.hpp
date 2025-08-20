@@ -10,8 +10,6 @@ namespace zdb {
 struct Key {
     std::string data;
     
-    Key() = default;
-    
     Key(const std::string& d) : data(d) {}
     
     Key(const proto::Key& protoKey);
@@ -31,8 +29,6 @@ struct Value {
     std::string data;
     uint64_t version = 0;
     
-    Value() = default;
-    
     Value(const std::string& d, uint64_t v = 0) : data(d), version(v) {}
     
     Value(const proto::Value& protoValue);
@@ -41,7 +37,6 @@ struct Value {
         return data == other.data && version == other.version;
     }
 };
-
 
 } // namespace zdb
 

@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <grpcpp/support/status.h>
 #include "common/Error.hpp"
+#include "common/Types.hpp"
 
 namespace zdb {
 
@@ -13,7 +14,6 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
         case ErrorCode::KeyNotFound:
             return grpc::StatusCode::NOT_FOUND;
         case ErrorCode::InvalidArg:
-            return grpc::StatusCode::INVALID_ARGUMENT;
         case ErrorCode::VersionMismatch:
             return grpc::StatusCode::INVALID_ARGUMENT;
         case ErrorCode::ServiceTemporarilyUnavailable:
@@ -31,6 +31,9 @@ grpc::Status toGrpcStatus(const Error& error) {
     proto::ErrorDetails details;
     details.set_code(static_cast<proto::ErrorCode>(error.code));
     details.set_what(error.what);
+    details.set_key(error.key);
+    details.set_value(error.value);
+    details.set_version(error.version);
     google::protobuf::Any anyDetail;
     anyDetail.PackFrom(details);
     return grpc::Status(toGrpcStatusCode(error.code), toString(error.code), anyDetail.SerializeAsString());
@@ -38,7 +41,6 @@ grpc::Status toGrpcStatus(const Error& error) {
 
 Error toError(const grpc::Status& status) {
     if (status.error_code() == grpc::StatusCode::OK) {
-        spdlog::error("Attempted to convert OK gRPC status to error. Throwing logic_error.");
         throw std::logic_error("Cannot convert OK status to error");
     }
     ErrorCode code = ErrorCode::Unknown;
@@ -47,7 +49,7 @@ Error toError(const grpc::Status& status) {
     if (any.ParseFromString(status.error_details())) {
         if (any.UnpackTo(&details)) {
             code = static_cast<ErrorCode>(details.code());
-            return Error(code, details.what());
+            return Error(code, details.what(), details.key(), details.value(), details.version());
         }
     }
     switch (status.error_code()) {
