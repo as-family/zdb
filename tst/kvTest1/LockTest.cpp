@@ -14,9 +14,12 @@ const int nSec = 2;
 KVTestFramework::ClientResult oneClient(int clientId, zdb::KVStoreClient& client, std::atomic<bool>& done) {
     zdb::Key lockKey{"test_lock"};
     zdb::Lock lock(lockKey, client);
-    client.set(zdb::Key{"testKey"}, zdb::Value{"testValue", 0});
-    int i;
-    for (i = 0; !done.load(); ++i) {
+    auto t = client.set(zdb::Key{"testKey"}, zdb::Value{"testValue", 0});
+    if (!t.has_value() && t.error().code != zdb::ErrorCode::Maybe && t.error().code != zdb::ErrorCode::VersionMismatch) {
+        throw std::runtime_error("Failed to set initial value for testKey");
+    }
+    int i = 0;
+    for (; !done.load(); ++i) {
         lock.acquire();
 
         auto v = client.get(zdb::Key{"testKey"});
