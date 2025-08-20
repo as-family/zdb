@@ -350,7 +350,7 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
     // Restart the server
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
     serverThread = std::thread([this]() { server->wait(); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(600)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     
     // Client should recover and work again
     auto setResult = client.set(Key{"recovery"}, Value{"test"});

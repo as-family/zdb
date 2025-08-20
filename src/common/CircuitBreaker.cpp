@@ -8,15 +8,15 @@
 #include <chrono>
 #include <utility>
 #include <vector>
+#include <string>
 
 namespace zdb {
 
 CircuitBreaker::CircuitBreaker(const RetryPolicy p)
     : policy{p}, repeater {p} {}
 
-std::vector<grpc::Status> CircuitBreaker::call(const std::function<grpc::Status()>& rpc) {
+std::vector<grpc::Status> CircuitBreaker::call(std::string op, const std::function<grpc::Status()>& rpc) {
     if (rpc == nullptr) {
-        spdlog::error("CircuitBreaker: rpc function is nullptr. Throwing bad_function_call.");
         throw std::bad_function_call {};
     }
     switch (state) {
@@ -32,7 +32,7 @@ std::vector<grpc::Status> CircuitBreaker::call(const std::function<grpc::Status(
             if (status.ok()) {
                 state = State::Closed;
             } else {
-                if (isRetriable(toError(status).code)) {
+                if (isRetriable(op, toError(status).code)) {
                     state = State::Open;
                     lastFailureTime = std::chrono::steady_clock::now();
                 } else {
@@ -43,9 +43,9 @@ std::vector<grpc::Status> CircuitBreaker::call(const std::function<grpc::Status(
         }
         case State::Closed:
         {
-            auto statuses = repeater.attempt(rpc);
+            auto statuses = repeater.attempt(op, rpc);
             if (!statuses.back().ok()) {
-                if (isRetriable(toError(statuses.back()).code)) {
+                if (isRetriable(op, toError(statuses.back()).code)) {
                     state = State::Open;
                     lastFailureTime = std::chrono::steady_clock::now();
                 }

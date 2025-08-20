@@ -12,6 +12,7 @@
 #include <functional>
 #include <chrono>
 #include <algorithm>
+#include <string>
 
 namespace zdb {
 
@@ -23,6 +24,7 @@ public:
     std::expected<void, Error> connect();
     template<typename Req, typename Rep>
     std::expected<void, std::vector<Error>> call(
+        std::string op,
         grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
         Rep& reply) {
@@ -31,7 +33,7 @@ public:
             c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(25));
             return (stub.get()->*f)(&c, request, &reply);
         };
-        auto statuses = circuitBreaker.call(bound);
+        auto statuses = circuitBreaker.call(op, bound);
         if (statuses.back().ok()) {
             return {};
         } else {

@@ -1,8 +1,9 @@
 #include "Error.hpp"
 #include <utility>
 #include <string>
-#include <ostream>
+#include <iostream>
 #include <unordered_set>
+#include <unordered_map>
 
 namespace zdb {
 
@@ -27,17 +28,27 @@ std::string toString(const ErrorCode& code) {
     std::unreachable();
 }
 
-std::unordered_set<ErrorCode> retriableErrorCodes() {
-    return {
+std::unordered_map<std::string, std::unordered_set<ErrorCode>> retriableErrorCodes = {
+    {"erase", {
+        ErrorCode::ServiceTemporarilyUnavailable,
+        ErrorCode::AllServicesUnavailable,
+    }},
+    {"default", {
         ErrorCode::Unknown,
         ErrorCode::ServiceTemporarilyUnavailable,
         ErrorCode::AllServicesUnavailable,
-        ErrorCode::TimeOut
-    };
-}
+        ErrorCode::TimeOut,
+    }}
+};
 
-bool isRetriable(const ErrorCode& code) {
-    return retriableErrorCodes().contains(code);
+bool isRetriable(std::string op, const ErrorCode& code) {
+    auto it = retriableErrorCodes.find(op);
+    if (it != retriableErrorCodes.end()) {
+        return it->second.contains(code);
+    } else {
+        auto d = retriableErrorCodes.find("default");
+        return d->second.contains(code);
+    }
 }
 
 Error::Error(const ErrorCode& c, std::string w, std::string k, std::string v, uint64_t ver) : code {c}, what {w}, key {k}, value {v}, version {ver} {}

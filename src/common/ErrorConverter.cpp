@@ -41,7 +41,6 @@ grpc::Status toGrpcStatus(const Error& error) {
 
 Error toError(const grpc::Status& status) {
     if (status.error_code() == grpc::StatusCode::OK) {
-        spdlog::error("Attempted to convert OK gRPC status to error. Throwing logic_error.");
         throw std::logic_error("Cannot convert OK status to error");
     }
     ErrorCode code = ErrorCode::Unknown;
@@ -52,8 +51,6 @@ Error toError(const grpc::Status& status) {
             code = static_cast<ErrorCode>(details.code());
             return Error(code, details.what(), details.key(), details.value(), details.version());
         }
-    } else {
-        throw std::runtime_error("Failed to parse error details from gRPC status");
     }
     switch (status.error_code()) {
         case grpc::StatusCode::NOT_FOUND:

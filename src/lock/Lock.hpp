@@ -10,14 +10,11 @@ namespace zdb {
 
 class Lock {
 public:
-    Lock(const Key& key, KVStoreClient& c);
+    Lock(const Key key, KVStoreClient& c);
     void acquire();
     void release();
-    void wait(std::string c, uint64_t version);
-    bool waitGet(std::string c, uint64_t version);
-    bool waitNotFound();
 private:
-    const Key& lock_key;
+    const Key lock_key;
     KVStoreClient& client;
     std::mutex m;
     std::string clientID;

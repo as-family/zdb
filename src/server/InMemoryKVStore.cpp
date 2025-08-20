@@ -27,17 +27,13 @@ std::expected<void, Error> InMemoryKVStore::set(const Key& key, const Value& val
     auto i = store.find(key);
     if (i != store.end()) {
         if (value.version != i->second.version) {
-            // std::cerr << key.data << " Version mismatch: expected " << i->second.version << " but got " << value.version << std::endl;
             return std::unexpected {Error {ErrorCode::VersionMismatch, "Version mismatch: expected " + std::to_string(i->second.version) + " but got " + std::to_string(value.version), key.data, i->second.data, i->second.version}};
         }
-        // std::cerr << key.data << " Updating value to: " << value.data << std::endl;
         i->second = Value{value.data, i->second.version + 1};
     } else {
         if (value.version != 0) {
-            // std::cerr << key.data << " Key does not exist, must use version 0 for new keys" << std::endl;
             return std::unexpected {Error {ErrorCode::KeyNotFound, "Key does not exist, must use version 0 for new keys", key.data, value.data, 0}};
         }
-        // std::cerr << key.data << " Adding new key with value: " << value.data << std::endl;
         store.emplace(std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(value.data, 1));
     }
     return {};

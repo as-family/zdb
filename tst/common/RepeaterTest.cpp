@@ -31,7 +31,7 @@ TEST(RepeaterTest, SuccessOnFirstAttempt) {
         ++callCount;
         return okStatus();
     };
-    auto status = repeater.attempt(rpc);
+    auto status = repeater.attempt("get", rpc);
     EXPECT_TRUE(status.back().ok());
     EXPECT_EQ(callCount, 1);
 }
@@ -44,7 +44,7 @@ TEST(RepeaterTest, PermanentFailureNonRetriable) {
         ++callCount;
         return nonRetriableError();
     };
-    auto status = repeater.attempt(rpc);
+    auto status = repeater.attempt("get", rpc);
     EXPECT_FALSE(status.back().ok());
     EXPECT_EQ(callCount, 1);
     EXPECT_EQ(status.back().error_code(), grpc::StatusCode::INVALID_ARGUMENT);
@@ -61,7 +61,7 @@ TEST(RepeaterTest, RetriableFailureThenSuccess) {
         }
         return okStatus();
     };
-    auto status = repeater.attempt(rpc);
+    auto status = repeater.attempt("get", rpc);
     EXPECT_TRUE(status.back().ok());
     EXPECT_EQ(callCount, 3);
 }
@@ -74,7 +74,7 @@ TEST(RepeaterTest, RetriableFailureExceedsThreshold) {
         ++callCount;
         return retriableError();
     };
-    auto status = repeater.attempt(rpc);
+    auto status = repeater.attempt("get", rpc);
     EXPECT_FALSE(status.back().ok());
     EXPECT_GE(callCount, 2); // Should not retry more than threshold
     EXPECT_EQ(status.back().error_code(), grpc::StatusCode::UNAVAILABLE);
@@ -88,7 +88,7 @@ TEST(RepeaterTest, ZeroThresholdNoRetry) {
         ++callCount;
         return retriableError();
     };
-    auto status = repeater.attempt(rpc);
+    auto status = repeater.attempt("get", rpc);
     EXPECT_FALSE(status.back().ok());
     EXPECT_EQ(callCount, 1);
 }
@@ -105,7 +105,7 @@ TEST(RepeaterTest, ZeroDelayNoSleep) {
         return okStatus();
     };
     auto start = std::chrono::steady_clock::now();
-    auto status = repeater.attempt(rpc);
+    auto status = repeater.attempt("get", rpc);
     auto end = std::chrono::steady_clock::now();
     EXPECT_TRUE(status.back().ok());
     EXPECT_EQ(callCount, 2);
@@ -125,7 +125,7 @@ TEST(RepeaterTest, TimeSpentMatchesPolicyDelay) {
         return retriableError();
     };
     auto start = std::chrono::steady_clock::now();
-    auto status = repeater.attempt(rpc);
+    auto status = repeater.attempt("get", rpc);
     auto end = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     // Expected delay: sum of backoff delays (with jitter, so allow some tolerance)
@@ -157,7 +157,7 @@ TEST(RepeaterTest, MaxThresholdRespected) {
         ++callCount;
         return retriableError();
     };
-    auto status = repeater.attempt(rpc);
+    auto status = repeater.attempt("get", rpc);
     EXPECT_FALSE(status.back().ok());
     EXPECT_EQ(callCount, 1);
 }
@@ -172,7 +172,7 @@ TEST(RepeaterTest, LargeDelays) {
         return retriableError();
     };
     auto start = std::chrono::steady_clock::now();
-    auto status = repeater.attempt(rpc);
+    auto status = repeater.attempt("get", rpc);
     auto end = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     EXPECT_FALSE(status.back().ok());

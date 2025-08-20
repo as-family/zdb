@@ -7,7 +7,7 @@
 
 namespace zdb {
 
-Lock::Lock(const Key& key, KVStoreClient& c) : lock_key(key), client(c), m{}, clientID{} {}
+Lock::Lock(const Key key, KVStoreClient& c) : lock_key(key), client(c), m{}, clientID{} {}
 
 template <typename T = std::mt19937>
 auto random_generator() -> T {
@@ -32,87 +32,23 @@ auto generate_random_alphanumeric_string(std::size_t len) -> std::string {
     return result;
 }
 
-void Lock::wait(std::string c, uint64_t version) {
-    while(true) {
-        auto v = client.set(lock_key, Value{c, version});
-        if (v.has_value()) {
-            return;
-        } else {
-            if (waitGet(c, version + 1)) {
-                return;
-            }
-        }
-    }
-    std::unreachable();
-}
-
-bool Lock::waitGet(std::string c, uint64_t version) {
-    while (true) {
-        auto t = client.get(lock_key);
-        if(t.has_value()) {
-            if(t.value().version == version) {
-                if (t.value().data == c) {
-                    return true;
-                } else {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-        } else {
-            if (t.error().code == ErrorCode::KeyNotFound) {
-                return false;
-            }
-        }
-    }
-    std::unreachable();
-}
-
-bool Lock::waitNotFound() {
-    while (true) {
-        auto t = client.get(lock_key);
-        if (t.has_value()) {
-            return false;
-        } else {
-            if (t.error().code == ErrorCode::KeyNotFound) {
-                return true;
-            }
-        }
-    }
-    std::unreachable();
-}
-
 void Lock::acquire() {
     auto c = generate_random_alphanumeric_string(16);
-    while(true) {
-        while(!waitNotFound());
-        wait(c, 0);
-        if (waitGet(c, 1)) {
-            return;
-        }
-    }
+    client.waitSet(lock_key, Value{c, 0});
 }
 
 void Lock::release() {
-    auto c = generate_random_alphanumeric_string(16);
+    auto v = client.waitGet(lock_key, 1);
+    client.waitSet(lock_key, v);
     while (true) {
-        auto t = client.get(lock_key);
+        auto t = client.erase(lock_key);
         if (t.has_value()) {
-            if (t.value().version == 1) {
-                break;
-            }
-        }
-    }
-    wait(c, 1);
-    while (true) {
-        auto v = client.erase(lock_key);
-        if (v.has_value()) {
             return;
         } else {
-            if (waitNotFound()) {
+            if (client.waitNotFound(lock_key)) {
                 return;
             } else {
-                if (!waitGet(c, 2)) {
+                if (!client.waitGet(lock_key, Value{v.data, 2})) {
                     return;
                 }
             }

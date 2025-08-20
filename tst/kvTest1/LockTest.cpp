@@ -18,7 +18,6 @@ KVTestFramework::ClientResult oneClient(int clientId, zdb::KVStoreClient& client
     int i;
     for (i = 0; !done.load(); ++i) {
         lock.acquire();
-        std::cerr << "Client " << clientId << " acquired lock" << std::endl;
 
         auto v = client.get(zdb::Key{"testKey"});
         if(!v.has_value())  {
@@ -41,7 +40,6 @@ KVTestFramework::ClientResult oneClient(int clientId, zdb::KVStoreClient& client
         }
 
         lock.release();
-        std::cerr << "Client " << clientId << " released lock" << std::endl;
     }
     return KVTestFramework::ClientResult{i, 0};
 }
@@ -56,7 +54,7 @@ void runClients(int nClients, bool reliable) {
         std::chrono::milliseconds(100),
         std::chrono::milliseconds(1000),
         std::chrono::milliseconds(5000),
-        10000,
+        100,
         1
     }, oneClient);
 }

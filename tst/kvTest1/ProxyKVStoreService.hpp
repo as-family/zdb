@@ -15,12 +15,19 @@ public:
         const Req* request,
         Rep* reply) const {
         grpc::ClientContext c;
-        auto status = (stub.get()->*f)(&c, *request, reply);
         if (networkConfig.reliable()) {
+            auto status = (stub.get()->*f)(&c, *request, reply);
             return status;
         } else {
             if (networkConfig.drop()) {
                 return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped");
+            }
+            auto status = (stub.get()->*f)(&c, *request, reply);
+            if (networkConfig.drop()) {
+               return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped");
+            }
+            if (networkConfig.delay()) {
+                std::this_thread::sleep_for(networkConfig.delayTime());
             }
             return status;
         }

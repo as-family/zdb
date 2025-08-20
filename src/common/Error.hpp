@@ -5,6 +5,7 @@
 #include <ostream>
 #include <sstream>
 #include <unordered_set>
+#include <unordered_map>
 
 namespace zdb {
 
@@ -20,8 +21,8 @@ enum class ErrorCode {
     Unknown
 };
 
-std::unordered_set<ErrorCode> retriableErrorCodes();
-bool isRetriable(const ErrorCode& code);
+extern std::unordered_map<std::string, std::unordered_set<ErrorCode>> retriableErrorCodes;
+bool isRetriable(std::string op, const ErrorCode& code);
 
 std::ostream& operator<<(std::ostream& os, const ErrorCode& code);
 
