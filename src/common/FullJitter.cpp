@@ -1,5 +1,4 @@
 #include "FullJitter.hpp"
-#include <spdlog/spdlog.h>
 #include <chrono>
 #include <stdexcept>
 #include <random>

@@ -14,7 +14,7 @@ namespace zdb {
 InMemoryKVStore::InMemoryKVStore() : store{}, m{} {}
 
 std::expected<std::optional<Value>, Error> InMemoryKVStore::get(const Key& key) const {
-    std::unique_lock lock {m};
+    const std::shared_lock lock {m};
     auto i = store.find(key);
     if (i == store.end()) {
         return std::nullopt;
@@ -23,7 +23,7 @@ std::expected<std::optional<Value>, Error> InMemoryKVStore::get(const Key& key) 
 }
 
 std::expected<void, Error> InMemoryKVStore::set(const Key& key, const Value& value) {
-    std::unique_lock lock {m};
+    const std::unique_lock lock {m};
     auto i = store.find(key);
     if (i != store.end()) {
         if (value.version != i->second.version) {
@@ -40,7 +40,7 @@ std::expected<void, Error> InMemoryKVStore::set(const Key& key, const Value& val
 }
 
 std::expected<std::optional<Value>, Error> InMemoryKVStore::erase(const Key& key) {
-    std::unique_lock lock {m};
+    const std::unique_lock lock {m};
     auto i = store.find(key);
     if (i == store.end()) {
         return std::nullopt;
@@ -51,7 +51,7 @@ std::expected<std::optional<Value>, Error> InMemoryKVStore::erase(const Key& key
 }
 
 size_t InMemoryKVStore::size() const {
-    std::unique_lock lock {m};
+    const std::shared_lock lock {m};
     return store.size();
 }
 

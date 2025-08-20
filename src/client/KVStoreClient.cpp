@@ -8,7 +8,6 @@
 #include "common/Types.hpp"
 #include <cstddef>
 #include <expected>
-#include <print>
 
 namespace zdb {
 

@@ -91,7 +91,7 @@ TEST(LockTest, AcquireLock) {
         1
     };
     zdb::Config c {{proxyAddress}, policy};
-    auto client = kvTest.makeClient(c);
+    auto client = zdb::KVStoreClient {c};
     zdb::Key lockKey{"test_lock"};
     zdb::Lock lock(lockKey, client);
     lock.acquire();
@@ -110,7 +110,7 @@ TEST(LockTest, ReleaseLock) {
         1
     };
     zdb::Config c {{proxyAddress}, policy};
-    auto client = kvTest.makeClient(c);
+    auto client = zdb::KVStoreClient {c};
     zdb::Key lockKey{"test_lock"};
     zdb::Lock lock(lockKey, client);
     lock.acquire();

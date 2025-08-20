@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <grpcpp/support/status.h>
 #include "common/Error.hpp"
+#include "common/Types.hpp"
 
 namespace zdb {
 
@@ -13,7 +14,6 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
         case ErrorCode::KeyNotFound:
             return grpc::StatusCode::NOT_FOUND;
         case ErrorCode::InvalidArg:
-            return grpc::StatusCode::INVALID_ARGUMENT;
         case ErrorCode::VersionMismatch:
             return grpc::StatusCode::INVALID_ARGUMENT;
         case ErrorCode::ServiceTemporarilyUnavailable:

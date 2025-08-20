@@ -4,7 +4,6 @@
 #include "client/KVStoreClient.hpp"
 #include <string>
 #include "common/Types.hpp"
-#include <mutex>
 
 namespace zdb {
 
@@ -14,10 +13,8 @@ public:
     void acquire();
     void release();
 private:
-    const Key lock_key;
+    const Key lockKey;
     KVStoreClient& client;
-    std::mutex m;
-    std::string clientID;
 };
 
 } // namespace zdb

@@ -15,7 +15,7 @@ namespace zdb {
 CircuitBreaker::CircuitBreaker(const RetryPolicy p)
     : policy{p}, repeater {p} {}
 
-std::vector<grpc::Status> CircuitBreaker::call(std::string op, const std::function<grpc::Status()>& rpc) {
+std::vector<grpc::Status> CircuitBreaker::call(const std::string& op, const std::function<grpc::Status()>& rpc) {
     if (rpc == nullptr) {
         throw std::bad_function_call {};
     }

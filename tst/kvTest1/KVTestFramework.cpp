@@ -34,10 +34,6 @@ KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c)
     serverThread = std::thread([this]() { server->Wait(); });
 }
 
-zdb::KVStoreClient KVTestFramework::makeClient(zdb::Config& config) {
-    return zdb::KVStoreClient {config};
-}
-
 std::vector<KVTestFramework::ClientResult> KVTestFramework::spawnClientsAndWait(
     int nClients,
     std::chrono::seconds timeout,

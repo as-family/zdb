@@ -8,14 +8,14 @@
 #include <thread>
 #include <grpcpp/support/status.h>
 #include <vector>
-#include <unordered_set>
+#include <string>
 
 namespace zdb {
 
 Repeater::Repeater(const RetryPolicy p)
     : backoff {p} {}
 
-std::vector<grpc::Status> Repeater::attempt(std::string op, const std::function<grpc::Status()>& rpc) {
+std::vector<grpc::Status> Repeater::attempt(const std::string& op, const std::function<grpc::Status()>& rpc) {
     std::vector<grpc::Status> statuses;
     while (true) {
         auto status = rpc();

@@ -1,7 +1,7 @@
 #include "Error.hpp"
 #include <utility>
 #include <string>
-#include <iostream>
+#include <ostream>
 #include <unordered_set>
 #include <unordered_map>
 
@@ -28,7 +28,7 @@ std::string toString(const ErrorCode& code) {
     std::unreachable();
 }
 
-std::unordered_map<std::string, std::unordered_set<ErrorCode>> retriableErrorCodes = {
+const std::unordered_map<std::string, std::unordered_set<ErrorCode>> retriableErrorCodes = {
     {"erase", {
         ErrorCode::ServiceTemporarilyUnavailable,
         ErrorCode::AllServicesUnavailable,
@@ -41,7 +41,7 @@ std::unordered_map<std::string, std::unordered_set<ErrorCode>> retriableErrorCod
     }}
 };
 
-bool isRetriable(std::string op, const ErrorCode& code) {
+bool isRetriable(const std::string& op, const ErrorCode& code) {
     auto it = retriableErrorCodes.find(op);
     if (it != retriableErrorCodes.end()) {
         return it->second.contains(code);

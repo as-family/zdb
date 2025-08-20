@@ -21,8 +21,8 @@ enum class ErrorCode {
     Unknown
 };
 
-extern std::unordered_map<std::string, std::unordered_set<ErrorCode>> retriableErrorCodes;
-bool isRetriable(std::string op, const ErrorCode& code);
+extern const std::unordered_map<std::string, std::unordered_set<ErrorCode>> retriableErrorCodes;
+bool isRetriable(const std::string& op, const ErrorCode& code);
 
 std::ostream& operator<<(std::ostream& os, const ErrorCode& code);
 

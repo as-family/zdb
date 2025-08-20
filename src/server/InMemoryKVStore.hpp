@@ -22,7 +22,7 @@ public:
     size_t size() const;
 private:
     std::unordered_map<Key, Value, KeyHash> store;
-    mutable std::mutex m;
+    mutable std::shared_mutex m;
 };
 
 } // namespace zdb

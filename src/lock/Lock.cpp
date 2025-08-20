@@ -3,11 +3,10 @@
 #include <random>
 #include <string>
 #include <algorithm>
-#include <mutex>
 
 namespace zdb {
 
-Lock::Lock(const Key key, KVStoreClient& c) : lock_key(key), client(c), m{}, clientID{} {}
+Lock::Lock(const Key key, KVStoreClient& c) : lockKey(key), client(c) {}
 
 template <typename T = std::mt19937>
 auto random_generator() -> T {
@@ -34,21 +33,21 @@ auto generate_random_alphanumeric_string(std::size_t len) -> std::string {
 
 void Lock::acquire() {
     auto c = generate_random_alphanumeric_string(16);
-    client.waitSet(lock_key, Value{c, 0});
+    client.waitSet(lockKey, Value{c, 0});
 }
 
 void Lock::release() {
-    auto v = client.waitGet(lock_key, 1);
-    client.waitSet(lock_key, v);
+    auto v = client.waitGet(lockKey, 1);
+    client.waitSet(lockKey, v);
     while (true) {
-        auto t = client.erase(lock_key);
+        auto t = client.erase(lockKey);
         if (t.has_value()) {
             return;
         } else {
-            if (client.waitNotFound(lock_key)) {
+            if (client.waitNotFound(lockKey)) {
                 return;
             } else {
-                if (!client.waitGet(lock_key, Value{v.data, 2})) {
+                if (!client.waitGet(lockKey, Value{v.data, 2})) {
                     return;
                 }
             }

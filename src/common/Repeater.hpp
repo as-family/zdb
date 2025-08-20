@@ -14,7 +14,7 @@ namespace zdb {
 class Repeater {
 public:
     explicit Repeater(const RetryPolicy p);
-    std::vector<grpc::Status> attempt(std::string op, const std::function<grpc::Status()>& rpc);
+    std::vector<grpc::Status> attempt(const std::string& op, const std::function<grpc::Status()>& rpc);
 private:
     ExponentialBackoff backoff;
     FullJitter fullJitter;

@@ -13,7 +13,6 @@
 #include <spdlog/spdlog.h>
 #include "common/Types.hpp"
 #include <vector>
-#include <string>
 
 namespace zdb {
 
@@ -33,7 +32,7 @@ public:
 private:
     template<typename Req, typename Rep>
     std::expected<void, std::vector<Error>> call(
-        std::string op,
+        const std::string& op,
         grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
         Rep& reply) const {
