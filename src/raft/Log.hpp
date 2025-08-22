@@ -3,13 +3,9 @@
 
 #include <cstdint>
 #include <vector>
+#include "raft/Command.hpp"
 
 namespace raft {
-
-class Command {
-    virtual ~Command() = default;
-    virtual void apply() = 0;
-};
 
 class LogEntry {
     uint64_t term;

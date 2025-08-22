@@ -46,6 +46,7 @@ target_sources(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
   ${CMAKE_SOURCE_DIR}/src/lock/Lock.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/RaftImpl.cpp
+  ${CMAKE_SOURCE_DIR}/src/raft/Channel.cpp
 )
 
 target_link_libraries(zdb PRIVATE
