@@ -3,8 +3,8 @@ syntax = "proto3";
 package raft.proto;
 
 service Raft {
-    rpc AppendEntries(AppendEntriesArg) returns (AppendEntriesReply);
-    rpc RequestVote(RequestVoteArg) returns (RequestVoteReply);
+    rpc appendEntries(AppendEntriesArg) returns (AppendEntriesReply);
+    rpc requestVote(RequestVoteArg) returns (RequestVoteReply);
 }
 
 message LogEntry {

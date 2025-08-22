@@ -74,23 +74,4 @@ grpc::Status KVStoreServiceImpl::size(
     return grpc::Status::OK;
 }
 
-KVStoreServer::KVStoreServer(const std::string& address, KVStoreServiceImpl& s)
-    : addr{address}, service {s} {
-    grpc::ServerBuilder sb{};
-    sb.AddListeningPort(addr, grpc::InsecureServerCredentials());
-    sb.RegisterService(&service);
-    server = sb.BuildAndStart();
-}
-
-void KVStoreServer::wait() {
-    server->Wait();
-}
-
-void KVStoreServer::shutdown() {
-    if (server) {
-        server->Shutdown();
-        server.reset();
-    }
-}
-
 } // namespace zdb

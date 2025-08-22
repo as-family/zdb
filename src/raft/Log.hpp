@@ -7,12 +7,15 @@
 
 namespace raft {
 
-class LogEntry {
+struct LogEntry {
     uint64_t term;
     Command* command;
 };
 
 class Log {
+public:
+    uint64_t lastIndex() const;
+    uint64_t lastTerm() const;
     std::vector<LogEntry> entries;
 };
 

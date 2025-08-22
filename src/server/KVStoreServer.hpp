@@ -5,6 +5,7 @@
 #include <grpcpp/grpcpp.h>
 #include "proto/kvStore.grpc.pb.h"
 #include "InMemoryKVStore.hpp"
+#include "server/RPCServer.hpp"
 
 namespace zdb {
 
@@ -31,16 +32,7 @@ private:
     InMemoryKVStore& kvStore;
 };
 
-class KVStoreServer {
-public:
-    KVStoreServer(const std::string& l_address, KVStoreServiceImpl& s);
-    void wait();
-    void shutdown();
-private:
-    std::string addr;
-    KVStoreServiceImpl& service;
-    std::unique_ptr<grpc::Server> server;
-};
+using KVStoreServer = RPCServer<KVStoreServiceImpl>;
 
 } // namespace zdb
 

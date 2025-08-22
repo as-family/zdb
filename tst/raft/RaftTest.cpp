@@ -11,5 +11,3 @@ TEST(Raft, Init) {
     raft::Raft* r = new raft::RaftImpl(v, "", c);
     delete r;
 }
-
-

@@ -9,8 +9,15 @@
 
 namespace raft {
 
+enum class Role {
+    Follower,
+    Candidate,
+    Leader
+};
+
 class Raft {
 public:
+    Role role = Role::Follower;
     uint64_t currentTerm = 0;
     std::optional<uint8_t> votedFor;
     Log log;

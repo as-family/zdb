@@ -55,7 +55,6 @@ private:
     std::unique_ptr<Stub> stub;
 };
 
-
 template<typename Service>
 RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p) 
     : addr {address},
@@ -114,7 +113,6 @@ template<typename Service>
 std::string RPCService<Service>::address() const {
     return addr;
 }
-
 
 } // namespace zdb
 

@@ -11,6 +11,7 @@
 #include "common/RPCService.hpp"
 #include "common/RetryPolicy.hpp"
 #include <unordered_map>
+#include "raft/RaftServiceImpl.hpp"
 
 namespace raft {
 
@@ -23,11 +24,13 @@ public:
     RequestVoteReply requestVote(const RequestVoteArg& arg) override;
     ~RaftImpl();
 private:
-    Channel& channel;
+    Channel& serviceChannel;
     std::vector<std::string> peerAddresses;
     std::string selfId;
     zdb::RetryPolicy policy;
     std::unordered_map<std::string, Client> peers;
+    RaftServiceImpl raftService;
+    RaftServer server;
 };
 
 } // namespace raft

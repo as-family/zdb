@@ -1,20 +1,23 @@
 #include "raft/RaftImpl.hpp"
 #include "raft/Types.hpp"
 #include <tuple>
+#include <algorithm>
+#include "raft/RaftServiceImpl.hpp"
 
 namespace raft {
 
 RaftImpl::RaftImpl(std::vector<std::string> p, std::string s, Channel& c)
-    : channel(c),
+    : serviceChannel(c),
       peerAddresses(std::move(p)),
       selfId(s),
-      policy{std::chrono::milliseconds(10), std::chrono::milliseconds(100), std::chrono::milliseconds(1000), 3, 1} {
+      policy{std::chrono::milliseconds(10), std::chrono::milliseconds(100), std::chrono::milliseconds(1000), 3, 1},
+      raftService {this},
+      server {selfId, raftService} {
+    peerAddresses.erase(std::find(peerAddresses.begin(), peerAddresses.end(), selfId));
     for (const auto& peer : peerAddresses) {
-        if (peer != selfId) {
-            peers.emplace(std::piecewise_construct, 
-                        std::forward_as_tuple(peer), 
-                        std::forward_as_tuple(peer, policy));
-        }
+        peers.emplace(std::piecewise_construct,
+                       std::forward_as_tuple(peer),
+                       std::forward_as_tuple(peer, policy));
     }
 }
 
