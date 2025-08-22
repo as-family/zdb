@@ -23,7 +23,6 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/common/ErrorConverter.cpp
     ${CMAKE_SOURCE_DIR}/src/common/Repeater.cpp
     ${CMAKE_SOURCE_DIR}/src/common/CircuitBreaker.cpp
-    ${CMAKE_SOURCE_DIR}/src/client/KVRPCService.cpp
     ${CMAKE_SOURCE_DIR}/src/client/KVStoreClient.cpp
     ${CMAKE_SOURCE_DIR}/src/server/InMemoryKVStore.cpp
     ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp

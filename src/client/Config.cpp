@@ -8,6 +8,7 @@
 #include "common/Error.hpp"
 #include <tuple>
 #include <expected>
+#include "client/Config.hpp"
 
 namespace zdb {
 
@@ -52,7 +53,7 @@ Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p) :
     }
 }
 
-std::expected<KVRPCService*, Error> Config::currentService() {
+std::expected<KVRPCServicePtr, Error> Config::currentService() {
     if (cService == services.end()) {
         return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "No service available")};
     }
@@ -65,7 +66,7 @@ std::expected<KVRPCService*, Error> Config::currentService() {
     return &(cService->second);
 }
 
-std::expected<KVRPCService*, Error> Config::nextService() {
+std::expected<KVRPCServicePtr, Error> Config::nextService() {
     // Check if current service is both connected and available (circuit breaker not open)
     if (cService != services.end() && cService->second.connected() && cService->second.available()) {
         return &(cService->second);

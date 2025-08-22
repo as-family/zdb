@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 #include "client/Config.hpp"
-#include "client/KVRPCService.hpp"
 #include "common/RetryPolicy.hpp"
 #include "server/KVStoreServer.hpp"
 #include "server/InMemoryKVStore.hpp"
@@ -15,7 +14,6 @@
 #include "common/Error.hpp"
 
 using zdb::Config;
-using zdb::KVRPCService;
 using zdb::RetryPolicy;
 using zdb::InMemoryKVStore;
 using zdb::KVStoreServiceImpl;
@@ -134,7 +132,7 @@ TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
     
     auto result = config.currentService();
     ASSERT_TRUE(result.has_value());
-    KVRPCService* service = result.value();
+    zdb::KVRPCServicePtr service = result.value();
     EXPECT_TRUE(service->connected());
     EXPECT_TRUE(service->available());
 }
@@ -146,11 +144,11 @@ TEST_F(ConfigTest, NextServiceWhenCurrentServiceAvailable) {
     
     auto currentResult = config.currentService();
     ASSERT_TRUE(currentResult.has_value());
-    const KVRPCService* currentSvc = currentResult.value();
+    const zdb::KVRPCServicePtr currentSvc = currentResult.value();
     
     auto nextResult = config.nextService();
     ASSERT_TRUE(nextResult.has_value());
-    const KVRPCService* nextSvc = nextResult.value();
+    const zdb::KVRPCServicePtr nextSvc = nextResult.value();
     
     // Should return the same service if it's still available
     EXPECT_EQ(currentSvc, nextSvc);
@@ -163,11 +161,11 @@ TEST_F(ConfigTest, NextServiceSwitchesToAnotherService) {
     
     auto result1 = config.currentService();
     ASSERT_TRUE(result1.has_value());
-    const KVRPCService* service1 = result1.value();
+    const zdb::KVRPCServicePtr service1 = result1.value();
     
     auto result2 = config.nextService();
     ASSERT_TRUE(result2.has_value());
-    const KVRPCService* service2 = result2.value();
+    const zdb::KVRPCServicePtr service2 = result2.value();
     
     // Both should be valid services
     EXPECT_TRUE(service1->connected());
@@ -287,12 +285,12 @@ TEST_F(ConfigTest, ServicesMapIsProperlyPopulated) {
     // that we can get services and they work as expected
     auto result1 = config.currentService();
     ASSERT_TRUE(result1.has_value());
-    const KVRPCService* service1 = result1.value();
+    const zdb::KVRPCServicePtr service1 = result1.value();
     EXPECT_TRUE(service1->connected());
     
     auto result2 = config.nextService();
     ASSERT_TRUE(result2.has_value());
-    const KVRPCService* service2 = result2.value();
+    const zdb::KVRPCServicePtr service2 = result2.value();
     EXPECT_TRUE(service2->connected());
 }
 
@@ -305,7 +303,7 @@ TEST_F(ConfigTest, RapidSuccessiveCallsToNextService) {
     for (int i = 0; i < 10; ++i) {
         auto result = config.nextService();
         ASSERT_TRUE(result.has_value());
-        const KVRPCService* service = result.value();
+        const zdb::KVRPCServicePtr service = result.value();
         EXPECT_TRUE(service->connected());
     }
 }
@@ -440,7 +438,7 @@ TEST_F(ConfigTest, NextActiveServiceIteratorPrioritizesCurrentService) {
     for (int i = 0; i < 5; ++i) {
         auto nextResult = config.nextService();
         ASSERT_TRUE(nextResult.has_value());
-        const KVRPCService* nextService = nextResult.value();
+        const zdb::KVRPCServicePtr nextService = nextResult.value();
         
         // Should get a valid, connected, and available service
         EXPECT_TRUE(nextService->connected());
@@ -483,7 +481,7 @@ TEST_F(ConfigTest, ConnectedVsAvailableStates) {
     // Initially should have both connected and available service
     auto result = config.currentService();
     ASSERT_TRUE(result.has_value());
-    KVRPCService* service = result.value(); // Not const since available() is not const
+    zdb::KVRPCServicePtr service = result.value(); // Not const since available() is not const
     EXPECT_TRUE(service->connected());
     EXPECT_TRUE(service->available());
     

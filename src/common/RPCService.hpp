@@ -1,5 +1,5 @@
-#ifndef KVRPC_SERVICE_H
-#define KVRPC_SERVICE_H
+#ifndef RPC_SERVICE_H
+#define RPC_SERVICE_H
 
 #include "common/CircuitBreaker.hpp"
 #include "common/Repeater.hpp"
@@ -15,9 +15,10 @@
 
 namespace zdb {
 
-template<typename Stub, typename Service>
+template<typename Service>
 class RPCService {
 public:
+    using Stub = typename Service::Stub;
     RPCService(const std::string& address, const RetryPolicy p);
     RPCService(const RPCService&) = delete;
     RPCService& operator=(const RPCService&) = delete;
@@ -55,13 +56,13 @@ private:
 };
 
 
-template<typename Stub, typename Service>
-RPCService<Stub, Service>::RPCService(const std::string& address, const RetryPolicy p) 
+template<typename Service>
+RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p) 
     : addr {address},
     circuitBreaker {p} {}
 
-template<typename Stub, typename Service>
-std::expected<void, Error> RPCService<Stub, Service>::connect() {
+template<typename Service>
+std::expected<void, Error> RPCService<Service>::connect() {
     if (channel) {
         auto state = channel->GetState(false);
         if (state == grpc_connectivity_state::GRPC_CHANNEL_READY || state == grpc_connectivity_state::GRPC_CHANNEL_IDLE || state == grpc_connectivity_state::GRPC_CHANNEL_CONNECTING) {
@@ -88,8 +89,8 @@ std::expected<void, Error> RPCService<Stub, Service>::connect() {
     return {};
 }
 
-template<typename Stub, typename Service>
-bool RPCService<Stub, Service>::available() {
+template<typename Service>
+bool RPCService<Service>::available() {
     if (circuitBreaker.open()) {
         return false;
     }
@@ -104,17 +105,17 @@ bool RPCService<Stub, Service>::available() {
     return true;
 }
 
-template<typename Stub, typename Service>
-bool RPCService<Stub, Service>::connected() const {
+template<typename Service>
+bool RPCService<Service>::connected() const {
     return channel && stub && channel->GetState(false) == grpc_connectivity_state::GRPC_CHANNEL_READY;
 }
 
-template<typename Stub, typename Service>
-std::string RPCService<Stub, Service>::address() const {
+template<typename Service>
+std::string RPCService<Service>::address() const {
     return addr;
 }
 
 
 } // namespace zdb
 
-#endif // KVRPC_SERVICE_H
+#endif // RPC_SERVICE_H

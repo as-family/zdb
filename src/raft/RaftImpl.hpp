@@ -14,7 +14,7 @@
 
 namespace raft {
 
-using Client = zdb::RPCService<proto::Raft::Stub, proto::Raft>;
+using Client = zdb::RPCService<proto::Raft>;
 
 class RaftImpl : public Raft {
 public:

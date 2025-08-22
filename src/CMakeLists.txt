@@ -34,7 +34,6 @@ target_sources(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src/server/InMemoryKVStore.cpp
   ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp
   ${CMAKE_SOURCE_DIR}/src/client/KVStoreClient.cpp
-  ${CMAKE_SOURCE_DIR}/src/client/KVRPCService.cpp
   ${CMAKE_SOURCE_DIR}/src/common/CircuitBreaker.cpp
   ${CMAKE_SOURCE_DIR}/src/common/Error.cpp
   ${CMAKE_SOURCE_DIR}/src/common/ErrorConverter.cpp

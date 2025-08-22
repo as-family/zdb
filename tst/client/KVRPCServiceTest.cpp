@@ -1,5 +1,4 @@
 
-#include "client/KVRPCService.hpp"
 #include "common/RetryPolicy.hpp"
 #include "common/Error.hpp"
 #include "server/KVStoreServer.hpp"
@@ -16,11 +15,11 @@
 #include <proto/kvStore.grpc.pb.h>
 #include <proto/types.pb.h>
 #include "common/Types.hpp"
+#include "client/Config.hpp"
 
 using zdb::Value;
 using zdb::InMemoryKVStore;
 using zdb::KVStoreServiceImpl;
-using zdb::KVRPCService;
 using zdb::RetryPolicy;
 using zdb::ErrorCode;
 using zdb::kvStore::GetRequest;
@@ -72,7 +71,7 @@ protected:
 
 
 TEST_F(KVRPCServiceTest, ConnectSuccess) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     auto result = service.connect();
     EXPECT_TRUE(result.has_value());
     EXPECT_TRUE(service.available());
@@ -80,7 +79,7 @@ TEST_F(KVRPCServiceTest, ConnectSuccess) {
 
 
 TEST_F(KVRPCServiceTest, ConnectFailure) {
-    KVRPCService badService{"localhost:59999", policy}; // unlikely port
+    zdb::KVRPCService badService{"localhost:59999", policy}; // unlikely port
     auto result = badService.connect();
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code, ErrorCode::Unknown);
@@ -88,7 +87,7 @@ TEST_F(KVRPCServiceTest, ConnectFailure) {
 
 
 TEST_F(KVRPCServiceTest, availableReflectsCircuitBreaker) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     EXPECT_TRUE(service.connect().has_value());
     EXPECT_TRUE(service.available());
     testServer->shutdown(); // Simulate server failure
@@ -101,7 +100,7 @@ TEST_F(KVRPCServiceTest, availableReflectsCircuitBreaker) {
 
 
 TEST_F(KVRPCServiceTest, CallGetSuccess) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest setReq;
     setReq.mutable_key()->set_data("foo");
@@ -119,7 +118,7 @@ TEST_F(KVRPCServiceTest, CallGetSuccess) {
 
 
 TEST_F(KVRPCServiceTest, CallSetSuccess) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest req;
     req.mutable_key()->set_data("foo");
@@ -131,7 +130,7 @@ TEST_F(KVRPCServiceTest, CallSetSuccess) {
 
 
 TEST_F(KVRPCServiceTest, CallEraseSuccess) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest setReq;
     setReq.mutable_key()->set_data("foo");
@@ -148,7 +147,7 @@ TEST_F(KVRPCServiceTest, CallEraseSuccess) {
 
 
 TEST_F(KVRPCServiceTest, CallSizeSuccess) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest setReq;
     setReq.mutable_key()->set_data("foo");
@@ -164,7 +163,7 @@ TEST_F(KVRPCServiceTest, CallSizeSuccess) {
 
 
 TEST_F(KVRPCServiceTest, CallFailureReturnsError) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     EXPECT_TRUE(service.connect().has_value());
     GetRequest req;
     req.mutable_key()->set_data("notfound");
@@ -176,7 +175,7 @@ TEST_F(KVRPCServiceTest, CallFailureReturnsError) {
 
 // Test connection reuse when channel is already READY
 TEST_F(KVRPCServiceTest, ConnectReuseReadyChannel) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     
     // First connection
     auto result1 = service.connect();
@@ -191,7 +190,7 @@ TEST_F(KVRPCServiceTest, ConnectReuseReadyChannel) {
 
 // Test that available() can trigger reconnection
 TEST_F(KVRPCServiceTest, AvailableTriggersReconnection) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     
     // Initially not connected
     EXPECT_FALSE(service.connected());
@@ -206,7 +205,7 @@ TEST_F(KVRPCServiceTest, AvailableTriggersReconnection) {
 TEST_F(KVRPCServiceTest, AvailableReturnsFalseWhenCircuitBreakerOpen) {
     // Use a policy that opens circuit breaker quickly
     const RetryPolicy quickFailPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(100), 1, 1};
-    KVRPCService service{address, quickFailPolicy};
+    zdb::KVRPCService service{address, quickFailPolicy};
     
     EXPECT_TRUE(service.connect().has_value());
     EXPECT_TRUE(service.available());
@@ -227,7 +226,7 @@ TEST_F(KVRPCServiceTest, AvailableReturnsFalseWhenCircuitBreakerOpen) {
 
 // Test connected() reflects actual gRPC channel state
 TEST_F(KVRPCServiceTest, ConnectedReflectsChannelState) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     
     // Initially not connected
     EXPECT_FALSE(service.connected());
@@ -251,7 +250,7 @@ TEST_F(KVRPCServiceTest, ConnectedReflectsChannelState) {
 
 // Test connection reuse with IDLE channel state
 TEST_F(KVRPCServiceTest, ConnectHandlesIdleChannel) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     
     // First connection
     EXPECT_TRUE(service.connect().has_value());
@@ -267,7 +266,7 @@ TEST_F(KVRPCServiceTest, ConnectHandlesIdleChannel) {
 
 // Test multiple consecutive calls to available()
 TEST_F(KVRPCServiceTest, MultipleAvailableCalls) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     
     // Multiple calls should be consistent
     for (int i = 0; i < 5; ++i) {
@@ -279,7 +278,7 @@ TEST_F(KVRPCServiceTest, MultipleAvailableCalls) {
 // Test available() behavior after connection failure
 TEST_F(KVRPCServiceTest, AvailableAfterConnectionFailure) {
     // Connect to invalid address
-    KVRPCService badService{"localhost:99999", policy};
+    zdb::KVRPCService badService{"localhost:99999", policy};
     
     // available() should return false when connection fails
     EXPECT_FALSE(badService.available());
@@ -288,7 +287,7 @@ TEST_F(KVRPCServiceTest, AvailableAfterConnectionFailure) {
 
 // Test reconnection after server restart
 TEST_F(KVRPCServiceTest, ReconnectionAfterServerRestart) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     
     // Initial connection
     EXPECT_TRUE(service.connect().has_value());
@@ -314,7 +313,7 @@ TEST_F(KVRPCServiceTest, ReconnectionAfterServerRestart) {
 
 // Test that connect() creates stub when missing
 TEST_F(KVRPCServiceTest, ConnectCreatesStubWhenMissing) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     
     // Connect should succeed and service should be ready for calls
     EXPECT_TRUE(service.connect().has_value());
@@ -332,7 +331,7 @@ TEST_F(KVRPCServiceTest, ConnectCreatesStubWhenMissing) {
 // Test circuit breaker integration with available()
 TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
     const RetryPolicy circuitBreakerPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(200), 1, 1};
-    KVRPCService service{address, circuitBreakerPolicy};
+    zdb::KVRPCService service{address, circuitBreakerPolicy};
     
     EXPECT_TRUE(service.connect().has_value());
     EXPECT_TRUE(service.available());
@@ -361,7 +360,7 @@ TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
 // Test address() method consistency
 TEST_F(KVRPCServiceTest, AddressMethodConsistency) {
     const std::string testAddr = "test.example.com:1234";
-    KVRPCService service{testAddr, policy};
+    zdb::KVRPCService service{testAddr, policy};
     
     EXPECT_EQ(service.address(), testAddr);
     
@@ -373,7 +372,7 @@ TEST_F(KVRPCServiceTest, AddressMethodConsistency) {
 
 // Test non-const available() can modify state
 TEST_F(KVRPCServiceTest, AvailableCanModifyState) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     
     // Initially not connected
     EXPECT_FALSE(service.connected());
@@ -387,7 +386,7 @@ TEST_F(KVRPCServiceTest, AvailableCanModifyState) {
 
 // Test behavior with rapid server cycling
 TEST_F(KVRPCServiceTest, RapidServerCycling) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     
     // Initial connection
     EXPECT_TRUE(service.connect().has_value());
@@ -416,7 +415,7 @@ TEST_F(KVRPCServiceTest, RapidServerCycling) {
 
 // Test error handling in available() when reconnection fails
 TEST_F(KVRPCServiceTest, AvailableHandlesReconnectionFailure) {
-    KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy};
     
     // Initial connection
     EXPECT_TRUE(service.connect().has_value());
