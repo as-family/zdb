@@ -37,6 +37,8 @@ private:
     RaftServer server;
     zdb::FullJitter fullJitter;
     AsyncTimer electionTimer;
+    AsyncTimer heartbeatTimer;
+    std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
     std::atomic<bool> killed;
 
     unsigned int votesGranted;

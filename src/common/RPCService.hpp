@@ -19,7 +19,7 @@ template<typename Service>
 class RPCService {
 public:
     using Stub = typename Service::Stub;
-    RPCService(const std::string& address, const RetryPolicy p);
+    RPCService(const std::string address, const RetryPolicy p);
     RPCService(const RPCService&) = delete;
     RPCService& operator=(const RPCService&) = delete;
     std::expected<void, Error> connect();
@@ -29,6 +29,10 @@ public:
         grpc::Status (Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
         Rep& reply) {
+        std::unique_lock l {m};
+        if (!available()) {
+            return std::unexpected {std::vector<Error>{ Error {ErrorCode::ServiceTemporarilyUnavailable, "Service is unavailable"} }};
+        }
         auto bound = [this, f, &request, &reply] {
             auto c = grpc::ClientContext();
             c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(25));
@@ -49,16 +53,18 @@ public:
     [[nodiscard]] bool connected() const;
     [[nodiscard]] std::string address() const;
 private:
-    const std::string addr;
+    std::string addr;
     CircuitBreaker circuitBreaker;
     std::shared_ptr<grpc::Channel> channel;
     std::unique_ptr<Stub> stub;
+    std::mutex m;
 };
 
 template<typename Service>
-RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p) 
+RPCService<Service>::RPCService(const std::string address, const RetryPolicy p) 
     : addr {address},
-    circuitBreaker {p} {}
+    circuitBreaker {p},
+    m{} {}
 
 template<typename Service>
 std::expected<void, Error> RPCService<Service>::connect() {
@@ -71,7 +77,7 @@ std::expected<void, Error> RPCService<Service>::connect() {
                 }
                 return {};
             }
-            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(1000))) {
+            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(25))) {
                 if (!stub) {
                     stub = Service::NewStub(channel);
                 }
@@ -81,7 +87,7 @@ std::expected<void, Error> RPCService<Service>::connect() {
     }
     
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
-    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(1000))) {
+    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(25))) {
         return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
     }
     stub = Service::NewStub(channel);

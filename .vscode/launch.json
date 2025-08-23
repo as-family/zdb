@@ -8,6 +8,7 @@
             "program": "${command:cmake.launchTargetPath}",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
+            "args": ["${cmake.testArgs}"],
             "environment": [
                 {
                     "name": "PATH",
@@ -27,18 +28,6 @@
                     "ignoreFailures": true
                 }
             ]
-        },
-        {
-            "name": "(lldb) Launch",
-            "type": "lldb-dap",
-            "request": "launch",
-            "program": "${command:cmake.launchTargetPath}",
-            "cwd": "${workspaceFolder}",
-            "runInTerminal": true,
-            "env": {
-                "PATH": "${env:PATH}:${command:cmake.getLaunchTargetDirectory}",
-                "TSAN_OPTIONS": "report_atomic_races=0"
-            },
         }
     ]
 }

@@ -9,7 +9,7 @@ LogEntry::LogEntry(const proto::LogEntry& entry)
       command(new zdb::Command(entry.command())) {}
 
 uint64_t Log::lastIndex() const {
-    return entries.empty() ? 0 : entries.size();
+    return entries.empty() ? 0 : entries.back().index;
 }
 uint64_t Log::lastTerm() const {
     return entries.empty() ? 0 : entries.back().term;

@@ -23,13 +23,14 @@ public:
     Role role = Role::Follower;
     std::string selfId;
     uint64_t currentTerm = 0;
-    std::optional<std::string> votedFor;
-    Log log;
+    std::optional<std::string> votedFor = std::nullopt;
+    Log log {};
     uint64_t commitIndex = 0;
     uint64_t lastApplied = 0;
-    std::vector<uint64_t> nextIndex;
-    std::vector<uint64_t> matchIndex;
+    std::vector<uint64_t> nextIndex{};
+    std::vector<uint64_t> matchIndex{};
     std::chrono::milliseconds electionTimeout;
+    std::chrono::milliseconds heartbeatInterval;
     std::vector<std::string> peerAddresses;
     virtual ~Raft() = default;
     virtual AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) = 0;
@@ -37,6 +38,7 @@ public:
     virtual void appendEntries() = 0;
     virtual void requestVote() = 0;
     virtual void start(Command* command) = 0;
+    virtual void kill() = 0;
 };
 
 } // namespace raft

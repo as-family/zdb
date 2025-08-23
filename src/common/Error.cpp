@@ -34,7 +34,6 @@ const std::unordered_map<std::string, std::unordered_set<ErrorCode>> retriableEr
         ErrorCode::AllServicesUnavailable,
     }},
     {"requestVote", {
-        ErrorCode::ServiceTemporarilyUnavailable,
         ErrorCode::TimeOut,
     }},
     {"default", {

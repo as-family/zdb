@@ -1,16 +1,18 @@
 #include "raft/AsyncTimer.hpp"
+#include <iostream>
 
 namespace raft {
 
-AsyncTimer::AsyncTimer() : running(false) {}
+AsyncTimer::AsyncTimer() : running(false), mtx{}, cv{} {}
 
 void AsyncTimer::start(std::function<std::chrono::milliseconds()> intervalProvider, std::function<void()> callback) {
     stop();
     running = true;
     worker = std::thread([this, intervalProvider, callback]() {
-        std::unique_lock<std::mutex> lock(mtx);
+        std::this_thread::sleep_for(std::chrono::milliseconds(intervalProvider()));
         while (running) {
             auto interval = intervalProvider();
+            std::unique_lock<std::mutex> lock(mtx);
             if (cv.wait_for(lock, interval, [this]{ return !running; })) break;
             if (running) callback();
         }
