@@ -33,6 +33,8 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/raft/Channel.cpp
     ${CMAKE_SOURCE_DIR}/src/raft/RaftServiceImpl.cpp
     ${CMAKE_SOURCE_DIR}/src/raft/Log.cpp
+    ${CMAKE_SOURCE_DIR}/src/raft/Types.cpp
+    ${CMAKE_SOURCE_DIR}/src/raft/AsyncTimer.cpp
     ${CMAKE_SOURCE_DIR}/tst/server/InMemoryKVStoreTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/ExponentialBackoffTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/RetryPolicyTest.cpp

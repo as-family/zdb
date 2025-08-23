@@ -4,12 +4,15 @@
 #include <cstdint>
 #include <vector>
 #include "raft/Command.hpp"
+#include <proto/raft.pb.h>
 
 namespace raft {
 
 struct LogEntry {
+    uint64_t index;
     uint64_t term;
     Command* command;
+    LogEntry(const proto::LogEntry& entry);
 };
 
 class Log {

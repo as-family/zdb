@@ -48,6 +48,8 @@ target_sources(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src/raft/Channel.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/RaftServiceImpl.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/Log.cpp
+  ${CMAKE_SOURCE_DIR}/src/raft/Types.cpp
+  ${CMAKE_SOURCE_DIR}/src/raft/AsyncTimer.cpp
 )
 
 target_link_libraries(zdb PRIVATE

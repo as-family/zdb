@@ -4,6 +4,7 @@
 #include <string>
 #include <cstdint>
 #include "proto/types.pb.h"
+#include "raft/Command.hpp"
 
 namespace zdb {
 
@@ -35,6 +36,23 @@ struct Value {
 
     bool operator==(const Value& other) const {
         return data == other.data && version == other.version;
+    }
+};
+
+struct Command : public raft::Command {
+    std::string name;
+    std::vector<std::string> args;
+
+    Command(const std::string& n, const std::vector<std::string>& a)
+        : name(n), args(a) {}
+    Command(const std::string& n)
+        : name(n), args {} {}
+
+    void apply() override {
+        // Implement the command application logic here
+    }
+    std::string serialize() const override {
+        return name;
     }
 };
 

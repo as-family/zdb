@@ -6,6 +6,9 @@
 #include <optional>
 #include <vector>
 #include <cstdint>
+#include "raft/Command.hpp"
+#include <chrono>
+#include <string>
 
 namespace raft {
 
@@ -18,16 +21,22 @@ enum class Role {
 class Raft {
 public:
     Role role = Role::Follower;
+    std::string selfId;
     uint64_t currentTerm = 0;
-    std::optional<uint8_t> votedFor;
+    std::optional<std::string> votedFor;
     Log log;
     uint64_t commitIndex = 0;
     uint64_t lastApplied = 0;
     std::vector<uint64_t> nextIndex;
     std::vector<uint64_t> matchIndex;
+    std::chrono::milliseconds electionTimeout;
+    std::vector<std::string> peerAddresses;
     virtual ~Raft() = default;
-    virtual AppendEntriesReply appendEntries(const AppendEntriesArg& arg) = 0;
-    virtual RequestVoteReply requestVote(const RequestVoteArg& arg) = 0;
+    virtual AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) = 0;
+    virtual RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) = 0;
+    virtual void appendEntries() = 0;
+    virtual void requestVote() = 0;
+    virtual void start(Command* command) = 0;
 };
 
 } // namespace raft

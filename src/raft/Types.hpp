@@ -4,16 +4,19 @@
 #include <cstdint>
 #include <vector>
 #include "raft/Log.hpp"
+#include <proto/raft.pb.h>
+#include <string>
 
 namespace raft {
 
 struct AppendEntriesArg {
-    uint8_t leaderId;
+    std::string leaderId;
     uint64_t term;
     uint64_t prevLogIndex;
     uint64_t prevLogTerm;
     uint64_t leaderCommit;
     std::vector<LogEntry> entries;
+    AppendEntriesArg(const proto::AppendEntriesArg& arg);
 };
 
 struct AppendEntriesReply {
@@ -22,11 +25,11 @@ struct AppendEntriesReply {
 };
 
 struct RequestVoteArg {
-    uint8_t candidateId;
+    std::string candidateId;
     uint64_t term;
     uint64_t lastLogIndex;
     uint64_t lastLogTerm;
-
+    RequestVoteArg(const proto::RequestVoteArg& arg);
 };
 
 struct RequestVoteReply {

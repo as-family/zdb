@@ -12,6 +12,8 @@
 #include "common/RetryPolicy.hpp"
 #include <unordered_map>
 #include "raft/RaftServiceImpl.hpp"
+#include "raft/AsyncTimer.hpp"
+#include <atomic>
 
 namespace raft {
 
@@ -20,17 +22,29 @@ using Client = zdb::RPCService<proto::Raft>;
 class RaftImpl : public Raft {
 public:
     RaftImpl(std::vector<std::string> p, std::string s, Channel& c);
-    AppendEntriesReply appendEntries(const AppendEntriesArg& arg) override;
-    RequestVoteReply requestVote(const RequestVoteArg& arg) override;
+    void appendEntries() override;
+    void requestVote() override;
+    AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
+    RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) override;
+    void start(Command* command) override;
+    void kill();
     ~RaftImpl();
 private:
     Channel& serviceChannel;
-    std::vector<std::string> peerAddresses;
-    std::string selfId;
     zdb::RetryPolicy policy;
     std::unordered_map<std::string, Client> peers;
     RaftServiceImpl raftService;
     RaftServer server;
+    zdb::FullJitter fullJitter;
+    AsyncTimer electionTimer;
+    std::atomic<bool> killed;
+
+    unsigned int votesGranted;
+    unsigned int downPeers;
+    unsigned int votesDeclined;
+    bool electionEnded;
+    std::mutex electionMutex;
+    std::condition_variable electionCondVar;
 };
 
 } // namespace raft
