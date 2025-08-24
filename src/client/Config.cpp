@@ -49,7 +49,7 @@ Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p) :
     cService = services.end();
     cService = nextActiveServiceIterator();
     if (cService == services.end()) {
-        throw std::runtime_error("KVStoreClient: Could not connect to any server"); 
+        throw std::runtime_error("Config: Could not connect to any server");
     }
 }
 

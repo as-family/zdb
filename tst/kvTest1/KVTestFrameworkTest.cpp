@@ -10,9 +10,9 @@ TEST(KVTestFrameworkTest, SpawnClientsAndWaitCoordinatesResults) {
     std::string proxyAddress {"localhost:50051"};
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};
     zdb::RetryPolicy policy {
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
-        std::chrono::microseconds(5000),
+        std::chrono::milliseconds(100),
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(5000),
         3,
         1
     };

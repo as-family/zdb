@@ -25,8 +25,8 @@ RaftImpl::RaftImpl(std::vector<std::string> p, std::string s, Channel& c)
       threads {},
       killed {false} {
     selfId = s;
-    electionTimeout = std::chrono::milliseconds(250);
-    heartbeatInterval = std::chrono::milliseconds(100);
+    electionTimeout = std::chrono::milliseconds(40);
+    heartbeatInterval = std::chrono::milliseconds(15);
     peerAddresses = std::vector<std::string>(p);
     peerAddresses.erase(std::find(peerAddresses.begin(), peerAddresses.end(), selfId));
     for (const auto& peer : peerAddresses) {

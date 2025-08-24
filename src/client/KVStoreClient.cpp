@@ -47,7 +47,7 @@ std::expected<void, Error> KVStoreClient::set(const Key& key, const Value& value
     if (t.has_value()) {
         return {};
     } else {
-        if (isRetriable("set", t.error().front().code) && t.error().back().code == ErrorCode::VersionMismatch) {
+        if (t.error().size() > 1 && isRetriable("set", t.error().front().code) && t.error().back().code == ErrorCode::VersionMismatch) {
             return std::unexpected {Error(ErrorCode::Maybe)};
         } else {
             return std::unexpected {t.error().back()};

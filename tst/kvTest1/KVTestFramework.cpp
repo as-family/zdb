@@ -26,12 +26,14 @@ KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c)
     targetSB.RegisterService(&targetService);
     targetServer = targetSB.BuildAndStart();
     targetServerThread = std::thread([this]() { targetServer->Wait(); });
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
     grpc::ServerBuilder sb{};
     sb.AddListeningPort(addr, grpc::InsecureServerCredentials());
     sb.RegisterService(&service);
     server = sb.BuildAndStart();
     serverThread = std::thread([this]() { server->Wait(); });
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 }
 
 std::vector<KVTestFramework::ClientResult> KVTestFramework::spawnClientsAndWait(
@@ -100,7 +102,7 @@ std::pair<int, bool> KVTestFramework::oneSet(
         if (!(status.has_value() ||
               status.error().code == zdb::ErrorCode::VersionMismatch ||
               status.error().code == zdb::ErrorCode::Maybe)) {
-            throw std::runtime_error("oneSet: wrong error");
+            throw std::runtime_error("oneSet: wrong error " + status.error().what);
         }
         zdb::Value getValue = getJson(clientId, client, key);
         if (status.has_value() && getValue.version == version + 1) {
@@ -108,7 +110,7 @@ std::pair<int, bool> KVTestFramework::oneSet(
             int getClientId;
             ss >> getClientId;
             if (clientId != getClientId && getValue.data != data) {
-                throw std::runtime_error("oneSet: wrong value");
+                throw std::runtime_error("oneSet: wrong value " + getValue.data);
             }
         }
         if (status.has_value() || status.error().code == zdb::ErrorCode::Maybe) {

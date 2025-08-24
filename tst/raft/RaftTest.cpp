@@ -7,7 +7,23 @@
 #include <thread>
 #include <algorithm>
 
-TEST(Raft, Init) {
+int nRole(const std::vector<raft::Raft*>& rafts, raft::Role role) {
+    int count = 0;
+    for (const auto& raft : rafts) {
+        if (raft->role == role) {
+            count++;
+        }
+    }
+    return count;
+}
+
+bool check1Leader(const std::vector<raft::Raft*>& rafts) {
+    return nRole(rafts, raft::Role::Leader) == 1 &&
+           nRole(rafts, raft::Role::Follower) == rafts.size() - 1 &&
+           nRole(rafts, raft::Role::Candidate) == 0;
+}
+
+TEST(Raft, InititialElection) {
     std::vector<raft::Channel> c{3};
     std::vector<std::string> v{"localhost:50051", "localhost:50052", "localhost:50053"};
     std::vector<raft::Raft*> r{};
@@ -22,22 +38,14 @@ TEST(Raft, Init) {
     EXPECT_EQ(r[2]->peerAddresses.size(), 2);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    EXPECT_TRUE(check1Leader(r));
 
-    EXPECT_EQ((r[0]->role == raft::Role::Leader) +
-              (r[1]->role == raft::Role::Leader) +
-              (r[2]->role == raft::Role::Leader), 1);
-    EXPECT_EQ((r[0]->role == raft::Role::Follower) +
-              (r[1]->role == raft::Role::Follower) +
-              (r[2]->role == raft::Role::Follower), 2);
-    EXPECT_EQ((r[0]->role == raft::Role::Candidate) +
-              (r[1]->role == raft::Role::Candidate) +
-              (r[2]->role == raft::Role::Candidate), 0);
     for (auto raft : r) {
         delete raft;
     }
 }
 
-TEST(Raft, Init5) {
+TEST(Raft, ReElection) {
     std::vector<raft::Channel> c{5};
     std::vector<std::string> v{"localhost:50051", "localhost:50052", "localhost:50053", "localhost:50054", "localhost:50055"};
     std::vector<raft::Raft*> r{};
@@ -47,21 +55,7 @@ TEST(Raft, Init5) {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-    EXPECT_EQ((r[0]->role == raft::Role::Leader) +
-              (r[1]->role == raft::Role::Leader) +
-              (r[2]->role == raft::Role::Leader) +
-              (r[3]->role == raft::Role::Leader) +
-              (r[4]->role == raft::Role::Leader), 1);
-    EXPECT_EQ((r[0]->role == raft::Role::Follower) +
-              (r[1]->role == raft::Role::Follower) +
-              (r[2]->role == raft::Role::Follower) +
-              (r[3]->role == raft::Role::Follower) +
-              (r[4]->role == raft::Role::Follower), 4);
-    EXPECT_EQ((r[0]->role == raft::Role::Candidate) +
-              (r[1]->role == raft::Role::Candidate) +
-              (r[2]->role == raft::Role::Candidate) +
-              (r[3]->role == raft::Role::Candidate) +
-              (r[4]->role == raft::Role::Candidate), 0);
+    EXPECT_TRUE(check1Leader(r));
 
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     auto term = r[0]->currentTerm;
@@ -74,21 +68,7 @@ TEST(Raft, Init5) {
         return raft->currentTerm == term;
     }));
 
-    EXPECT_EQ((r[0]->role == raft::Role::Leader) +
-              (r[1]->role == raft::Role::Leader) +
-              (r[2]->role == raft::Role::Leader) +
-              (r[3]->role == raft::Role::Leader) +
-              (r[4]->role == raft::Role::Leader), 1);
-    EXPECT_EQ((r[0]->role == raft::Role::Follower) +
-              (r[1]->role == raft::Role::Follower) +
-              (r[2]->role == raft::Role::Follower) +
-              (r[3]->role == raft::Role::Follower) +
-              (r[4]->role == raft::Role::Follower), 4);
-    EXPECT_EQ((r[0]->role == raft::Role::Candidate) +
-              (r[1]->role == raft::Role::Candidate) +
-              (r[2]->role == raft::Role::Candidate) +
-              (r[3]->role == raft::Role::Candidate) +
-              (r[4]->role == raft::Role::Candidate), 0);
+    EXPECT_TRUE(check1Leader(r));
 
     auto leader = std::find_if(r.begin(), r.end(), [](raft::Raft* raft) {
         return raft->role == raft::Role::Leader;
@@ -96,16 +76,7 @@ TEST(Raft, Init5) {
     ASSERT_NE(leader, r.end());
     (*leader)->kill();
     std::this_thread::sleep_for(std::chrono::milliseconds(600));
-    EXPECT_EQ((r[0]->role == raft::Role::Leader) +
-              (r[1]->role == raft::Role::Leader) +
-              (r[2]->role == raft::Role::Leader) +
-              (r[3]->role == raft::Role::Leader) +
-              (r[4]->role == raft::Role::Leader), 1);
-    EXPECT_EQ((r[0]->role == raft::Role::Follower) +
-              (r[1]->role == raft::Role::Follower) +
-              (r[2]->role == raft::Role::Follower) +
-              (r[3]->role == raft::Role::Follower) +
-              (r[4]->role == raft::Role::Follower), 4);
+    EXPECT_TRUE(check1Leader(r));
     for (auto raft : r) {
         delete raft;
     }

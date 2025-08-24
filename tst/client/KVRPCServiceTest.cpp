@@ -330,7 +330,7 @@ TEST_F(KVRPCServiceTest, ConnectCreatesStubWhenMissing) {
 
 // Test circuit breaker integration with available()
 TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
-    const RetryPolicy circuitBreakerPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(200), 1, 1};
+    const RetryPolicy circuitBreakerPolicy{std::chrono::milliseconds(10), std::chrono::milliseconds(50), std::chrono::milliseconds(200), 1, 1};
     zdb::KVRPCService service{address, circuitBreakerPolicy};
     
     EXPECT_TRUE(service.connect().has_value());
@@ -350,7 +350,7 @@ TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
     
     // Restart server
     testServer = std::make_unique<TestKVServer>(address);
-    std::this_thread::sleep_for(std::chrono::milliseconds(250)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for circuit breaker reset
     
     // available() should trigger reconnection after circuit breaker reset
     EXPECT_TRUE(service.available());
