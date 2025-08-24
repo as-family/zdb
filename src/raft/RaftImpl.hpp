@@ -39,6 +39,7 @@ private:
     AsyncTimer electionTimer;
     AsyncTimer heartbeatTimer;
     std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
+    std::vector<std::thread> threads;
     std::atomic<bool> killed;
 
     unsigned int votesGranted;

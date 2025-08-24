@@ -22,6 +22,7 @@ RaftImpl::RaftImpl(std::vector<std::string> p, std::string s, Channel& c)
       electionTimer{},
       heartbeatTimer{},
       lastHeartbeat{std::chrono::steady_clock::now() - std::chrono::seconds(1000)},
+      threads {},
       killed {false} {
     selfId = s;
     electionTimeout = std::chrono::milliseconds(250);
@@ -42,6 +43,18 @@ RaftImpl::RaftImpl(std::vector<std::string> p, std::string s, Channel& c)
         [this] {
             if (std::chrono::steady_clock::now() - lastHeartbeat > electionTimeout) {
                 requestVote();
+            }
+        }
+    );
+    heartbeatTimer.start(
+        [this] -> std::chrono::milliseconds {
+            return std::chrono::duration_cast<std::chrono::milliseconds>(
+                heartbeatInterval + fullJitter.jitter(heartbeatInterval / 5)
+            );
+        },
+        [this] {
+            if (role == Role::Leader) {
+                appendEntries();
             }
         }
     );
@@ -112,26 +125,17 @@ void RaftImpl::requestVote() {
                 }
             };
             std::thread t {vote};
-            t.detach();
+            threads.push_back(std::move(t));
         }
         while(!electionEnded && !killed) {
             std::unique_lock<std::mutex> lock(electionMutex);
             electionCondVar.wait_for(lock, std::chrono::milliseconds(25), [this] { return electionEnded; });
         }
+        if (killed) {
+            return;
+        }
         if (role == Role::Leader) {
             appendEntries();
-            heartbeatTimer.start(
-                [this] -> std::chrono::milliseconds {
-                    return std::chrono::duration_cast<std::chrono::milliseconds>(
-                        heartbeatInterval + fullJitter.jitter(heartbeatInterval / 2)
-                    );
-                },
-                [this] {
-                    if (role == Role::Leader) {
-                        appendEntries();
-                    }
-                }
-            );
         }
     }
 }
@@ -181,7 +185,7 @@ void RaftImpl::appendEntries() {
             }
         };
         std::thread t {sendEntries};
-        t.detach();
+        threads.push_back(std::move(t));
     }
 }
 
@@ -275,10 +279,14 @@ void RaftImpl::start(Command* command) {
 
 void RaftImpl::kill() {
     killed = true;
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     server.shutdown();
     electionTimer.stop();
     heartbeatTimer.stop();
+    for (auto& t : threads) {
+        if (t.joinable()) {
+            t.join();
+        }
+    }
     role = Role::Follower;
 }
 

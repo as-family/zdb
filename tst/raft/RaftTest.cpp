@@ -21,7 +21,7 @@ TEST(Raft, Init) {
     EXPECT_EQ(r[1]->peerAddresses.size(), 2);
     EXPECT_EQ(r[2]->peerAddresses.size(), 2);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     EXPECT_EQ((r[0]->role == raft::Role::Leader) +
               (r[1]->role == raft::Role::Leader) +
@@ -45,7 +45,7 @@ TEST(Raft, Init5) {
         r.push_back(new raft::RaftImpl(v, v[i], c[i]));
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     EXPECT_EQ((r[0]->role == raft::Role::Leader) +
               (r[1]->role == raft::Role::Leader) +
@@ -62,6 +62,34 @@ TEST(Raft, Init5) {
               (r[2]->role == raft::Role::Candidate) +
               (r[3]->role == raft::Role::Candidate) +
               (r[4]->role == raft::Role::Candidate), 0);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    auto term = r[0]->currentTerm;
+    EXPECT_TRUE(std::all_of(r.begin(), r.end(), [term](raft::Raft* raft) {
+        return raft->currentTerm == term;
+    }));
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    EXPECT_TRUE(std::all_of(r.begin(), r.end(), [term](raft::Raft* raft) {
+        return raft->currentTerm == term;
+    }));
+
+    EXPECT_EQ((r[0]->role == raft::Role::Leader) +
+              (r[1]->role == raft::Role::Leader) +
+              (r[2]->role == raft::Role::Leader) +
+              (r[3]->role == raft::Role::Leader) +
+              (r[4]->role == raft::Role::Leader), 1);
+    EXPECT_EQ((r[0]->role == raft::Role::Follower) +
+              (r[1]->role == raft::Role::Follower) +
+              (r[2]->role == raft::Role::Follower) +
+              (r[3]->role == raft::Role::Follower) +
+              (r[4]->role == raft::Role::Follower), 4);
+    EXPECT_EQ((r[0]->role == raft::Role::Candidate) +
+              (r[1]->role == raft::Role::Candidate) +
+              (r[2]->role == raft::Role::Candidate) +
+              (r[3]->role == raft::Role::Candidate) +
+              (r[4]->role == raft::Role::Candidate), 0);
+
     auto leader = std::find_if(r.begin(), r.end(), [](raft::Raft* raft) {
         return raft->role == raft::Role::Leader;
     });
