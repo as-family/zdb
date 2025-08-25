@@ -5,14 +5,22 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include "KVTestFramework/NetworkConfig.hpp"
+#include "KVTestFramework/KVTestFramework.hpp"
+#include "raft/RaftImpl.hpp"
+#include "raft/Channel.hpp"
 
 class RAFTTestFramework {
 public:
-    RAFTTestFramework();
+    RAFTTestFramework(
+        std::vector<std::tuple<std::string, std::string, NetworkConfig>> c
+    );
     ~RAFTTestFramework();
 private:
-    std::vector<std::pair<std::string, std::string>> addresses;
-    std::unordered_map<std::string, std::string> config;
+    std::vector<std::tuple<std::string, std::string, NetworkConfig>> config;
+    std::unordered_map<std::string, KVTestFramework> kvTests;
+    std::unordered_map<std::string, raft::RaftImpl> rafts;
+    std::unordered_map<std::string, raft::Channel> channels;
 };
 
 #endif // RAFT_TEST_FRAMEWORK_H
