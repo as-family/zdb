@@ -15,8 +15,11 @@ TEST(Raft, InititialElection) {
         {"localhost:50052", "localhost:50062", NetworkConfig{true, 0, 0}},
         {"localhost:50053", "localhost:50063", NetworkConfig{true, 0, 0}}
     };
-    RAFTTestFramework framework{std::move(config)};
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    RAFTTestFramework framework{config};
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    for (auto& [id, raft] : framework.getRafts()) {
+        std::cerr << "Raft " << id << " has term " << raft.getCurrentTerm() << std::endl;
+    }
     EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
     EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);
     EXPECT_EQ(framework.nRole(raft::Role::Follower), 2);
@@ -33,7 +36,7 @@ TEST(Raft, ReElection) {
         {"localhost:50057", "localhost:50067", NetworkConfig{true, 0, 0}}
     };
     RAFTTestFramework framework{config};
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
     EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);

@@ -59,6 +59,8 @@ private:
     std::mutex appendEntriesMutex{};
     std::condition_variable appendEntriesCondVar{};
     int nReplies {0};
+
+    std::mutex globalLock{};
 };
 
 } // namespace raft

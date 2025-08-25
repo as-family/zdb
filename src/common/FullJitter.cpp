@@ -2,10 +2,11 @@
 #include <chrono>
 #include <stdexcept>
 #include <random>
+#include "common/Util.hpp"
 
 namespace zdb {
 
-FullJitter::FullJitter() : rng(std::random_device{}()) {}
+FullJitter::FullJitter() : rng(random_generator()) {}
 
 std::chrono::microseconds FullJitter::jitter(const std::chrono::microseconds v) {
     if (v < std::chrono::microseconds(0)) {

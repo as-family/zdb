@@ -35,7 +35,7 @@ public:
         }
         auto bound = [this, f, &request, &reply] {
             auto c = grpc::ClientContext();
-            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(4));
+            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(10));
             return (stub.get()->*f)(&c, request, &reply);
         };
         auto statuses = circuitBreaker.call(op, bound);
@@ -77,7 +77,7 @@ std::expected<void, Error> RPCService<Service>::connect() {
                 }
                 return {};
             }
-            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(4))) {
+            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(10))) {
                 if (!stub) {
                     stub = Service::NewStub(channel);
                 }
@@ -87,7 +87,7 @@ std::expected<void, Error> RPCService<Service>::connect() {
     }
     
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
-    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(4))) {
+    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(10))) {
         return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
     }
     stub = Service::NewStub(channel);

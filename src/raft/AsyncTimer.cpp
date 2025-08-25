@@ -9,7 +9,6 @@ void AsyncTimer::start(std::function<std::chrono::milliseconds()> intervalProvid
     stop();
     running = true;
     worker = std::thread([this, intervalProvider, callback]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(intervalProvider()));
         while (running) {
             auto interval = intervalProvider();
             std::unique_lock<std::mutex> lock(mtx);
