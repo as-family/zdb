@@ -1,5 +1,8 @@
 #include "raft/AsyncTimer.hpp"
-#include <iostream>
+#include <thread>
+#include <chrono>
+#include <functional>
+#include <mutex>
 
 namespace raft {
 
@@ -9,6 +12,7 @@ void AsyncTimer::start(std::function<std::chrono::milliseconds()> intervalProvid
     stop();
     running = true;
     worker = std::thread([this, intervalProvider, callback]() {
+        std::this_thread::sleep_for(intervalProvider());
         while (running) {
             auto interval = intervalProvider();
             std::unique_lock<std::mutex> lock(mtx);

@@ -12,6 +12,7 @@
 #include <chrono>
 #include <algorithm>
 #include <string>
+#include <thread>
 
 namespace zdb {
 
@@ -35,7 +36,7 @@ public:
         }
         auto bound = [this, f, &request, &reply] {
             auto c = grpc::ClientContext();
-            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(10));
+            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(4));
             return (stub.get()->*f)(&c, request, &reply);
         };
         auto statuses = circuitBreaker.call(op, bound);
@@ -77,7 +78,7 @@ std::expected<void, Error> RPCService<Service>::connect() {
                 }
                 return {};
             }
-            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(10))) {
+            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(4))) {
                 if (!stub) {
                     stub = Service::NewStub(channel);
                 }
@@ -87,7 +88,7 @@ std::expected<void, Error> RPCService<Service>::connect() {
     }
     
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
-    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(10))) {
+    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(4))) {
         return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
     }
     stub = Service::NewStub(channel);
@@ -99,20 +100,22 @@ bool RPCService<Service>::available() {
     if (circuitBreaker.open()) {
         return false;
     }
-    
     if (!connected()) {
         auto result = connect();
         if (!result.has_value()) {
             return false;
         }
     }
-    
     return true;
 }
 
 template<typename Service>
 bool RPCService<Service>::connected() const {
-    return channel && stub && channel->GetState(false) == grpc_connectivity_state::GRPC_CHANNEL_READY;
+    if (!channel || !stub) {
+        return false;
+    }
+    auto s = channel->GetState(false);
+    return  s == grpc_connectivity_state::GRPC_CHANNEL_READY || s == grpc_connectivity_state::GRPC_CHANNEL_IDLE;
 }
 
 template<typename Service>

@@ -201,7 +201,7 @@ bool KVTestFramework::checkSetConcurrent(
 
 KVTestFramework::~KVTestFramework() {
     server->Shutdown();
-    serverThread.join();
     targetServer->Shutdown();
+    serverThread.join();
     targetServerThread.join();
 }

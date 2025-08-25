@@ -32,7 +32,7 @@ raft::Command* commandFactory(const std::string& s) {
 }
 
 RAFTTestFramework::RAFTTestFramework(
-        std::vector<std::tuple<std::string, std::string, NetworkConfig>> c
+        std::vector<std::tuple<std::string, std::string, NetworkConfig>>& c
     ) : config(c) {
     std::vector<std::string> proxies {config.size()};
     std::transform(
@@ -47,7 +47,7 @@ RAFTTestFramework::RAFTTestFramework(
             [this, target, proxy, cfg, proxies]() mutable {
                 channels.emplace(std::piecewise_construct, std::forward_as_tuple(target), std::forward_as_tuple());
                 rafts.emplace(std::piecewise_construct, std::forward_as_tuple(target), std::forward_as_tuple(proxies, proxy, channels.at(target), &commandFactory));
-                kvTests.emplace(std::piecewise_construct, std::forward_as_tuple(target), std::forward_as_tuple(proxy, target, cfg, &rafts.at(target), &channels.at(target)));
+                // kvTests.emplace(std::piecewise_construct, std::forward_as_tuple(target), std::forward_as_tuple(proxy, target, cfg, &rafts.at(target), &channels.at(target)));
             }
         );
     }

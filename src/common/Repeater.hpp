@@ -15,6 +15,7 @@ class Repeater {
 public:
     explicit Repeater(const RetryPolicy p);
     std::vector<grpc::Status> attempt(const std::string& op, const std::function<grpc::Status()>& rpc);
+    void reset();
 private:
     ExponentialBackoff backoff;
     FullJitter fullJitter;

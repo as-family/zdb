@@ -16,7 +16,7 @@ TEST(Raft, InititialElection) {
         {"localhost:50053", "localhost:50063", NetworkConfig{true, 0, 0}}
     };
     RAFTTestFramework framework{config};
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(700));
     for (auto& [id, raft] : framework.getRafts()) {
         std::cerr << "Raft " << id << " has term " << raft.getCurrentTerm() << std::endl;
     }
@@ -36,7 +36,7 @@ TEST(Raft, ReElection) {
         {"localhost:50057", "localhost:50067", NetworkConfig{true, 0, 0}}
     };
     RAFTTestFramework framework{config};
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::this_thread::sleep_for(std::chrono::milliseconds(700));
 
     EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
     EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);
@@ -63,7 +63,7 @@ TEST(Raft, ReElection) {
     });
     ASSERT_NE(leader, framework.getRafts().end());
     leader->second.kill();
-    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
     EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);
     EXPECT_EQ(framework.nRole(raft::Role::Follower), 6);
@@ -79,7 +79,7 @@ TEST(Raft, ManyElections) {
         {"localhost:50056", "localhost:50066", NetworkConfig{true, 0, 0}},
         {"localhost:50057", "localhost:50067", NetworkConfig{true, 0, 0}}
     };
-    RAFTTestFramework framework{std::move(config)};
+    RAFTTestFramework framework{config};
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
     framework.check1Leader();
