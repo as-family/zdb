@@ -7,81 +7,77 @@
 #include <thread>
 #include <algorithm>
 #include "common/Types.hpp"
-
-raft::Command* createCommand(const std::string& cmd) {
-    return nullptr;
-}
-
-int nRole(const std::vector<raft::Raft*>& rafts, raft::Role role) {
-    int count = 0;
-    for (const auto& raft : rafts) {
-        if (raft->getRole() == role) {
-            count++;
-        }
-    }
-    return count;
-}
-
-bool check1Leader(const std::vector<raft::Raft*>& rafts) {
-    return nRole(rafts, raft::Role::Leader) == 1 &&
-           nRole(rafts, raft::Role::Follower) == rafts.size() - 1 &&
-           nRole(rafts, raft::Role::Candidate) == 0;
-}
+#include "RaftTestFramework/RaftTestFramework.hpp"
 
 TEST(Raft, InititialElection) {
-    std::vector<raft::Channel> c{3};
-    std::vector<std::string> v{"localhost:50051", "localhost:50052", "localhost:50053"};
-    std::vector<raft::Raft*> r{};
-    for (size_t i = 0; i < c.size(); ++i) {
-        r.push_back(new raft::RaftImpl(v, v[i], c[i], createCommand));
-    }
-    EXPECT_EQ(r[0]->getSelfId(), "localhost:50051");
-    EXPECT_EQ(r[1]->getSelfId(), "localhost:50052");
-    EXPECT_EQ(r[2]->getSelfId(), "localhost:50053");
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    EXPECT_TRUE(check1Leader(r));
-
-    for (auto raft : r) {
-        delete raft;
-    }
+    auto config = std::vector<std::tuple<std::string, std::string, NetworkConfig>>{
+        {"localhost:50051", "localhost:50061", NetworkConfig{true, 0, 0}},
+        {"localhost:50052", "localhost:50062", NetworkConfig{true, 0, 0}},
+        {"localhost:50053", "localhost:50063", NetworkConfig{true, 0, 0}}
+    };
+    RAFTTestFramework framework{std::move(config)};
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
+    EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);
+    EXPECT_EQ(framework.nRole(raft::Role::Follower), 2);
 }
 
 TEST(Raft, ReElection) {
-    std::vector<raft::Channel> c{5};
-    std::vector<std::string> v{"localhost:50051", "localhost:50052", "localhost:50053", "localhost:50054", "localhost:50055"};
-    std::vector<raft::Raft*> r{};
-    for (size_t i = 0; i < c.size(); ++i) {
-        r.push_back(new raft::RaftImpl(v, v[i], c[i], createCommand));
-    }
+    auto config = std::vector<std::tuple<std::string, std::string, NetworkConfig>>{
+        {"localhost:50051", "localhost:50061", NetworkConfig{true, 0, 0}},
+        {"localhost:50052", "localhost:50062", NetworkConfig{true, 0, 0}},
+        {"localhost:50053", "localhost:50063", NetworkConfig{true, 0, 0}},
+        {"localhost:50054", "localhost:50064", NetworkConfig{true, 0, 0}},
+        {"localhost:50055", "localhost:50065", NetworkConfig{true, 0, 0}},
+        {"localhost:50056", "localhost:50066", NetworkConfig{true, 0, 0}},
+        {"localhost:50057", "localhost:50067", NetworkConfig{true, 0, 0}}
+    };
+    RAFTTestFramework framework{config};
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-    EXPECT_TRUE(check1Leader(r));
+    EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
+    EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);
+    EXPECT_EQ(framework.nRole(raft::Role::Follower), 6);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    auto term = r[0]->getCurrentTerm();
-    EXPECT_TRUE(std::all_of(r.begin(), r.end(), [term](raft::Raft* raft) {
-        return raft->getCurrentTerm() == term;
+    auto term = framework.getRafts().begin()->second.getCurrentTerm();
+    EXPECT_LT(term, 3);
+    EXPECT_GT(term, 0);
+    EXPECT_TRUE(std::all_of(framework.getRafts().begin(), framework.getRafts().end(), [term](const auto& pair) {
+        return pair.second.getCurrentTerm() == term;
     }));
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    EXPECT_TRUE(std::all_of(r.begin(), r.end(), [term](raft::Raft* raft) {
-        return raft->getCurrentTerm() == term;
+    EXPECT_TRUE(std::all_of(framework.getRafts().begin(), framework.getRafts().end(), [term](const auto& pair) {
+        return pair.second.getCurrentTerm() == term;
     }));
 
-    EXPECT_TRUE(check1Leader(r));
-
-    auto leader = std::find_if(r.begin(), r.end(), [](raft::Raft* raft) {
-        return raft->getRole() == raft::Role::Leader;
+    EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
+    EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);
+    EXPECT_EQ(framework.nRole(raft::Role::Follower), 6);
+    auto leader = std::find_if(framework.getRafts().begin(), framework.getRafts().end(), [](const auto& pair) {
+        return pair.second.getRole() == raft::Role::Leader;
     });
-    ASSERT_NE(leader, r.end());
-    (*leader)->kill();
+    ASSERT_NE(leader, framework.getRafts().end());
+    leader->second.kill();
     std::this_thread::sleep_for(std::chrono::milliseconds(600));
-    EXPECT_TRUE(check1Leader(r));
-    for (auto raft : r) {
-        delete raft;
-    }
+    EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
+    EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);
+    EXPECT_EQ(framework.nRole(raft::Role::Follower), 6);
 }
 
+TEST(Raft, ManyElections) {
+    auto config = std::vector<std::tuple<std::string, std::string, NetworkConfig>>{
+        {"localhost:50051", "localhost:50061", NetworkConfig{true, 0, 0}},
+        {"localhost:50052", "localhost:50062", NetworkConfig{true, 0, 0}},
+        {"localhost:50053", "localhost:50063", NetworkConfig{true, 0, 0}},
+        {"localhost:50054", "localhost:50064", NetworkConfig{true, 0, 0}},
+        {"localhost:50055", "localhost:50065", NetworkConfig{true, 0, 0}},
+        {"localhost:50056", "localhost:50066", NetworkConfig{true, 0, 0}},
+        {"localhost:50057", "localhost:50067", NetworkConfig{true, 0, 0}}
+    };
+    RAFTTestFramework framework{std::move(config)};
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
+    framework.check1Leader();
+}

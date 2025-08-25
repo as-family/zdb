@@ -31,7 +31,7 @@ int main(int /*argc*/, char** /*argv*/) {
     };
 
     InMemoryKVStore kvStore {};
-    KVStoreServiceImpl s{kvStore};
+    KVStoreServiceImpl s{kvStore, nullptr, nullptr};
     const KVStoreServer server {listenAddress, s};
     std::this_thread::sleep_for(std::chrono::seconds(1));
 

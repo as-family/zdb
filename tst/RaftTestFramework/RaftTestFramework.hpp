@@ -15,12 +15,16 @@ public:
     RAFTTestFramework(
         std::vector<std::tuple<std::string, std::string, NetworkConfig>> c
     );
+    bool check1Leader();
+    int nRole(raft::Role role);
+    std::unordered_map<std::string, raft::RaftImpl>& getRafts();
     ~RAFTTestFramework();
 private:
     std::vector<std::tuple<std::string, std::string, NetworkConfig>> config;
-    std::unordered_map<std::string, KVTestFramework> kvTests;
-    std::unordered_map<std::string, raft::RaftImpl> rafts;
     std::unordered_map<std::string, raft::Channel> channels;
+    std::unordered_map<std::string, raft::RaftImpl> rafts;
+    std::unordered_map<std::string, KVTestFramework> kvTests;
+
 };
 
 #endif // RAFT_TEST_FRAMEWORK_H

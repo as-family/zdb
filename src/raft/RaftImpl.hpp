@@ -55,6 +55,10 @@ private:
     bool electionEnded;
     std::mutex electionMutex;
     std::condition_variable electionCondVar;
+
+    std::mutex appendEntriesMutex{};
+    std::condition_variable appendEntriesCondVar{};
+    int nReplies {0};
 };
 
 } // namespace raft

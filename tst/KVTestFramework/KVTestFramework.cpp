@@ -28,14 +28,12 @@ KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c,
     targetSB.RegisterService(&targetService);
     targetServer = targetSB.BuildAndStart();
     targetServerThread = std::thread([this]() { targetServer->Wait(); });
-    std::this_thread::sleep_for(std::chrono::seconds(2));
 
     grpc::ServerBuilder sb{};
     sb.AddListeningPort(addr, grpc::InsecureServerCredentials());
     sb.RegisterService(&service);
     server = sb.BuildAndStart();
     serverThread = std::thread([this]() { server->Wait(); });
-    std::this_thread::sleep_for(std::chrono::seconds(2));
 }
 
 std::vector<KVTestFramework::ClientResult> KVTestFramework::spawnClientsAndWait(

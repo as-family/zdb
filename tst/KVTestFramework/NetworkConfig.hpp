@@ -11,6 +11,7 @@ public:
     bool delay();
     bool drop();
     std::chrono::microseconds delayTime();
+    void setReliability(bool r);
 private:
     bool reliability;
     double dropRate;

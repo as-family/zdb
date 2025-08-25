@@ -18,3 +18,7 @@ bool NetworkConfig::drop() {
 std::chrono::microseconds NetworkConfig::delayTime() {
     return std::chrono::microseconds(static_cast<int>(dist(rng) * 40000 + 10000));
 }
+
+void NetworkConfig::setReliability(bool r) {
+    reliability = r;
+}
