@@ -35,7 +35,7 @@ using zdb::kvStore::SizeReply;
 // Helper to start a real gRPC server for integration tests
 class TestKVServer {
 public:
-    explicit TestKVServer(std::string addr) : kvStore{}, serviceImpl{kvStore, nullptr}, server{nullptr}, address{std::move(addr)} {
+    explicit TestKVServer(std::string addr) : kvStore{}, serviceImpl{kvStore, nullptr, nullptr}, server{nullptr}, address{std::move(addr)} {
         grpc::ServerBuilder builder;
         builder.AddListeningPort(address, grpc::InsecureServerCredentials());
         builder.RegisterService(&serviceImpl);

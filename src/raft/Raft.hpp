@@ -25,7 +25,7 @@ public:
     virtual RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) = 0;
     virtual void appendEntries() = 0;
     virtual void requestVote() = 0;
-    virtual void start(Command* command) = 0;
+    virtual bool start(Command* command) = 0;
     virtual Log& log() = 0;
     virtual Log* makeLog() = 0;
     virtual void kill() = 0;
@@ -39,11 +39,12 @@ protected:
     std::optional<std::string> votedFor = std::nullopt;
     uint64_t commitIndex = 0;
     uint64_t lastApplied = 0;
-    std::vector<uint64_t> nextIndex{};
-    std::vector<uint64_t> matchIndex{};
+    std::unordered_map<std::string, uint64_t> nextIndex;
+    std::unordered_map<std::string, uint64_t> matchIndex;
     std::chrono::milliseconds electionTimeout;
     std::chrono::milliseconds heartbeatInterval;
     std::vector<std::string> peerAddresses;
+    uint8_t clusterSize;
 };
 
 } // namespace raft

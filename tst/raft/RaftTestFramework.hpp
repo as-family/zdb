@@ -1,6 +1,0 @@
-#ifndef RAFT_TEST_FRAMEWORK_H
-#define RAFT_TEST_FRAMEWORK_H
-
-
-
-#endif // RAFT_TEST_FRAMEWORK_H

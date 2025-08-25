@@ -24,6 +24,8 @@ std::string toString(const ErrorCode& code) {
         case ErrorCode::VersionMismatch: return "VersionMismatch";
         case ErrorCode::Maybe: return "Maybe";
         case ErrorCode::KeyNotFound: return "KeyNotFound";
+        case ErrorCode::NotLeader: return "NotLeader";
+        case ErrorCode::Internal: return "Internal";
     }
     std::unreachable();
 }

@@ -29,7 +29,7 @@ public:
     void requestVote() override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
     RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) override;
-    void start(Command* command) override;
+    bool start(Command* command) override;
     void kill();
     Log* makeLog();
     Log& log() override;

@@ -26,6 +26,10 @@ LogEntry* Log::append(const proto::LogEntry& entry) {
     return &entries.back();
 }
 
+void Log::append(const LogEntry& entry) {
+    entries.push_back(entry);
+}
+
 void Log::merge(const Log& other) {
     auto e = std::find_first_of(entries.rbegin(), entries.rend(), other.entries.begin(), other.entries.end());
     if (e != entries.rend()) {

@@ -9,12 +9,16 @@
 #include <grpcpp/security/credentials.h>
 #include "raft/Command.hpp"
 #include "common/Command.hpp"
+#include "common/Types.hpp"
+#include <variant>
 
 namespace zdb {
 
-KVStoreServiceImpl::KVStoreServiceImpl(InMemoryKVStore& kv, raft::Raft* r)
+KVStoreServiceImpl::KVStoreServiceImpl(InMemoryKVStore& kv, raft::Raft* r, raft::Channel* c)
     : kvStore {kv},
-      raft {r} {}
+      raft {r},
+      channel {c},
+      pendingCommands {} {}
 
 grpc::Status KVStoreServiceImpl::get(
     grpc::ServerContext *context,
@@ -22,18 +26,39 @@ grpc::Status KVStoreServiceImpl::get(
     kvStore::GetReply *reply) {
     std::ignore = context;
     Key key{request->key().data()};
-    raft->start(new Get(key.data));
-    auto v = kvStore.get(key);
-    if (!v.has_value()) {
-        return toGrpcStatus(v.error());
-    }
-    else if (!v->has_value()) {
-        return toGrpcStatus(Error {ErrorCode::KeyNotFound, "key not found"});
+    auto g = new Get(key.data);
+    if (!raft->start(g)) {
+        delete g;
+        return toGrpcStatus(Error {ErrorCode::NotLeader});
     } else {
-        reply->mutable_value()->set_data(v->value().data);
-        reply->mutable_value()->set_version(v->value().version);
-        return grpc::Status::OK;
+        raft::Command* cmd = channel->receive();
+        raft::State* state;
+        if (cmd) {
+            state = applyCommand(cmd);
+        } else {
+            return toGrpcStatus(Error {ErrorCode::Internal, "failed to apply command"});
+        }
+        auto s = static_cast<zdb::State*>(state);
+        if (!s) {
+            return toGrpcStatus(Error {ErrorCode::Internal, "failed to cast state"});
+        }
+        const auto& v = std::get<std::expected<std::optional<Value>, Error>>(s->u);
+        if (!v.has_value()) {
+            return toGrpcStatus(v.error());
+        }
+        else if (!v->has_value()) {
+            return toGrpcStatus(Error {ErrorCode::KeyNotFound, "key not found"});
+        } else {
+            reply->mutable_value()->set_data(v->value().data);
+            reply->mutable_value()->set_version(v->value().version);
+            return grpc::Status::OK;
+        }
     }
+}
+
+raft::State* KVStoreServiceImpl::handleGet(Key key) {
+    auto v = kvStore.get(key);
+    return new zdb::State {key, v};
 }
 
 grpc::Status KVStoreServiceImpl::set(
@@ -44,8 +69,30 @@ grpc::Status KVStoreServiceImpl::set(
     std::ignore = reply;
     Key key{request->key().data()};
     Value value{request->value().data(), request->value().version()};
+    auto g = new Set(key, value);
+    if (!raft->start(g)) {
+        delete g;
+        return toGrpcStatus(Error {ErrorCode::NotLeader});
+    } else {
+        raft::Command* cmd = channel->receive();
+        raft::State* state;
+        if (cmd) {
+            state = applyCommand(cmd);
+        } else {
+            return toGrpcStatus(Error {ErrorCode::Internal, "failed to apply command"});
+        }
+        auto s = static_cast<zdb::State*>(state);
+        if (!s) {
+            return toGrpcStatus(Error {ErrorCode::Internal, "failed to cast state"});
+        }
+        auto v = std::get<std::expected<void, Error>>(s->u);
+        return toGrpcStatus(v);
+    }
+}
+
+raft::State* KVStoreServiceImpl::handleSet(Key key, Value value) {
     auto v = kvStore.set(key, value);
-    return toGrpcStatus(v);
+    return new zdb::State {key, v};
 }
 
 grpc::Status KVStoreServiceImpl::erase(
@@ -86,8 +133,27 @@ void KVStoreServiceImpl::restore(const std::string& snapshot) {
     // Implement restore logic if needed
 }
 
-void KVStoreServiceImpl::applyCommand(raft::Command* command) {
+State* KVStoreServiceImpl::applyCommand(raft::Command* command) {
     command->apply(this);
+}
+
+void KVStoreServiceImpl::consumeChannel() {
+    if (!channel) return;
+    while (true) {
+        raft::Command* cmd = channel->receive();
+        if (cmd) {
+            applyCommand(cmd);
+        } else {
+            break;
+        }
+    }
+}
+
+KVStoreServiceImpl::~KVStoreServiceImpl() {
+    channel->send(nullptr);
+    if (t.joinable()) {
+        t.join();
+    }
 }
 
 } // namespace zdb

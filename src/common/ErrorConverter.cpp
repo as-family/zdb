@@ -13,15 +13,21 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
     switch (code) {
         case ErrorCode::KeyNotFound:
             return grpc::StatusCode::NOT_FOUND;
+
         case ErrorCode::InvalidArg:
         case ErrorCode::VersionMismatch:
             return grpc::StatusCode::INVALID_ARGUMENT;
+
         case ErrorCode::ServiceTemporarilyUnavailable:
-            return grpc::StatusCode::UNAVAILABLE;
         case ErrorCode::AllServicesUnavailable:
             return grpc::StatusCode::UNAVAILABLE;
+
         case ErrorCode::TimeOut:
             return grpc::StatusCode::DEADLINE_EXCEEDED;
+
+        case ErrorCode::NotLeader:
+            return grpc::StatusCode::FAILED_PRECONDITION;
+
         default:
             return grpc::StatusCode::UNKNOWN;
     }
@@ -64,6 +70,9 @@ Error toError(const grpc::Status& status) {
             break;
         case grpc::StatusCode::DEADLINE_EXCEEDED:
             code = ErrorCode::TimeOut;
+            break;
+        case grpc::StatusCode::FAILED_PRECONDITION:
+            code = ErrorCode::NotLeader;
             break;
         default:
             code = ErrorCode::Unknown;

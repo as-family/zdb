@@ -18,6 +18,8 @@ enum class ErrorCode {
     Maybe,
     KeyNotFound,
     TimeOut,
+    NotLeader,
+    Internal,
     Unknown
 };
 

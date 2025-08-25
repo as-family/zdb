@@ -1,10 +1,10 @@
 #include "lock/Lock.hpp"
-#include "KVTestFramework.hpp"
+#include "KVTestFramework/KVTestFramework.hpp"
 #include "client/KVStoreClient.hpp"
 #include "client/Config.hpp"
 #include "common/Types.hpp"
 #include <string>
-#include "NetworkConfig.hpp"
+#include "KVTestFramework/NetworkConfig.hpp"
 #include "common/RetryPolicy.hpp"
 #include <gtest/gtest.h>
 

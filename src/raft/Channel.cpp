@@ -7,14 +7,15 @@ Channel::Channel() {}
 Channel::~Channel() {}
 
 void Channel::send(Command* cmd) {
-    std::lock_guard<std::mutex> lock(m);
+    std::unique_lock<std::mutex> lock(m);
     queue.push(cmd);
+    cv.notify_one();
 }
 
 Command* Channel::receive() {
-    std::lock_guard<std::mutex> lock(m);
-    if (queue.empty()) {
-        return nullptr;
+    std::unique_lock<std::mutex> lock(m);
+    while (queue.empty()) {
+        cv.wait(lock);
     }
     Command* cmd = queue.front();
     queue.pop();

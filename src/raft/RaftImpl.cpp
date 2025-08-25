@@ -30,11 +30,16 @@ RaftImpl::RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Comman
     electionTimeout = std::chrono::milliseconds(40);
     heartbeatInterval = std::chrono::milliseconds(15);
     peerAddresses = std::vector<std::string>(p);
+    clusterSize = static_cast<uint8_t>(peerAddresses.size());
+    matchIndex = std::unordered_map<std::string, uint64_t>();
+    nextIndex = std::unordered_map<std::string, uint64_t>();
     peerAddresses.erase(std::find(peerAddresses.begin(), peerAddresses.end(), selfId));
     for (const auto& peer : peerAddresses) {
         peers.emplace(std::piecewise_construct,
                        std::forward_as_tuple(peer),
                        std::forward_as_tuple(peer, policy));
+        matchIndex[peer] = 0;
+        nextIndex[peer] = 1;
     }
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
@@ -92,7 +97,7 @@ void RaftImpl::requestVote() {
                         if (reply.votegranted()) {
                             std::lock_guard<std::mutex> lock(electionMutex);
                             ++votesGranted;
-                            if (votesGranted >= peers.size() / 2 + 1 && !electionEnded) {
+                            if (votesGranted >= clusterSize / 2 + 1 && !electionEnded) {
                                 electionEnded = true;
                                 role = Role::Leader;
                                 electionCondVar.notify_all();
@@ -107,7 +112,7 @@ void RaftImpl::requestVote() {
                                 electionCondVar.notify_all();
                             }
                             ++votesDeclined;
-                            if (votesDeclined + downPeers > peers.size() / 2) {
+                            if (votesDeclined + downPeers > clusterSize / 2) {
                                 electionEnded = true;
                                 votedFor.reset();
                                 electionCondVar.notify_all();
@@ -117,7 +122,7 @@ void RaftImpl::requestVote() {
                         if (!zdb::isRetriable("requestVote", status.error().back().code)) {
                             std::lock_guard<std::mutex> lock(electionMutex);
                             ++downPeers;
-                            if (downPeers + votesDeclined > peers.size() / 2) {
+                            if (downPeers + votesDeclined > clusterSize / 2) {
                                 electionEnded = true;
                                 votedFor.reset();
                                 electionCondVar.notify_all();
@@ -144,15 +149,19 @@ void RaftImpl::requestVote() {
 
 void RaftImpl::appendEntries() {
     if (role != Role::Leader) throw std::runtime_error("Not the leader");
-    for (auto& peer : peers) {
-        auto sendEntries = [this, &peer]() {
+    std::mutex m{};
+    std::condition_variable cv{};
+    std::atomic<int> nReplies {0};
+    for (auto& peerAddress : peerAddresses) {
+        auto sendEntries = [this, &peerAddress, &nReplies, &m, &cv]() {
+            auto& peer = peers.at(peerAddress);
             proto::AppendEntriesArg arg;
             arg.set_leaderid(selfId);
             arg.set_term(currentTerm);
             arg.set_prevlogindex(mainLog.lastIndex());
             arg.set_prevlogterm(mainLog.lastTerm());
             arg.set_leadercommit(commitIndex);
-            auto l = mainLog.suffix(commitIndex);
+            auto l = mainLog.suffix(nextIndex[peerAddress]);
             for (auto i = l.begin(); i != l.end(); ++i) {
                 auto entry = *i;
                 auto e = arg.add_entries();
@@ -162,7 +171,7 @@ void RaftImpl::appendEntries() {
             }
             while (role == Role::Leader && !killed) {
                 proto::AppendEntriesReply reply;
-                auto status = peer.second.call(
+                auto status = peer.call(
                     "appendEntries",
                     &proto::Raft::Stub::appendEntries,
                     arg,
@@ -170,6 +179,11 @@ void RaftImpl::appendEntries() {
                 );
                 if (status.has_value()) {
                     if (reply.success()) {
+                        std::unique_lock<std::mutex> lock(m);
+                        ++nReplies;
+                        nextIndex[peerAddress] = mainLog.lastIndex() + 1;
+                        matchIndex[peerAddress] = mainLog.lastIndex();
+                        cv.notify_all();
                         break;
                     } else {
                         if (reply.term() > currentTerm) {
@@ -177,6 +191,11 @@ void RaftImpl::appendEntries() {
                             currentTerm = reply.term();
                             role = Role::Follower;
                             votedFor.reset();
+                            electionEnded = true;
+                            electionCondVar.notify_all();
+                            break;
+                        } else {
+                            nextIndex[peerAddress] = std::max<int64_t>(1, nextIndex[peerAddress] - 1);
                         }
                     }
                 } else {
@@ -184,12 +203,24 @@ void RaftImpl::appendEntries() {
                         break;
                     }
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
             }
         };
         std::thread t {sendEntries};
         threads.push_back(std::move(t));
     }
+    while(nReplies < clusterSize / 2 + 1 && !killed) {
+        std::unique_lock<std::mutex> lock(m);
+        cv.wait_for(lock, std::chrono::milliseconds(10), [&] { return nReplies >= clusterSize / 2 + 1; });
+    }
+    if (killed) {
+        return;
+    }
+    commitIndex = mainLog.lastIndex();
+    auto l = mainLog.suffix(lastApplied);
+    for (const auto& entry : l) {
+        serviceChannel.send(entry.command);
+    }
+    lastApplied = l.back().index;
 }
 
 AppendEntriesReply RaftImpl::appendEntriesHandler(const AppendEntriesArg& arg) {
@@ -269,7 +300,17 @@ RequestVoteReply RaftImpl::requestVoteHandler(const RequestVoteArg& arg) {
     std::unreachable();
 }
 
-void RaftImpl::start(Command* command) {
+bool RaftImpl::start(Command* command) {
+    if (role != Role::Leader) {
+        return false;
+    }
+    auto e = LogEntry {
+        mainLog.lastIndex() + 1,
+        currentTerm,
+        command
+    };
+    mainLog.append(e);
+    return true;
 }
 
 Log& RaftImpl::log() {

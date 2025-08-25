@@ -9,26 +9,53 @@
 namespace zdb {
 
 struct Get : public raft::Command {
-    std::string key;
+    Key key;
 
-    Get(const std::string& k)
+    Get(const Key& k)
         : key(k) {}
-    Get(const proto::Command& cmd) {
-        key = cmd.key().data();
+    Get(const proto::Command& cmd)
+        :key {cmd.key()} {
     }
 
     std::string serialize() const override {
         auto c = proto::Command {};
         c.set_op("get");
-        c.mutable_key()->set_data(key);
+        c.mutable_key()->set_data(key.data);
         return c.SerializeAsString();
     }
 
-    void apply(raft::StateMachine* stateMachine) override {
+    raft::State* apply(raft::StateMachine* stateMachine) override {
         auto* kvState = dynamic_cast<zdb::KVStoreServiceImpl*>(stateMachine);
         if (kvState) {
-            kvState->get(nullptr, nullptr, nullptr);
+            return kvState->handleGet(key);
         }
+        return nullptr;
+    }
+};
+
+struct Set : public raft::Command {
+    Key key;
+    Value value;
+
+    Set(const Key& k, const Value& v)
+        : key(k), value(v) {}
+    Set(const proto::Command& cmd)
+        : key {cmd.key()}, value {cmd.value()} {}
+
+    std::string serialize() const override {
+        auto c = proto::Command {};
+        c.set_op("put");
+        c.mutable_key()->set_data(key.data);
+        c.mutable_value()->set_data(value.data);
+        return c.SerializeAsString();
+    }
+
+    raft::State* apply(raft::StateMachine* stateMachine) override {
+        auto* kvState = dynamic_cast<zdb::KVStoreServiceImpl*>(stateMachine);
+        if (kvState) {
+            return kvState->handleSet(key, value);
+        }
+        return nullptr;
     }
 };
 

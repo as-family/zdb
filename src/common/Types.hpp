@@ -4,6 +4,11 @@
 #include <string>
 #include <cstdint>
 #include "proto/types.pb.h"
+#include "raft/StateMachine.hpp"
+#include <expected>
+#include <optional>
+#include "common/Error.hpp"
+#include <variant>
 
 namespace zdb {
 
@@ -36,6 +41,18 @@ struct Value {
     bool operator==(const Value& other) const {
         return data == other.data && version == other.version;
     }
+};
+
+struct State : public raft::State {
+    Key key;
+    std::variant<
+        std::expected<std::optional<Value>, Error>,
+        std::expected<void, Error>
+    > u;
+    State(const Key& k, const std::expected<std::optional<Value>, Error>& v)
+        : key(k), u{v} {}
+    State(const Key& k, const std::expected<void, Error>& v)
+        : key(k), u{v} {}
 };
 
 } // namespace zdb

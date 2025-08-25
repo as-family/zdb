@@ -32,7 +32,7 @@ const std::string SERVER_ADDR = "localhost:50051";
 class KVStoreServerTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    KVStoreServiceImpl serviceImpl {kvStore, nullptr};
+    KVStoreServiceImpl serviceImpl {kvStore, nullptr, nullptr};
     std::unique_ptr<KVStoreServer> server;
     std::thread serverThread;
 

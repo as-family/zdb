@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "NetworkConfig.hpp"
-#include "KVTestFramework.hpp"
+#include "KVTestFramework/NetworkConfig.hpp"
+#include "KVTestFramework/KVTestFramework.hpp"
 #include "client/KVStoreClient.hpp"
 #include "client/Config.hpp"
 #include "common/RetryPolicy.hpp"

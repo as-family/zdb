@@ -23,6 +23,7 @@ public:
     uint64_t lastIndex() const;
     uint64_t lastTerm() const;
     LogEntry* append(const proto::LogEntry& entry);
+    void append(const LogEntry& entry);
     void merge(const Log& other);
     const std::vector<LogEntry> suffix(uint64_t start) const;
 private:

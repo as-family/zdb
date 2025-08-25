@@ -11,6 +11,9 @@ if(${BUILD_TESTING})
   target_include_directories(tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src
   )
+    target_include_directories(tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/tst
+  )
   target_include_directories(tests PRIVATE
     ${CMAKE_BINARY_DIR}
   )
@@ -46,14 +49,14 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/tst/server/KVStoreServerTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/client/KVStoreClientTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/client/ConfigTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTestFramework.cpp
-    ${CMAKE_SOURCE_DIR}/tst/kvTest1/ProxyKVStoreService.cpp
-    ${CMAKE_SOURCE_DIR}/tst/kvTest1/NetworkConfig.cpp
+    ${CMAKE_SOURCE_DIR}/tst/KVTestFramework/KVTestFramework.cpp
+    ${CMAKE_SOURCE_DIR}/tst/KVTestFramework/ProxyKVStoreService.cpp
+    ${CMAKE_SOURCE_DIR}/tst/KVTestFramework/NetworkConfig.cpp
     ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/kvTest1/KVTestFrameworkTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/kvTest1/Porcupine.cpp
+    ${CMAKE_SOURCE_DIR}/tst/KVTestFramework/KVTestFrameworkTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/KVTestFramework/Porcupine.cpp
     ${CMAKE_SOURCE_DIR}/tst/kvTest1/LockTest.cpp
-    ${CMAKE_SOURCE_DIR}/tst/raft/RaftTest.cpp
+    ${CMAKE_SOURCE_DIR}/tst/raftTest/RaftTest.cpp
   )
 
   target_link_libraries(tests PRIVATE
@@ -106,11 +109,11 @@ if(${BUILD_TESTING})
     add_custom_command(
       OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/porcupine
       COMMAND ${GO_EXECUTABLE} build -o ${CMAKE_CURRENT_BINARY_DIR}/porcupine
-      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tst/KVTestFramework/porcupine
       DEPENDS 
-        ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/main.go
-        ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/go.mod
-        ${CMAKE_SOURCE_DIR}/tst/kvTest1/porcupine/go.sum
+        ${CMAKE_SOURCE_DIR}/tst/KVTestFramework/porcupine/main.go
+        ${CMAKE_SOURCE_DIR}/tst/KVTestFramework/porcupine/go.mod
+        ${CMAKE_SOURCE_DIR}/tst/KVTestFramework/porcupine/go.sum
       COMMENT "Building Go porcupine checker"
       VERBATIM
     )

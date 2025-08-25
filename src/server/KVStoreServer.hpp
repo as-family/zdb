@@ -8,12 +8,14 @@
 #include "server/RPCServer.hpp"
 #include "raft/StateMachine.hpp"
 #include "raft/Raft.hpp"
+#include "raft/Channel.hpp"
+#include <thread>
 
 namespace zdb {
 
 class KVStoreServiceImpl final : public kvStore::KVStoreService::Service, public raft::StateMachine {
 public:
-    explicit KVStoreServiceImpl(InMemoryKVStore& kv, raft::Raft* r);
+    KVStoreServiceImpl(InMemoryKVStore& kv, raft::Raft* r, raft::Channel* c);
     grpc::Status get(
         grpc::ServerContext* context,
         const kvStore::GetRequest* request,
@@ -30,12 +32,19 @@ public:
         grpc::ServerContext* context,
         const kvStore::SizeRequest* request,
         kvStore::SizeReply* reply) override;
+    raft::State* handleGet(Key key);
+    raft::State* handleSet(Key key, Value value);
     void snapshot() override;
     void restore(const std::string& snapshot) override;
-    void applyCommand(raft::Command* command) override;
+    State* applyCommand(raft::Command* command) override;
+    void consumeChannel() override;
+    ~KVStoreServiceImpl();
 private:
     InMemoryKVStore& kvStore;
     raft::Raft* raft;
+    raft::Channel* channel;
+    std::thread t;
+    std::unordered_map<raft::Command*, std::function<grpc::Status()>> pendingCommands;
 };
 
 using KVStoreServer = RPCServer<KVStoreServiceImpl>;

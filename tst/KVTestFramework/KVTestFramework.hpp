@@ -15,6 +15,8 @@
 #include <expected>
 #include "Porcupine.hpp"
 #include "common/RetryPolicy.hpp"
+#include "raft/Raft.hpp"
+#include "raft/Channel.hpp"
 
 class KVTestFramework {
 public:
@@ -23,7 +25,7 @@ public:
         int nMaybe;
     };
     Porcupine porcupine;
-    KVTestFramework(std::string a, std::string r, NetworkConfig& c);
+    KVTestFramework(std::string a, std::string t, NetworkConfig& c, raft::Raft* r = nullptr, raft::Channel* ch = nullptr);
     std::vector<ClientResult> spawnClientsAndWait(
         int nClients,
         std::chrono::seconds timeout,

@@ -4,6 +4,7 @@
 #include "raft/Command.hpp"
 #include <mutex>
 #include <queue>
+#include <condition_variable>
 
 namespace raft {
 
@@ -15,6 +16,7 @@ public:
     Command* receive();
 private:
     std::mutex m;
+    std::condition_variable cv;
     std::queue<Command*> queue;
 };
 

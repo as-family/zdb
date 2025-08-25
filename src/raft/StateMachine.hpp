@@ -10,11 +10,15 @@ namespace raft {
 
 class Command;
 
+struct State {
+};
+
 class StateMachine {
 public:
     virtual ~StateMachine() = default;
 
-    virtual void applyCommand(raft::Command* command) = 0;
+    virtual State* applyCommand(raft::Command* command) = 0;
+    virtual void consumeChannel() = 0;
     virtual void snapshot() = 0;
     virtual void restore(const std::string& snapshot) = 0;
 };
