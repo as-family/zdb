@@ -5,10 +5,12 @@
 
 namespace raft {
 
+class StateMachine;
+
 struct Command {
     virtual ~Command() = default;
-    virtual void apply() = 0;
     virtual std::string serialize() const = 0;
+    virtual void apply(raft::StateMachine* stateMachine) = 0;
 };
 
 } // namespace raft

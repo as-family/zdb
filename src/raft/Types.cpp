@@ -1,16 +1,17 @@
 #include "raft/Types.hpp"
+#include "raft/Log.hpp"
 
 namespace raft {
 
-AppendEntriesArg::AppendEntriesArg(const proto::AppendEntriesArg& arg)
+AppendEntriesArg::AppendEntriesArg(const proto::AppendEntriesArg& arg, Log& log)
     : leaderId(arg.leaderid()),
       term(arg.term()),
       prevLogIndex(arg.prevlogindex()),
       prevLogTerm(arg.prevlogterm()),
-      leaderCommit(arg.leadercommit()),
-      entries() {
+      leaderCommit(arg.leadercommit()), 
+      entries(log) {
     for (const auto& entry : arg.entries()) {
-        entries.push_back(entry);
+        entries.append(entry);
     }
 }
 

@@ -13,7 +13,7 @@
 
 namespace raft {
 
-RaftImpl::RaftImpl(std::vector<std::string> p, std::string s, Channel& c)
+RaftImpl::RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Command* (*f)(const std::string&))
     : serviceChannel(c),
       policy{std::chrono::milliseconds(10), std::chrono::milliseconds(100), std::chrono::milliseconds(1000), 3, 1},
       raftService {this},
@@ -23,6 +23,8 @@ RaftImpl::RaftImpl(std::vector<std::string> p, std::string s, Channel& c)
       heartbeatTimer{},
       lastHeartbeat{std::chrono::steady_clock::now() - std::chrono::seconds(1000)},
       threads {},
+      commandFactory {f},
+      mainLog {f},
       killed {false} {
     selfId = s;
     electionTimeout = std::chrono::milliseconds(40);
@@ -76,8 +78,8 @@ void RaftImpl::requestVote() {
                 proto::RequestVoteArg arg;
                 arg.set_term(currentTerm);
                 arg.set_candidateid(selfId);
-                arg.set_lastlogindex(log.lastIndex());
-                arg.set_lastlogterm(log.lastTerm());
+                arg.set_lastlogindex(mainLog.lastIndex());
+                arg.set_lastlogterm(mainLog.lastTerm());
                 while(!electionEnded && !killed) {
                     proto::RequestVoteReply reply;
                     auto status = peer.second.call(
@@ -147,10 +149,11 @@ void RaftImpl::appendEntries() {
             proto::AppendEntriesArg arg;
             arg.set_leaderid(selfId);
             arg.set_term(currentTerm);
-            arg.set_prevlogindex(log.lastIndex());
-            arg.set_prevlogterm(log.lastTerm());
+            arg.set_prevlogindex(mainLog.lastIndex());
+            arg.set_prevlogterm(mainLog.lastTerm());
             arg.set_leadercommit(commitIndex);
-            for (auto i = log.entries.begin() + commitIndex; i != log.entries.end(); ++i) {
+            auto l = mainLog.suffix(commitIndex);
+            for (auto i = l.begin(); i != l.end(); ++i) {
                 auto entry = *i;
                 auto e = arg.add_entries();
                 e->set_index(entry.index);
@@ -197,7 +200,7 @@ AppendEntriesReply RaftImpl::appendEntriesHandler(const AppendEntriesArg& arg) {
         reply.term = currentTerm;
         return reply;
     }
-    if (log.entries.size() > arg.prevLogIndex && log.entries[arg.prevLogIndex].term != arg.prevLogTerm) {
+    if (mainLog.lastIndex() > arg.prevLogIndex && mainLog.lastTerm() != arg.prevLogTerm) {
         reply.success = false;
         reply.term = currentTerm;
         return reply;
@@ -209,17 +212,9 @@ AppendEntriesReply RaftImpl::appendEntriesHandler(const AppendEntriesArg& arg) {
         role = Role::Follower;
         electionCondVar.notify_all();
     }
-    for (const auto& entry : arg.entries) {
-        if (entry.index <= log.lastIndex()) {
-            if (log.entries[entry.index].term != entry.term) {
-                log.entries[entry.index] = entry;
-            }
-        } else {
-            log.entries.push_back(entry);
-        }
-    }
+    mainLog.merge(arg.entries);
     if (arg.leaderCommit > commitIndex) {
-        commitIndex = std::min(arg.leaderCommit, log.lastIndex());
+        commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
     }
     reply.success = true;
     reply.term = currentTerm;
@@ -255,7 +250,7 @@ RequestVoteReply RaftImpl::requestVoteHandler(const RequestVoteArg& arg) {
         return reply;
     }
     if(!votedFor.has_value()) {
-        if (arg.lastLogTerm < log.lastTerm() || (arg.lastLogTerm == log.lastTerm() && arg.lastLogIndex < log.lastIndex())) {
+        if (arg.lastLogTerm < mainLog.lastTerm() || (arg.lastLogTerm == mainLog.lastTerm() && arg.lastLogIndex < mainLog.lastIndex())) {
             reply.voteGranted = false;
             reply.term = currentTerm;
             return reply;
@@ -275,6 +270,14 @@ RequestVoteReply RaftImpl::requestVoteHandler(const RequestVoteArg& arg) {
 }
 
 void RaftImpl::start(Command* command) {
+}
+
+Log& RaftImpl::log() {
+    return mainLog;
+}
+
+Log* RaftImpl::makeLog() {
+    return new Log(commandFactory);
 }
 
 void RaftImpl::kill() {

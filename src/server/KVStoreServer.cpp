@@ -7,12 +7,14 @@
 #include "proto/kvStore.pb.h"
 #include <tuple>
 #include <grpcpp/security/credentials.h>
-
+#include "raft/Command.hpp"
+#include "common/Command.hpp"
 
 namespace zdb {
 
-KVStoreServiceImpl::KVStoreServiceImpl(InMemoryKVStore& kv)
-    : kvStore {kv} {}
+KVStoreServiceImpl::KVStoreServiceImpl(InMemoryKVStore& kv, raft::Raft* r)
+    : kvStore {kv},
+      raft {r} {}
 
 grpc::Status KVStoreServiceImpl::get(
     grpc::ServerContext *context,
@@ -20,6 +22,7 @@ grpc::Status KVStoreServiceImpl::get(
     kvStore::GetReply *reply) {
     std::ignore = context;
     Key key{request->key().data()};
+    raft->start(new Get(key.data));
     auto v = kvStore.get(key);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
@@ -72,6 +75,19 @@ grpc::Status KVStoreServiceImpl::size(
     std::ignore = request;
     reply->set_size(kvStore.size());
     return grpc::Status::OK;
+}
+
+void KVStoreServiceImpl::snapshot() {
+    // Implement snapshot logic if needed
+
+}
+
+void KVStoreServiceImpl::restore(const std::string& snapshot) {
+    // Implement restore logic if needed
+}
+
+void KVStoreServiceImpl::applyCommand(raft::Command* command) {
+    command->apply(this);
 }
 
 } // namespace zdb

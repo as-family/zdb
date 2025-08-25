@@ -6,6 +6,7 @@
 #include "raft/Log.hpp"
 #include <proto/raft.pb.h>
 #include <string>
+#include "raft/Log.hpp" 
 
 namespace raft {
 
@@ -15,8 +16,8 @@ struct AppendEntriesArg {
     uint64_t prevLogIndex;
     uint64_t prevLogTerm;
     uint64_t leaderCommit;
-    std::vector<LogEntry> entries;
-    AppendEntriesArg(const proto::AppendEntriesArg& arg);
+    Log& entries;
+    AppendEntriesArg(const proto::AppendEntriesArg& arg, Log& log);
 };
 
 struct AppendEntriesReply {

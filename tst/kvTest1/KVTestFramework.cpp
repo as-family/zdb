@@ -19,7 +19,7 @@ KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c)
       networkConfig(c),
       service {ProxyKVStoreService {targetServerAddr, networkConfig}},
       mem {zdb::InMemoryKVStore {}},
-      targetService {zdb::KVStoreServiceImpl {mem}},
+      targetService {zdb::KVStoreServiceImpl {mem, nullptr}},
       rng(std::random_device{}()) {
     grpc::ServerBuilder targetSB{};
     targetSB.AddListeningPort(targetServerAddr, grpc::InsecureServerCredentials());
