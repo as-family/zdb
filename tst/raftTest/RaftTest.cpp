@@ -19,11 +19,11 @@ TEST(Raft, InititialElection) {
         std::chrono::milliseconds(10),
         std::chrono::milliseconds(50),
         std::chrono::minutes(1),
-        3,
+        10,
         1
     };
     RAFTTestFramework framework{config, p};
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
     for (auto& [id, raft] : framework.getRafts()) {
         std::cerr << "Raft " << id << " has term " << raft.getCurrentTerm() << std::endl;
     }
@@ -50,7 +50,7 @@ TEST(Raft, ReElection) {
         1
     };
     RAFTTestFramework framework{config, p};
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
 
     EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
     EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);

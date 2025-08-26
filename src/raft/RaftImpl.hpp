@@ -40,6 +40,7 @@ private:
     std::condition_variable cv{};
     std::mutex commitIndexMutex{};
     std::mutex appendEntriesMutex{};
+    std::atomic<uint64_t> time {};
     Channel& serviceChannel;
     zdb::RetryPolicy policy;
     zdb::FullJitter fullJitter;
