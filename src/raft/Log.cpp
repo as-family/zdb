@@ -2,6 +2,7 @@
 #include <proto/raft.pb.h>
 #include <algorithm>
 #include <ranges>
+#include <optional>
 
 namespace raft {
 
@@ -51,6 +52,14 @@ const std::vector<LogEntry> Log::suffix(uint64_t start) const {
         return {};
     }
     return std::vector<LogEntry>(i, entries.end());
+}
+
+std::optional<LogEntry> Log::at(uint64_t index) {
+    auto i = std::find_if(entries.rbegin(), entries.rend(), [index](const LogEntry& e) { return e.index == index; });
+    if (i == entries.rend()) {
+        return std::nullopt;
+    }
+    return *i;
 }
 
 } // namespace raft

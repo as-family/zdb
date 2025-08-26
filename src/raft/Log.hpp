@@ -6,7 +6,7 @@
 #include "raft/Command.hpp"
 #include <proto/raft.pb.h>
 #include <functional>
-
+#include <optional>
 namespace raft {
 
 struct LogEntry {
@@ -25,6 +25,7 @@ public:
     LogEntry* append(const proto::LogEntry& entry);
     void append(const LogEntry& entry);
     void merge(const Log& other);
+    std::optional<LogEntry> at(uint64_t index);
     const std::vector<LogEntry> suffix(uint64_t start) const;
 private:
     Command* (*commandFactory)(const std::string&);

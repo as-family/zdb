@@ -31,8 +31,7 @@ public:
         const Req& request,
         Rep& reply) {
         std::unique_lock l {m};
-        if (!available()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(4));
+        if (!connected()) {
             return std::unexpected {std::vector<Error>{ Error {ErrorCode::ServiceTemporarilyUnavailable, "Service is unavailable"} }};
         }
         auto bound = [this, f, &request, &reply] {
@@ -79,7 +78,7 @@ std::expected<void, Error> RPCService<Service>::connect() {
                 }
                 return {};
             }
-            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(4))) {
+            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(500))) {
                 if (!stub) {
                     stub = Service::NewStub(channel);
                 }
@@ -89,7 +88,7 @@ std::expected<void, Error> RPCService<Service>::connect() {
     }
     
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
-    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(4))) {
+    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(500))) {
         return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
     }
     stub = Service::NewStub(channel);

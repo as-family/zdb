@@ -36,13 +36,16 @@ TEST(Raft, ReElection) {
         {"localhost:50057", "localhost:50067", "localhost:50077", "localhost:50087", NetworkConfig{true, 0, 0}, NetworkConfig{true, 0, 0}}
     };
     RAFTTestFramework framework{config};
-    std::this_thread::sleep_for(std::chrono::milliseconds(700));
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
     EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
     EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);
     EXPECT_EQ(framework.nRole(raft::Role::Follower), 6);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    for (auto& [id, raft] : framework.getRafts()) {
+        std::cerr << "Raft " << id << " has term " << raft.getCurrentTerm() << std::endl;
+    }
     auto term = framework.getRafts().begin()->second.getCurrentTerm();
     EXPECT_LT(term, 3);
     EXPECT_GT(term, 0);

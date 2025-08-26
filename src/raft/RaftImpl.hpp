@@ -33,6 +33,7 @@ public:
     void kill() override;
     Log* makeLog() override;
     Log& log() override;
+    void connectPeers();
     ~RaftImpl();
 private:
     Channel& serviceChannel;
@@ -57,6 +58,7 @@ private:
     std::mutex appendEntriesMutex{};
     std::condition_variable appendEntriesCondVar{};
     int nReplies {0};
+    int nDown {0};
 
     std::mutex globalLock{};
 };

@@ -31,6 +31,7 @@ public:
     bool check1Leader();
     int nRole(raft::Role role);
     std::unordered_map<std::string, raft::RaftImpl>& getRafts();
+    void start();
     ~RAFTTestFramework();
 private:
     std::vector<EndPoints>& config;
@@ -43,6 +44,7 @@ private:
     std::unordered_map<std::string, zdb::RPCServer<raft::RaftServiceImpl>> raftServers;
     std::unordered_map<std::string, KVTestFramework> kvTests;
     std::vector<std::thread> serverThreads;
+    std::mutex m1, m2, m3, m4, m5, m6, m7, m8;
 };
 
 #endif // RAFT_TEST_FRAMEWORK_H
