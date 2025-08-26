@@ -133,8 +133,8 @@ void KVStoreServiceImpl::restore(const std::string& snapshot) {
     // Implement restore logic if needed
 }
 
-State* KVStoreServiceImpl::applyCommand(raft::Command* command) {
-    command->apply(this);
+raft::State* KVStoreServiceImpl::applyCommand(raft::Command* command) {
+    return command->apply(this);
 }
 
 void KVStoreServiceImpl::consumeChannel() {

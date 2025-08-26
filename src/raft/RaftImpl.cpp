@@ -8,6 +8,8 @@
 #include "common/RPCService.hpp"
 #include <chrono>
 #include <tuple>
+#include "proto/raft.pb.h"
+#include <algorithm>
 
 namespace raft {
 
@@ -24,12 +26,12 @@ RaftImpl::RaftImpl(std::vector<std::string> p, std::string s, Channel& c, zdb::R
     clusterSize = p.size();
     nextIndex = std::unordered_map<std::string, uint64_t>{};
     matchIndex = std::unordered_map<std::string, uint64_t>{};
-    for (const auto& a : p) {
+    for (const auto a : p) {
         nextIndex[a] = 1;
         matchIndex[a] = 0;
     }
-    p.erase(std::find(p.begin(), p.end(), selfId));
-    for (const auto& peer : p) {
+    p.erase(std::remove(p.begin(), p.end(), selfId), p.end());
+    for (const auto peer : p) {
         peers.emplace(std::piecewise_construct,
                        std::forward_as_tuple(peer),
                        std::forward_as_tuple(peer, policy));
@@ -96,6 +98,9 @@ AppendEntriesReply RaftImpl::appendEntriesHandler(const AppendEntriesArg& arg) {
             if (arg.leaderCommit > commitIndex) {
                 commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
             }
+            commitLock.unlock();
+            reply.success = true;
+            return reply;
         }
     }
     reply.term = currentTerm;
@@ -104,17 +109,54 @@ AppendEntriesReply RaftImpl::appendEntriesHandler(const AppendEntriesArg& arg) {
 }
 
 void RaftImpl::appendEntries(){
-    auto g = mainLog.suffix(mainLog.lastIndex());
-    AppendEntriesArg arg {
-        selfId,
-        currentTerm,
-        0,
-        0,
-        commitIndex,
-        g
-    };
-
+    std::unique_lock appendEntriesLock {appendEntriesMutex};
+    std::vector<std::thread> threads;
+    for (auto& [peerId, _] : peers) {
+        threads.emplace_back(
+            [this, peerId] {
+                // auto& peer = peers.at(peerId);
+                // auto n = nextIndex.at(peerId);
+                // auto v = mainLog.at(n);
+                // auto g = mainLog.suffix(v.has_value()? v.value().index : mainLog.lastIndex());
+                // proto::AppendEntriesArg arg;
+                // arg.set_term(currentTerm);
+                // arg.set_leaderid(selfId);
+                // auto prevLogIndex = g.firstIndex();
+                // if (prevLogIndex <= 1) {
+                //     arg.set_prevlogindex(0);
+                //     arg.set_prevlogterm(0);
+                // } else {
+                //     arg.set_prevlogindex(prevLogIndex);
+                //     auto t = g.at(prevLogIndex - 1);
+                //     if (!t.has_value()) {
+                //         throw std::runtime_error {"cannot set prevLogTerm"};
+                //     }
+                //     arg.set_prevlogterm(t.value().term);
+                // }
+                // arg.set_leadercommit(commitIndex);
+                // for (const auto& eg : g.entries) {
+                //     auto e = arg.add_entries();
+                //     e->set_index(eg.index);
+                //     e->set_term(eg.term);
+                //     e->set_command(eg.command->serialize());
+                // }
+                // proto::AppendEntriesReply reply;
+                // peer.call(
+                //     "appendEntries",
+                //     &proto::Raft::Stub::appendEntries,
+                //     arg,
+                //     reply
+                // );
+            }
+        );
+    }
+    for (auto& t : threads) {
+        if(t.joinable()) {
+            t.join();
+        }
+    }
 }
+
 void RaftImpl::requestVote(){
 
 }

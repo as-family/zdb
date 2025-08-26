@@ -30,6 +30,7 @@ raft::Command* commandFactory(const std::string& s) {
             }
         }
     }
+    throw std::runtime_error{"could not deserialize command "};
 }
 
 RAFTTestFramework::RAFTTestFramework(

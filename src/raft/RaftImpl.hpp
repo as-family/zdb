@@ -36,19 +36,20 @@ public:
     void connectPeers();
     ~RaftImpl();
 private:
+    std::mutex m{};
+    std::condition_variable cv{};
+    std::mutex commitIndexMutex{};
+    std::mutex appendEntriesMutex{};
     Channel& serviceChannel;
     zdb::RetryPolicy policy;
     zdb::FullJitter fullJitter;
-    AsyncTimer electionTimer;
-    AsyncTimer heartbeatTimer;
     std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
     Command* (*commandFactory)(const std::string&);
     Log mainLog;
     std::atomic<bool> killed;
     std::unordered_map<std::string, Client> peers;
-    std::mutex m{};
-    std::condition_variable cv{};
-    std::mutex commitIndexMutex{};
+    AsyncTimer electionTimer;
+    AsyncTimer heartbeatTimer;
 };
 
 } // namespace raft

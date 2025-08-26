@@ -16,10 +16,10 @@ bool LogEntry::operator==(const LogEntry& other) const {
 }
 
 Log::Log(Command* (* c)(const std::string&))
-    : commandFactory {c} {}
+    : entries{}, commandFactory {c} {}
 
 Log::Log(Command* (* c)(const std::string&), std::vector<LogEntry>& es)
-    : commandFactory {c}, entries{es} {
+    : entries{es}, commandFactory {c} {
 
 }
 
@@ -55,6 +55,15 @@ uint64_t Log::lastIndex() const {
 uint64_t Log::lastTerm() const {
     std::lock_guard g{m};
     return entries.empty() ? 0 : entries.back().term;
+}
+
+uint64_t Log::firstIndex() const {
+    std::lock_guard g{m};
+    return entries.empty() ? 0 : entries.front().index;
+}
+uint64_t Log::firstTerm() const {
+    std::lock_guard g{m};
+    return entries.empty() ? 0 : entries.front().term;
 }
 
 Log Log::suffix(uint64_t start) const {

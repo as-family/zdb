@@ -31,6 +31,9 @@ public:
         const Req& request,
         Rep& reply) {
         std::unique_lock l {m};
+        if (!connected()) {
+            return std::unexpected {std::vector<Error>{Error{ErrorCode::ServiceTemporarilyUnavailable, "Not connected"}}};
+        }
         auto bound = [this, f, &request, &reply] {
             auto c = grpc::ClientContext();
             c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(4));
@@ -112,7 +115,7 @@ bool RPCService<Service>::connected() const {
         return false;
     }
     auto s = channel->GetState(false);
-    return  s == grpc_connectivity_state::GRPC_CHANNEL_READY || s == grpc_connectivity_state::GRPC_CHANNEL_IDLE;
+    return  s == grpc_connectivity_state::GRPC_CHANNEL_READY;
 }
 
 template<typename Service>

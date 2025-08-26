@@ -36,7 +36,7 @@ public:
     raft::State* handleSet(Key key, Value value);
     void snapshot() override;
     void restore(const std::string& snapshot) override;
-    State* applyCommand(raft::Command* command) override;
+    raft::State* applyCommand(raft::Command* command) override;
     void consumeChannel() override;
     ~KVStoreServiceImpl();
 private:
