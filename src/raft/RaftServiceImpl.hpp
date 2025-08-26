@@ -22,11 +22,10 @@ public:
         grpc::ServerContext* context,
         const proto::RequestVoteArg* request,
         proto::RequestVoteReply* response) override;
+    ~RaftServiceImpl();
 private:
     Raft* raft;
 };
-
-using RaftServer = zdb::RPCServer<RaftServiceImpl>;
 
 } // namespace raft
 

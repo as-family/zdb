@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <grpcpp/grpcpp.h>
+#include <thread>
 
 namespace zdb {
 

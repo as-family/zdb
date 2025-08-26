@@ -30,15 +30,13 @@ public:
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
     RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) override;
     bool start(Command* command) override;
-    void kill();
-    Log* makeLog();
+    void kill() override;
+    Log* makeLog() override;
     Log& log() override;
     ~RaftImpl();
 private:
     Channel& serviceChannel;
     zdb::RetryPolicy policy;
-    RaftServiceImpl raftService;
-    RaftServer server;
     zdb::FullJitter fullJitter;
     AsyncTimer electionTimer;
     AsyncTimer heartbeatTimer;

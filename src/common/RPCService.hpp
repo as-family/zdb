@@ -32,6 +32,7 @@ public:
         Rep& reply) {
         std::unique_lock l {m};
         if (!available()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(4));
             return std::unexpected {std::vector<Error>{ Error {ErrorCode::ServiceTemporarilyUnavailable, "Service is unavailable"} }};
         }
         auto bound = [this, f, &request, &reply] {

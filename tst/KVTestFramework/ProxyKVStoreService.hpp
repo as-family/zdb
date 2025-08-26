@@ -16,11 +16,9 @@ public:
         Rep* reply) const {
         grpc::ClientContext c;
         if (networkConfig.reliable()) {
-            std::cerr << "network" << std::endl;
             auto status = (stub.get()->*f)(&c, *request, reply);
             return status;
         } else {
-            std::cerr << "Unreliable network" << std::endl;
             if (networkConfig.drop()) {
                 return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped");
             }

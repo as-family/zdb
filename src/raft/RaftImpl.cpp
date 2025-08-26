@@ -15,9 +15,7 @@ namespace raft {
 
 RaftImpl::RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Command* (*f)(const std::string&))
     : serviceChannel(c),
-      policy{std::chrono::milliseconds(5), std::chrono::milliseconds(15), std::chrono::milliseconds(20), 10, 1},
-      raftService {this},
-      server {s, raftService},
+      policy{std::chrono::milliseconds(5), std::chrono::milliseconds(15), std::chrono::milliseconds(20), 100, 1},
       fullJitter{},
       electionTimer{},
       heartbeatTimer{},
@@ -191,7 +189,8 @@ void RaftImpl::appendEntries() {
                 e->set_term(entry.term);
                 e->set_command(entry.command->serialize());
             }
-            while (role == Role::Leader && !killed) {
+            int retries = 0;
+            while (role == Role::Leader && !killed && retries++ < 10) {
                 proto::AppendEntriesReply reply;
                 auto status = peer.call(
                     "appendEntries",
@@ -357,7 +356,6 @@ Log* RaftImpl::makeLog() {
 
 void RaftImpl::kill() {
     killed = true;
-    server.shutdown();
     electionTimer.stop();
     heartbeatTimer.stop();
     for (auto& t : threads) {
