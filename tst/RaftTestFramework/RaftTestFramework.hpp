@@ -26,7 +26,8 @@ struct EndPoints {
 class RAFTTestFramework {
 public:
     RAFTTestFramework(
-        std::vector<EndPoints>& c
+        std::vector<EndPoints>& c,
+        zdb::RetryPolicy p
     );
     bool check1Leader();
     int nRole(raft::Role role);
@@ -45,6 +46,7 @@ private:
     std::unordered_map<std::string, KVTestFramework> kvTests;
     std::vector<std::thread> serverThreads;
     std::mutex m1, m2, m3, m4, m5, m6, m7, m8;
+    zdb::RetryPolicy policy;
 };
 
 #endif // RAFT_TEST_FRAMEWORK_H

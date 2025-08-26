@@ -24,7 +24,7 @@ using Client = zdb::RPCService<proto::Raft>;
 
 class RaftImpl : public Raft {
 public:
-    RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Command* (*f)(const std::string&));
+    RaftImpl(std::vector<std::string> p, std::string s, Channel& c, zdb::RetryPolicy r, Command* (*f)(const std::string&));
     void appendEntries() override;
     void requestVote() override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
@@ -42,25 +42,13 @@ private:
     AsyncTimer electionTimer;
     AsyncTimer heartbeatTimer;
     std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
-    std::vector<std::thread> threads;
     Command* (*commandFactory)(const std::string&);
     Log mainLog;
     std::atomic<bool> killed;
     std::unordered_map<std::string, Client> peers;
-
-    unsigned int votesGranted;
-    unsigned int downPeers;
-    unsigned int votesDeclined;
-    bool electionEnded;
-    std::mutex electionMutex;
-    std::condition_variable electionCondVar;
-
-    std::mutex appendEntriesMutex{};
-    std::condition_variable appendEntriesCondVar{};
-    int nReplies {0};
-    int nDown {0};
-
-    std::mutex globalLock{};
+    std::mutex m{};
+    std::condition_variable cv{};
+    std::mutex commitIndexMutex{};
 };
 
 } // namespace raft

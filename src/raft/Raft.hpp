@@ -43,7 +43,6 @@ protected:
     std::unordered_map<std::string, uint64_t> matchIndex;
     std::chrono::milliseconds electionTimeout;
     std::chrono::milliseconds heartbeatInterval;
-    std::vector<std::string> peerAddresses;
     uint8_t clusterSize;
 };
 

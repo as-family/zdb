@@ -15,6 +15,14 @@ AppendEntriesArg::AppendEntriesArg(const proto::AppendEntriesArg& arg, Log& log)
     }
 }
 
+AppendEntriesArg::AppendEntriesArg(std::string l, uint64_t t, uint64_t pi, uint64_t pt, uint64_t c, Log& g)
+    : leaderId{l},
+      term {t},
+      prevLogIndex{pi},
+      prevLogTerm{pt},
+      leaderCommit {c},
+      entries{g} {}
+
 RequestVoteArg::RequestVoteArg(const proto::RequestVoteArg& arg)
     : candidateId(arg.candidateid()),
       term(arg.term()),

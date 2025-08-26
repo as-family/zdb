@@ -33,8 +33,9 @@ raft::Command* commandFactory(const std::string& s) {
 }
 
 RAFTTestFramework::RAFTTestFramework(
-        std::vector<EndPoints>& c
-    ) : config(c), serverThreads{} {
+        std::vector<EndPoints>& c,
+        zdb::RetryPolicy p
+    ) : config(c), serverThreads{}, policy{p} {
     std::vector<std::string> ps {config.size()};
     std::transform(
         config.begin(),
@@ -49,7 +50,7 @@ RAFTTestFramework::RAFTTestFramework(
             channels.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
             l1.unlock();
             std::unique_lock l2{m2};
-            rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, channels.at(e.raftTarget), &commandFactory));
+            rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, channels.at(e.raftTarget), policy, &commandFactory));
             l2.unlock();
             std::unique_lock l3{m3};
             raftServices.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(&rafts.at(e.raftTarget)));
