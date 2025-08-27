@@ -114,7 +114,7 @@ TEST(Raft, ManyElections) {
     std::random_device rd;
     
     std::mt19937 gen(rd());
-    std::uniform_int_distribution dst{0, 9};
+    std::uniform_int_distribution dst{0, 6};
     for (int ii = 0; ii < 10; ++ii) {
         auto i1 = dst(gen);
         auto i2 = dst(gen);
@@ -122,7 +122,11 @@ TEST(Raft, ManyElections) {
         config[i1].raftNetworkConfig.disconnect();
         config[i2].raftNetworkConfig.disconnect();
         config[i3].raftNetworkConfig.disconnect();
-
+        framework.check1Leader();
+        config[i1].raftNetworkConfig.connect();
+        config[i2].raftNetworkConfig.connect();
+        config[i3].raftNetworkConfig.connect();
     }
+    framework.check1Leader();
 }
 
