@@ -12,10 +12,14 @@ public:
     bool drop();
     std::chrono::microseconds delayTime();
     void setReliability(bool r);
+    void disconnect();
+    void connect();
+    bool isConnected();
 private:
     bool reliability;
     double dropRate;
     double delayRate;
+    bool connected;
     std::default_random_engine rng;
     std::uniform_real_distribution<double> dist;
 };

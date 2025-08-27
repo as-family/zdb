@@ -13,6 +13,8 @@
 #include "KVTestFramework/ProxyService.hpp"
 #include "proto/raft.grpc.pb.h"
 #include "server/RPCServer.hpp"
+#include "common/Util.hpp"
+#include <random>
 
 struct EndPoints {
     std::string raftTarget;
@@ -25,21 +27,28 @@ struct EndPoints {
 
 class RAFTTestFramework {
 public:
+    using Client = ProxyService<raft::proto::Raft>;
     RAFTTestFramework(
         std::vector<EndPoints>& c,
         zdb::RetryPolicy p
     );
-    bool check1Leader();
+    std::string check1Leader();
+    bool checkNoLeader();
     int nRole(raft::Role role);
-    std::unordered_map<std::string, raft::RaftImpl>& getRafts();
+    std::vector<uint64_t> terms();
+    std::optional<uint64_t> checkTerms();
+    std::unordered_map<std::string, raft::RaftImpl<Client>>& getRafts();
+    void disconnect(std::string);
+    void connect(std::string);
     void start();
     ~RAFTTestFramework();
 private:
     std::vector<EndPoints>& config;
     std::unordered_map<std::string, raft::Channel> channels;
-    std::unordered_map<std::string, raft::RaftImpl> rafts;
+    std::unordered_map<std::string, std::vector<Client*>> clients;
+    std::unordered_map<std::string, raft::RaftImpl<Client>> rafts;
     std::unordered_map<std::string, raft::RaftServiceImpl> raftServices;
-    std::unordered_map<std::string, ProxyService<raft::proto::Raft>> proxies;
+    std::unordered_map<std::string, Client> proxies;
     std::unordered_map<std::string, ProxyRaftService> raftProxies;
     std::unordered_map<std::string, zdb::RPCServer<ProxyRaftService>> raftProxyServers;
     std::unordered_map<std::string, zdb::RPCServer<raft::RaftServiceImpl>> raftServers;
@@ -47,6 +56,7 @@ private:
     std::vector<std::thread> serverThreads;
     std::mutex m1, m2, m3, m4, m5, m6, m7, m8;
     zdb::RetryPolicy policy;
+    std::mt19937 gen;
 };
 
 #endif // RAFT_TEST_FRAMEWORK_H
