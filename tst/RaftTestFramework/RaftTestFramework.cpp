@@ -180,15 +180,10 @@ void RAFTTestFramework::disconnect(std::string id) {
 
 void RAFTTestFramework::connect(std::string id) {
     proxies.at(id).getNetworkConfig().connect();
-        for (auto& c : clients.at(id)) {
+    for (auto& c : clients.at(id)) {
         c->getNetworkConfig().connect();
     }
 }
 
 RAFTTestFramework::~RAFTTestFramework() {
-    for (auto& [id, client] : clients) {
-        for (auto& c : client) {
-            delete c;
-        }
-    }
 }

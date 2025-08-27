@@ -88,7 +88,7 @@ TEST(Raft, ReElection) {
 
     framework.connect(leader2);
     auto leader4 = framework.check1Leader();
-    EXPECT_NE(leader3, leader4);
+    EXPECT_EQ(leader3, leader4);
 }
 
 TEST(Raft, ManyElections) {

@@ -101,21 +101,29 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
 template <typename Client>
 RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg) {
     RequestVoteReply reply;
-    if (arg.term >= currentTerm) {
+    if (arg.term < currentTerm) {
+        reply.term = currentTerm;
+        reply.voteGranted = false;
+        return reply;
+    }
+    if (arg.term > currentTerm) {
         std::unique_lock termLock {m};
         currentTerm = arg.term;
         role = Role::Follower;
-        cv.notify_all();
+        lastHeartbeat = std::chrono::steady_clock::now();
+        votedFor = arg.candidateId;
         termLock.unlock();
-        if (votedFor.has_value() && votedFor.value() == arg.candidateId || !votedFor.has_value()) {
-            if (mainLog.lastTerm() == arg.lastLogTerm && mainLog.lastIndex() <= arg.lastLogIndex || mainLog.lastTerm() < arg.lastLogTerm) {
-                std::unique_lock voteLock {m};
-                votedFor = arg.candidateId;
-                reply.voteGranted = true;
-                lastHeartbeat = std::chrono::steady_clock::now();
-                voteLock.unlock();
-                return reply;
-            }
+        reply.voteGranted = true;
+        return reply;
+    }
+    if (votedFor.has_value() && votedFor.value() == arg.candidateId || !votedFor.has_value()) {
+        if (mainLog.lastTerm() == arg.lastLogTerm && mainLog.lastIndex() <= arg.lastLogIndex || mainLog.lastTerm() < arg.lastLogTerm) {
+            std::unique_lock voteLock {m};
+            votedFor = arg.candidateId;
+            lastHeartbeat = std::chrono::steady_clock::now();
+            voteLock.unlock();
+            reply.voteGranted = true;
+            return reply;
         }
     }
     reply.term = currentTerm;
@@ -126,28 +134,27 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
 template <typename Client>
 AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg& arg) {
     AppendEntriesReply reply;
-    if (arg.term >= currentTerm) {
-        std::unique_lock termLock {m};
-        currentTerm = arg.term;
-        role = Role::Follower;
-        lastHeartbeat = std::chrono::steady_clock::now();
-        cv.notify_all();
-        termLock.unlock();
-        auto e = mainLog.at(arg.prevLogIndex);
-        if (!e.has_value() || e.value().term == arg.prevLogTerm) {
-            mainLog.merge(arg.entries);
-            std::unique_lock commitLock{commitIndexMutex};
-            if (arg.leaderCommit > commitIndex) {
-                commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
-            }
-            commitLock.unlock();
-            reply.success = true;
-            return reply;
-        }
+    if (arg.term < currentTerm) {
+        reply.term = currentTerm;
+        reply.success = false;
+        return reply;
     }
-    reply.term = currentTerm;
-    reply.success = false;
-    return reply;
+    auto e = mainLog.at(arg.prevLogIndex);
+    if (!e.has_value() || e.value().term == arg.prevLogTerm) {
+        mainLog.merge(arg.entries);
+        std::unique_lock commitLock{commitIndexMutex};
+        if (arg.leaderCommit > commitIndex) {
+            commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
+        }
+        commitLock.unlock();
+        lastHeartbeat = std::chrono::steady_clock::now();
+        reply.success = true;
+        return reply;
+    } else {
+        reply.term = currentTerm;
+        reply.success = false;
+        return reply;
+    }
 }
 
 template <typename Client>
@@ -157,9 +164,10 @@ void RaftImpl<Client>::appendEntries(){
         return;
     }
     std::vector<std::thread> threads;
+    std::mutex threadsMutex{};
     for (auto& [peerId, _] : peers) {
         threads.emplace_back(
-            [this, peerId] {
+            [this, peerId, &threadsMutex] {
                 auto& peer = peers.at(peerId);
                 auto n = nextIndex.at(peerId);
                 auto v = mainLog.at(n);
@@ -193,13 +201,16 @@ void RaftImpl<Client>::appendEntries(){
                     arg,
                     reply
                 );
+                std::lock_guard l{threadsMutex};
+                if (role != Role::Leader) {
+                    return;
+                }
                 if (status.has_value()) {
                     if (reply.success()) {
-                        nextIndex[peerId] = g.lastIndex();
+                        nextIndex[peerId] = g.lastIndex() + 1;
                         matchIndex[peerId] = g.lastIndex();
                     } else {
                         if (reply.term() > currentTerm) {
-                            std::unique_lock termLock{m};
                             currentTerm = reply.term();
                             role = Role::Follower;
                         } else {
@@ -257,7 +268,6 @@ void RaftImpl<Client>::requestVote(){
                 );
                 if (status.has_value()) {
                     if (reply.votegranted()) {
-                        std::cerr << selfId << ": Vote granted by " << peerId << " for term " << currentTerm << std::endl;
                         ++votesGranted;
                     } else {
                         ++votesDeclined;
@@ -282,6 +292,10 @@ void RaftImpl<Client>::requestVote(){
     }
     if (votesGranted >= clusterSize / 2 + 1) {
         role = Role::Leader;
+        for (const auto& [a, _] : peers) {
+            nextIndex[a] = mainLog.lastIndex() + 1;
+            matchIndex[a] = 0;
+        }
         appendEntries();
     }
 }
@@ -320,6 +334,9 @@ Log& RaftImpl<Client>::log(){
 
 template <typename Client>
 RaftImpl<Client>::~RaftImpl() {
+    for (auto& [_, peer] : peers) {
+        delete peer;
+    }
 }
 
 } // namespace raft
