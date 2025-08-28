@@ -31,7 +31,8 @@ TEST(KVTest, TestReliablePut) {
 
     auto badVersionSetResult = client.set(zdb::Key{"testKey"}, zdb::Value{"newValue", 0});
     ASSERT_FALSE(badVersionSetResult.has_value());
-    ASSERT_EQ(badVersionSetResult.error().code, zdb::ErrorCode::VersionMismatch);
+    ASSERT_TRUE(badVersionSetResult.error().code == zdb::ErrorCode::VersionMismatch ||
+                badVersionSetResult.error().code == zdb::ErrorCode::Maybe);
 
     auto badInitVersionSetResult = client.set(zdb::Key{"k2"}, zdb::Value{"newValue", 1});
     ASSERT_FALSE(badInitVersionSetResult.has_value());

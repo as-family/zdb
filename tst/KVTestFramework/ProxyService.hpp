@@ -23,7 +23,7 @@ public:
       networkConfig{c} {}
 
     template<typename Req, typename Rep>
-    std::expected<void, std::vector<zdb::Error>> call(
+    std::expected<std::monostate, std::vector<zdb::Error>> call(
         std::string op,
         grpc::Status (Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,

@@ -30,7 +30,7 @@ std::expected<Value, Error> KVStoreClient::get(const Key& key) const {
     }
 }
 
-std::expected<void, Error> KVStoreClient::set(const Key& key, const Value& value) {
+std::expected<std::monostate, Error> KVStoreClient::set(const Key& key, const Value& value) {
     kvStore::SetRequest request;
     request.mutable_key()->set_data(key.data);
     request.mutable_value()->set_data(value.data);

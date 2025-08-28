@@ -89,7 +89,7 @@ ErrorCode errorCode(const std::expected<zdb::Value, zdb::Error>& result) {
     }
     return errorCode(result.error());
 }
-ErrorCode errorCode(const std::expected<void, zdb::Error>& result) {
+ErrorCode errorCode(const std::expected<std::monostate, zdb::Error>& result) {
     if (result.has_value()) {
         throw std::logic_error("Expected error but got value");
     }

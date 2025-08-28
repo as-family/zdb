@@ -23,9 +23,9 @@ public:
     RPCService(const std::string address, const RetryPolicy p);
     RPCService(const RPCService&) = delete;
     RPCService& operator=(const RPCService&) = delete;
-    std::expected<void, Error> connect();
+    std::expected<std::monostate, Error> connect();
     template<typename Req, typename Rep>
-    std::expected<void, std::vector<Error>> call(
+    std::expected<std::monostate, std::vector<Error>> call(
         const std::string& op,
         grpc::Status (Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
@@ -68,7 +68,7 @@ RPCService<Service>::RPCService(const std::string address, const RetryPolicy p)
     m{} {}
 
 template<typename Service>
-std::expected<void, Error> RPCService<Service>::connect() {
+std::expected<std::monostate, Error> RPCService<Service>::connect() {
     if (channel) {
         auto state = channel->GetState(false);
         if (state == grpc_connectivity_state::GRPC_CHANNEL_READY || state == grpc_connectivity_state::GRPC_CHANNEL_IDLE || state == grpc_connectivity_state::GRPC_CHANNEL_CONNECTING) {

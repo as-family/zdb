@@ -47,7 +47,7 @@ public:
         zdb::Key key,
         uint64_t version
     );
-    std::expected<void, zdb::Error> setJson(int clientId, zdb::KVStoreClient& client, zdb::Key key, zdb::Value value);
+    std::expected<std::monostate, zdb::Error> setJson(int clientId, zdb::KVStoreClient& client, zdb::Key key, zdb::Value value);
     zdb::Value getJson(int clientId, zdb::KVStoreClient& client, zdb::Key key);
     bool checkSetConcurrent(
         zdb::KVStoreClient& client,

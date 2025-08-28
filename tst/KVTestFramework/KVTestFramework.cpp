@@ -122,7 +122,7 @@ std::pair<int, bool> KVTestFramework::oneSet(
     }
 }
 
-std::expected<void, zdb::Error> KVTestFramework::setJson(
+std::expected<std::monostate, zdb::Error> KVTestFramework::setJson(
     int clientId,
     zdb::KVStoreClient& client,
     zdb::Key key,

@@ -85,7 +85,7 @@ grpc::Status KVStoreServiceImpl::set(
         if (!s) {
             return toGrpcStatus(Error {ErrorCode::Internal, "failed to cast state"});
         }
-        auto v = std::get<std::expected<void, Error>>(s->u);
+        auto v = std::get<std::expected<std::monostate, Error>>(s->u);
         return toGrpcStatus(v);
     }
 }

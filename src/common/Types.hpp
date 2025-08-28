@@ -47,11 +47,11 @@ struct State : public raft::State {
     Key key;
     std::variant<
         std::expected<std::optional<Value>, Error>,
-        std::expected<void, Error>
+        std::expected<std::monostate, Error>
     > u;
     State(const Key& k, const std::expected<std::optional<Value>, Error>& v)
         : key(k), u{v} {}
-    State(const Key& k, const std::expected<void, Error>& v)
+    State(const Key& k, const std::expected<std::monostate, Error>& v)
         : key(k), u{v} {}
 };
 

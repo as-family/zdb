@@ -22,7 +22,7 @@ public:
     KVStoreClient(const KVStoreClient&) = delete;
     KVStoreClient& operator=(const KVStoreClient&) = delete;
     [[nodiscard]] std::expected<Value, Error> get(const Key& key) const;
-    std::expected<void, Error> set(const Key& key, const Value& value);
+    std::expected<std::monostate, Error> set(const Key& key, const Value& value);
     [[nodiscard]] std::expected<Value, Error> erase(const Key& key);
     [[nodiscard]] std::expected<size_t, Error> size() const;
     void waitSet(Key key, Value value);
@@ -31,7 +31,7 @@ public:
     Value waitGet(Key key, uint64_t version);
 private:
     template<typename Req, typename Rep>
-    std::expected<void, std::vector<Error>> call(
+    std::expected<std::monostate, std::vector<Error>> call(
         const std::string& op,
         grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
