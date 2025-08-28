@@ -14,7 +14,9 @@ TEST(KVTestFrameworkTest, SpawnClientsAndWaitCoordinatesResults) {
         std::chrono::milliseconds(1000),
         std::chrono::milliseconds(5000),
         3,
-        1
+        1,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     };
     auto r = kvTest.spawnClientsAndWait(10, std::chrono::seconds(5), {proxyAddress}, policy,
         [](int id, zdb::KVStoreClient& client, std::atomic<bool>& done) {

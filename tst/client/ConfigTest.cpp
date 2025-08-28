@@ -23,7 +23,7 @@ using zdb::ErrorCode;
 
 class ConfigTest : public ::testing::Test {
 protected:
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 3};
+    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 3, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     
     // Test server setup for positive tests
     const std::string validServerAddr = "localhost:50053";
@@ -260,19 +260,19 @@ TEST_F(ConfigTest, ConstructorWithDifferentRetryPolicies) {
     const std::vector<std::string> addresses{validServerAddr};
     
     // Test with very short delays
-    const RetryPolicy shortPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(100), 1, 1};
+    const RetryPolicy shortPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     ASSERT_NO_THROW({
         const Config config(addresses, shortPolicy);
     });
     
     // Test with very long delays
-    const RetryPolicy longPolicy{std::chrono::microseconds(1000), std::chrono::microseconds(10000), std::chrono::microseconds(100000), 5, 1};
+    const RetryPolicy longPolicy{std::chrono::microseconds(1000), std::chrono::microseconds(10000), std::chrono::microseconds(100000), 5, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     ASSERT_NO_THROW({
         const Config config(addresses, longPolicy);
     });
     
     // Test with zero threshold
-    const RetryPolicy zeroThresholdPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 0, 1};
+    const RetryPolicy zeroThresholdPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 0, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     ASSERT_NO_THROW({
         const Config config(addresses, zeroThresholdPolicy);
     });
@@ -374,7 +374,7 @@ TEST_F(ConfigTest, BasicThreadSafetyTest) {
 // Test currentService behavior when circuit breaker is open
 TEST_F(ConfigTest, CurrentServiceFailsWhenCircuitBreakerOpen) {
     // Use a policy with very low failure threshold to quickly open circuit breaker
-    const RetryPolicy lowThresholdPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(200), 1, 1};
+    const RetryPolicy lowThresholdPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(200), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, lowThresholdPolicy);
     
@@ -400,7 +400,7 @@ TEST_F(ConfigTest, CurrentServiceFailsWhenCircuitBreakerOpen) {
 // Test nextService behavior with circuit breaker recovery
 TEST_F(ConfigTest, NextServiceWithCircuitBreakerRecovery) {
     // Use a policy with short reset timeout for circuit breaker
-    const RetryPolicy shortResetPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(100), 1, 1};
+    const RetryPolicy shortResetPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, shortResetPolicy);
     
@@ -477,7 +477,7 @@ TEST_F(ConfigTest, CurrentServiceTriggersReconnectionThroughAvailable) {
 // Test differentiation between connected and available states
 TEST_F(ConfigTest, ConnectedVsAvailableStates) {
     // Use a policy that quickly opens circuit breaker
-    const RetryPolicy quickFailPolicy{std::chrono::microseconds(5), std::chrono::microseconds(25), std::chrono::microseconds(100), 1, 1};
+    const RetryPolicy quickFailPolicy{std::chrono::microseconds(5), std::chrono::microseconds(25), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, quickFailPolicy);
     
@@ -534,7 +534,7 @@ TEST_F(ConfigTest, NextServiceWithMixedServiceStates) {
 // Test that error messages are appropriate for circuit breaker scenarios
 TEST_F(ConfigTest, CircuitBreakerErrorMessages) {
     // Use a policy that opens circuit breaker quickly
-    const RetryPolicy fastFailPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(50), 1, 1};
+    const RetryPolicy fastFailPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(50), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, fastFailPolicy);
     
@@ -556,7 +556,7 @@ TEST_F(ConfigTest, CircuitBreakerErrorMessages) {
 // Test circuit breaker reset behavior in nextService
 TEST_F(ConfigTest, CircuitBreakerResetInNextService) {
     // Use a policy with very short reset timeout
-    const RetryPolicy shortResetPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(50), 1, 1};
+    const RetryPolicy shortResetPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(50), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, shortResetPolicy);
     

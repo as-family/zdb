@@ -58,7 +58,9 @@ void runClients(int nClients, bool reliable) {
         std::chrono::milliseconds(1000),
         std::chrono::milliseconds(5000),
         100,
-        1
+        1,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     }, oneClient);
 }
 
@@ -88,7 +90,9 @@ TEST(LockTest, AcquireLock) {
         std::chrono::microseconds(1000),
         std::chrono::microseconds(5000),
         10000,
-        1
+        1,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     };
     zdb::Config c {{proxyAddress}, policy};
     auto client = zdb::KVStoreClient {c};
@@ -107,7 +111,9 @@ TEST(LockTest, ReleaseLock) {
         std::chrono::microseconds(1000),
         std::chrono::microseconds(5000),
         10000,
-        1
+        1,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     };
     zdb::Config c {{proxyAddress}, policy};
     auto client = zdb::KVStoreClient {c};

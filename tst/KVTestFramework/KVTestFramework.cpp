@@ -195,7 +195,7 @@ bool KVTestFramework::checkSetConcurrent(
         totalMaybe += result.nMaybe;
     }
     if (networkConfig.reliable()) {
-        return value.version <= totalOK + totalMaybe;
+        return value.version == totalOK;
     } else {
         return value.version <= totalOK + totalMaybe;
     }

@@ -17,7 +17,9 @@ TEST(KVTest, TestReliablePut) {
         std::chrono::milliseconds(150),
         std::chrono::milliseconds(200),
         10,
-        1
+        1,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     }};
     zdb::KVStoreClient client = zdb::KVStoreClient {config};
 
@@ -53,7 +55,9 @@ TEST(KVTest, TestPutConcurrentReliable) {
         std::chrono::milliseconds(500),
         std::chrono::milliseconds(600),
         100,
-        1
+        1,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     };
     const int nClients = 10;
     const std::chrono::seconds timeout(1);
@@ -76,7 +80,9 @@ TEST(KVTest, TestUnreliableNet) {
         std::chrono::microseconds(1000),
         std::chrono::microseconds(5000),
         10000,
-        1
+        1,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     };
     zdb::Config c {{proxyAddress}, policy};
     auto client = zdb::KVStoreClient {c};

@@ -12,7 +12,7 @@ using zdb::RetryPolicy;
 
 class CircuitBreakerTest : public ::testing::Test {
 protected:
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2};
+    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     CircuitBreaker breaker{policy};
 };
 
@@ -228,7 +228,7 @@ TEST_F(CircuitBreakerTest, StateTransitionsWithOpenCalls) {
 
 // Test open() behavior with very short reset timeout
 TEST_F(CircuitBreakerTest, OpenWithShortResetTimeout) {
-    const RetryPolicy shortTimeoutPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(1), 2, 2}; // 1 microsecond reset timeout
+    const RetryPolicy shortTimeoutPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(1), 2, 2, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)}; // 1 microsecond reset timeout
     CircuitBreaker shortTimeoutBreaker{shortTimeoutPolicy};
     
     // Open the breaker

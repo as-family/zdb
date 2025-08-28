@@ -24,7 +24,7 @@ grpc::Status okStatus() {
 } // namespace
 
 TEST(RepeaterTest, SuccessOnFirstAttempt) {
-    const RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 3, 0};
+    const RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 3, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -37,7 +37,7 @@ TEST(RepeaterTest, SuccessOnFirstAttempt) {
 }
 
 TEST(RepeaterTest, PermanentFailureNonRetriable) {
-    const RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 3, 0};
+    const RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 3, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -51,7 +51,7 @@ TEST(RepeaterTest, PermanentFailureNonRetriable) {
 }
 
 TEST(RepeaterTest, RetriableFailureThenSuccess) {
-    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 5, 0};
+    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 5, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -67,7 +67,7 @@ TEST(RepeaterTest, RetriableFailureThenSuccess) {
 }
 
 TEST(RepeaterTest, RetriableFailureExceedsThreshold) {
-    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 2, 0};
+    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 2, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -81,7 +81,7 @@ TEST(RepeaterTest, RetriableFailureExceedsThreshold) {
 }
 
 TEST(RepeaterTest, ZeroThresholdNoRetry) {
-    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 0, 0};
+    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 0, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -94,7 +94,7 @@ TEST(RepeaterTest, ZeroThresholdNoRetry) {
 }
 
 TEST(RepeaterTest, ZeroDelayNoSleep) {
-    const RetryPolicy policy{std::chrono::microseconds(0), std::chrono::microseconds(0), std::chrono::microseconds(0), 2, 0};
+    const RetryPolicy policy{std::chrono::microseconds(0), std::chrono::microseconds(0), std::chrono::microseconds(0), 2, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -117,7 +117,7 @@ TEST(RepeaterTest, TimeSpentMatchesPolicyDelay) {
     const int retries = 3;
     const std::chrono::microseconds baseDelay(50000); // 50ms
     const std::chrono::microseconds maxDelay(200000); // 200ms
-    const RetryPolicy policy{baseDelay, maxDelay, std::chrono::microseconds(0), retries, 0};
+    const RetryPolicy policy{baseDelay, maxDelay, std::chrono::microseconds(0), retries, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -150,7 +150,7 @@ TEST(RepeaterTest, NegativeDelayThrows) {
 
 // Test max threshold: should not exceed failureThreshold
 TEST(RepeaterTest, MaxThresholdRespected) {
-    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 1, 0};
+    const RetryPolicy policy{std::chrono::microseconds(10), std::chrono::microseconds(100), std::chrono::microseconds(1000), 1, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {
@@ -164,7 +164,7 @@ TEST(RepeaterTest, MaxThresholdRespected) {
 
 // Test with large baseDelay and maxDelay
 TEST(RepeaterTest, LargeDelays) {
-    const RetryPolicy policy{std::chrono::microseconds(500000), std::chrono::microseconds(1000000), std::chrono::microseconds(0), 2, 0};
+    const RetryPolicy policy{std::chrono::microseconds(500000), std::chrono::microseconds(1000000), std::chrono::microseconds(0), 2, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Repeater repeater(policy);
     int callCount = 0;
     auto rpc = [&]() {

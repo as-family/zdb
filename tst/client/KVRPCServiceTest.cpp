@@ -57,7 +57,7 @@ private:
 
 class KVRPCServiceTest : public ::testing::Test {
 protected:
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 0};
+    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     std::string address{"localhost:50051"};
     std::unique_ptr<TestKVServer> testServer;
     void SetUp() override {
@@ -206,7 +206,7 @@ TEST_F(KVRPCServiceTest, AvailableTriggersReconnection) {
 // Test available() returns false when circuit breaker is open
 TEST_F(KVRPCServiceTest, AvailableReturnsFalseWhenCircuitBreakerOpen) {
     // Use a policy that opens circuit breaker quickly
-    const RetryPolicy quickFailPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(100), 1, 1};
+    const RetryPolicy quickFailPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     zdb::KVRPCService service{address, quickFailPolicy};
     
     EXPECT_TRUE(service.connect().has_value());
@@ -332,7 +332,7 @@ TEST_F(KVRPCServiceTest, ConnectCreatesStubWhenMissing) {
 
 // Test circuit breaker integration with available()
 TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
-    const RetryPolicy circuitBreakerPolicy{std::chrono::milliseconds(10), std::chrono::milliseconds(50), std::chrono::milliseconds(200), 1, 1};
+    const RetryPolicy circuitBreakerPolicy{std::chrono::milliseconds(10), std::chrono::milliseconds(50), std::chrono::milliseconds(200), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     zdb::KVRPCService service{address, circuitBreakerPolicy};
     
     EXPECT_TRUE(service.connect().has_value());

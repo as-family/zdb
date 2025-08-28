@@ -36,7 +36,7 @@ public:
         }
         auto bound = [this, f, &request, &reply] {
             auto c = grpc::ClientContext();
-            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(4));
+            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(policy.rpcTimeout));
             return (stub.get()->*f)(&c, request, &reply);
         };
         auto statuses = circuitBreaker.call(op, bound);
@@ -55,6 +55,7 @@ public:
     [[nodiscard]] std::string address() const;
 private:
     std::string addr;
+    RetryPolicy policy;
     CircuitBreaker circuitBreaker;
     std::shared_ptr<grpc::Channel> channel;
     std::unique_ptr<Stub> stub;
@@ -64,8 +65,9 @@ private:
 template<typename Service>
 RPCService<Service>::RPCService(const std::string address, const RetryPolicy p) 
     : addr {address},
-    circuitBreaker {p},
-    m{} {}
+      policy {p},
+      circuitBreaker {p},
+      m{} {}
 
 template<typename Service>
 std::expected<std::monostate, Error> RPCService<Service>::connect() {
@@ -78,7 +80,10 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
                 }
                 return {};
             }
-            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(100))) {
+            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(policy.channelTimeout))) {
+                 if (!stub) {
+                    stub = Service::NewStub(channel);
+                }
                 if (!stub) {
                     stub = Service::NewStub(channel);
                 }
@@ -88,7 +93,7 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
     }
     
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
-    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(100))) {
+    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(policy.channelTimeout))) {
         return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
     }
     stub = Service::NewStub(channel);

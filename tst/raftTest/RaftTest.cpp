@@ -21,7 +21,9 @@ TEST(Raft, InititialElection) {
         std::chrono::milliseconds(50),
         std::chrono::minutes(1),
         10,
-        1
+        1,
+        std::chrono::milliseconds(4),
+        std::chrono::milliseconds(50)
     };
     RAFTTestFramework framework{config, p};
 
@@ -56,7 +58,9 @@ TEST(Raft, ReElection) {
         std::chrono::milliseconds(50),
         std::chrono::minutes(1),
         10,
-        1
+        1,
+        std::chrono::milliseconds(4),
+        std::chrono::milliseconds(50)
     };
     RAFTTestFramework framework{config, p};
 
@@ -107,7 +111,9 @@ TEST(Raft, ManyElections) {
         std::chrono::milliseconds(50),
         std::chrono::minutes(1),
         3,
-        1
+        1,
+        std::chrono::milliseconds(4),
+        std::chrono::milliseconds(50)
     };
     RAFTTestFramework framework{config, p};
     std::this_thread::sleep_for(std::chrono::milliseconds(400));
