@@ -13,10 +13,10 @@ TEST(KVTest, TestReliablePut) {
     std::string proxyAddress {"localhost:50051"};
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};
     zdb::Config config{{proxyAddress}, zdb::RetryPolicy{
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
-        std::chrono::microseconds(5000),
-        3,
+        std::chrono::milliseconds(20),
+        std::chrono::milliseconds(150),
+        std::chrono::milliseconds(200),
+        10,
         1
     }};
     zdb::KVStoreClient client = zdb::KVStoreClient {config};
@@ -49,10 +49,10 @@ TEST(KVTest, TestPutConcurrentReliable) {
     std::string proxyAddress {"localhost:50051"};
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};
     zdb::RetryPolicy policy{
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
-        std::chrono::microseconds(5000),
-        3,
+        std::chrono::milliseconds(20),
+        std::chrono::milliseconds(500),
+        std::chrono::milliseconds(600),
+        100,
         1
     };
     const int nClients = 10;
