@@ -12,6 +12,7 @@
 #include <type_traits>
 #include <atomic>
 #include "common/Error.hpp"
+#include "raft/TestRaft.hpp"
 
 using zdb::Config;
 using zdb::RetryPolicy;
@@ -30,7 +31,9 @@ protected:
     const std::string invalidServerAddr = "localhost:99999";
     
     InMemoryKVStore kvStore;
-    KVStoreServiceImpl serviceImpl{kvStore, nullptr, nullptr};
+    raft::Channel channel{};
+    TestRaft raft{channel};
+    KVStoreServiceImpl serviceImpl{kvStore, &raft, &channel};
     std::unique_ptr<KVStoreServer> server1;
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread1;

@@ -12,6 +12,7 @@
 #include <grpcpp/support/status.h>
 #include <grpcpp/security/credentials.h>
 #include "common/Types.hpp"
+#include "raft/TestRaft.hpp"
 
 using zdb::Key;
 using zdb::Value;
@@ -32,7 +33,9 @@ const std::string SERVER_ADDR = "localhost:50051";
 class KVStoreServerTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    KVStoreServiceImpl serviceImpl {kvStore, nullptr, nullptr};
+    raft::Channel channel{};
+    TestRaft raft{channel};
+    KVStoreServiceImpl serviceImpl {kvStore, &raft, &channel};
     std::unique_ptr<KVStoreServer> server;
     std::thread serverThread;
 

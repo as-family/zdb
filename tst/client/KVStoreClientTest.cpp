@@ -12,6 +12,7 @@
 #include <vector>
 #include "client/Config.hpp"
 #include <stdexcept>
+#include "raft/TestRaft.hpp"
 
 using zdb::Config;
 using zdb::InMemoryKVStore;
@@ -29,7 +30,9 @@ const std::string SERVER_ADDR = "localhost:50052";
 class KVStoreClientTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    KVStoreServiceImpl serviceImpl{kvStore, nullptr, nullptr};
+    raft::Channel channel{};
+    TestRaft raft{channel};
+    KVStoreServiceImpl serviceImpl{kvStore, &raft, &channel};
     std::unique_ptr<KVStoreServer> server;
     std::thread serverThread;
     const RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2};
@@ -235,7 +238,9 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     // Set up additional server
     const std::string serverAddress2 = "localhost:50053";
     InMemoryKVStore kvStore2;
-    KVStoreServiceImpl serviceImpl2{kvStore2, nullptr, nullptr};
+    raft::Channel channel2{};
+    TestRaft raft2{channel2};
+    KVStoreServiceImpl serviceImpl2{kvStore2, &raft2, &channel2};
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread2;
     
@@ -433,7 +438,9 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     const std::string serverAddress3 = "localhost:50055";
     
     InMemoryKVStore kvStore2, kvStore3;
-    KVStoreServiceImpl serviceImpl2{kvStore2, nullptr, nullptr}, serviceImpl3{kvStore3, nullptr, nullptr};
+    raft::Channel channel2{}, channel3{};
+    TestRaft raft2{channel2}, raft3{channel3};
+    KVStoreServiceImpl serviceImpl2{kvStore2, &raft2, &channel2}, serviceImpl3{kvStore3, &raft3, &channel3};
     std::unique_ptr<KVStoreServer> server2, server3;
     std::thread serverThread2, serverThread3;
     

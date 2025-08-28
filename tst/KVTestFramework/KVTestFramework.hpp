@@ -17,6 +17,7 @@
 #include "common/RetryPolicy.hpp"
 #include "raft/Raft.hpp"
 #include "raft/Channel.hpp"
+#include "raft/TestRaft.hpp"
 
 class KVTestFramework {
 public:
@@ -25,7 +26,7 @@ public:
         int nMaybe;
     };
     Porcupine porcupine;
-    KVTestFramework(std::string a, std::string t, NetworkConfig& c, raft::Raft* r = nullptr, raft::Channel* ch = nullptr);
+    KVTestFramework(std::string a, std::string t, NetworkConfig& c);
     std::vector<ClientResult> spawnClientsAndWait(
         int nClients,
         std::chrono::seconds timeout,
@@ -60,6 +61,8 @@ private:
     NetworkConfig& networkConfig;
     ProxyKVStoreService service;
     zdb::InMemoryKVStore mem;
+    raft::Channel channel;
+    TestRaft raft;
     zdb::KVStoreServiceImpl targetService;
     std::unique_ptr<grpc::Server> targetServer;
     std::unique_ptr<grpc::Server> server;

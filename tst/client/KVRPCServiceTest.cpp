@@ -16,6 +16,7 @@
 #include <proto/types.pb.h>
 #include "common/Types.hpp"
 #include "client/Config.hpp"
+#include "raft/TestRaft.hpp"
 
 using zdb::Value;
 using zdb::InMemoryKVStore;
@@ -31,11 +32,10 @@ using zdb::kvStore::EraseReply;
 using zdb::kvStore::SizeRequest;
 using zdb::kvStore::SizeReply;
 
-
 // Helper to start a real gRPC server for integration tests
 class TestKVServer {
 public:
-    explicit TestKVServer(std::string addr) : kvStore{}, serviceImpl{kvStore, nullptr, nullptr}, server{nullptr}, address{std::move(addr)} {
+    explicit TestKVServer(std::string addr) : kvStore{}, channel{}, raft{channel}, serviceImpl{kvStore, &raft, &channel}, address{std::move(addr)} {
         grpc::ServerBuilder builder;
         builder.AddListeningPort(address, grpc::InsecureServerCredentials());
         builder.RegisterService(&serviceImpl);
@@ -48,6 +48,8 @@ public:
     }
 private:
     InMemoryKVStore kvStore;
+    raft::Channel channel;
+    TestRaft raft;
     KVStoreServiceImpl serviceImpl;
     std::unique_ptr<grpc::Server> server;
     std::string address;

@@ -15,13 +15,15 @@
 #include "raft/Raft.hpp"
 #include "raft/Channel.hpp"
 
-KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c, raft::Raft* r, raft::Channel* ch)
+KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c)
     : addr {a},
       targetServerAddr {t},
       networkConfig(c),
       service {ProxyKVStoreService {targetServerAddr, networkConfig}},
       mem {zdb::InMemoryKVStore {}},
-      targetService {zdb::KVStoreServiceImpl {mem, r, ch}},
+      channel{},
+      raft {channel},
+      targetService {zdb::KVStoreServiceImpl {mem, &raft, &channel}},
       rng(std::random_device{}()) {
     grpc::ServerBuilder targetSB{};
     targetSB.AddListeningPort(targetServerAddr, grpc::InsecureServerCredentials());
