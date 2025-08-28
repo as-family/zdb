@@ -10,3 +10,9 @@ message Value {
     string data = 1;
     uint64 version = 2;
 }
+
+message Command {
+    string op = 1;
+    zdb.proto.Key key = 2;
+    zdb.proto.Value value = 3;
+}

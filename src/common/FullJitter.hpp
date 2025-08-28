@@ -11,7 +11,7 @@ public:
     FullJitter();
     std::chrono::microseconds jitter(const std::chrono::microseconds v);
 private:
-    std::default_random_engine rng;
+    std::mt19937 rng;
 };
 
 } // namespace zdb

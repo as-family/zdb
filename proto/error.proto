@@ -3,9 +3,17 @@ syntax = "proto3";
 package zdb.proto;
 
 enum ErrorCode {
-    UNKNOWN = 0;
-    NOT_FOUND = 1;
-    INVALID_ARG = 2;
+    OK = 0;
+    InvalidArg = 1;
+    ServiceTemporarilyUnavailable = 2;
+    AllServicesUnavailable = 3;
+    VersionMismatch = 4;
+    Maybe = 5;
+    KeyNotFound = 6;
+    TimeOut = 7;
+    NotLeader = 8;
+    Internal = 9;
+    Unknown = 128;
 }
 
 message ErrorDetails {

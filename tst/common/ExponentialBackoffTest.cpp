@@ -16,7 +16,9 @@ protected:
         std::chrono::microseconds(1000),
         std::chrono::microseconds(0),
         5,
-        0
+        0,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     };
 };
 
@@ -47,7 +49,9 @@ TEST_F(ExponentialBackoffTest, DelayIsCappedAtMaxDelay) {
         std::chrono::microseconds(500),
         std::chrono::microseconds(0),
         4,
-        0
+        0,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     };
     ExponentialBackoff backoff(policy);
     std::vector<unsigned int> expected = {300, 500, 500, 500};
@@ -89,7 +93,9 @@ TEST_F(ExponentialBackoffTest, ZeroThresholdReturnsNulloptImmediately) {
         std::chrono::microseconds(1000),
         std::chrono::microseconds(0),
         0,
-        0
+        0,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     };
     ExponentialBackoff backoff(policy);
     auto delay = backoff.nextDelay();
@@ -104,7 +110,9 @@ TEST_F(ExponentialBackoffTest, MaxDelayLessThanBaseDelayThrows) {
             std::chrono::microseconds(100),
             std::chrono::microseconds(0),
             2,
-            0
+            0,
+            std::chrono::milliseconds(1000),
+            std::chrono::milliseconds(200)
         ),
         std::invalid_argument
     );
@@ -116,7 +124,9 @@ TEST_F(ExponentialBackoffTest, LargeAttemptDoesNotOverflow) {
         std::chrono::microseconds(1000000),
         std::chrono::microseconds(0),
         30, // 1 << 30 is large
-        0
+        0,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     };
     ExponentialBackoff backoff(policy);
     for (int i = 0; i < policy.failureThreshold - 1; ++i) {

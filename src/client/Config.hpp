@@ -3,11 +3,15 @@
 
 #include <string>
 #include <unordered_map>
-#include "client/KVRPCService.hpp"
 #include <expected>
 #include "common/Error.hpp"
+#include "common/RPCService.hpp"
+#include <proto/kvStore.grpc.pb.h>
 
 namespace zdb {
+
+using KVRPCService = RPCService<zdb::kvStore::KVStoreService>;
+using KVRPCServicePtr = RPCService<zdb::kvStore::KVStoreService>*;
 
 class Config {
 public:
@@ -16,8 +20,8 @@ public:
     Config(const std::vector<std::string>& addresses, const RetryPolicy policy);
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
-    [[nodiscard]] std::expected<KVRPCService*, Error> currentService();
-    std::expected<KVRPCService*, Error> nextService();
+    [[nodiscard]] std::expected<KVRPCServicePtr, Error> currentService();
+    std::expected<KVRPCServicePtr, Error> nextService();
     const RetryPolicy policy;
 private:
     iterator nextActiveServiceIterator();

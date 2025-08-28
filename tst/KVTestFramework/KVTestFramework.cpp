@@ -12,6 +12,8 @@
 #include "Porcupine.hpp"
 #include <cinttypes>
 #include <sstream>
+#include "raft/Raft.hpp"
+#include "raft/Channel.hpp"
 
 KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c)
     : addr {a},
@@ -19,7 +21,9 @@ KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c)
       networkConfig(c),
       service {ProxyKVStoreService {targetServerAddr, networkConfig}},
       mem {zdb::InMemoryKVStore {}},
-      targetService {zdb::KVStoreServiceImpl {mem}},
+      channel{},
+      raft {channel},
+      targetService {zdb::KVStoreServiceImpl {mem, &raft, &channel}},
       rng(std::random_device{}()) {
     grpc::ServerBuilder targetSB{};
     targetSB.AddListeningPort(targetServerAddr, grpc::InsecureServerCredentials());
@@ -100,7 +104,7 @@ std::pair<int, bool> KVTestFramework::oneSet(
         if (!(status.has_value() ||
               status.error().code == zdb::ErrorCode::VersionMismatch ||
               status.error().code == zdb::ErrorCode::Maybe)) {
-            throw std::runtime_error("oneSet: wrong error");
+            throw std::runtime_error("oneSet: wrong error " + status.error().what);
         }
         zdb::Value getValue = getJson(clientId, client, key);
         if (status.has_value() && getValue.version == version + 1) {
@@ -108,7 +112,7 @@ std::pair<int, bool> KVTestFramework::oneSet(
             int getClientId;
             ss >> getClientId;
             if (clientId != getClientId && getValue.data != data) {
-                throw std::runtime_error("oneSet: wrong value");
+                throw std::runtime_error("oneSet: wrong value " + getValue.data);
             }
         }
         if (status.has_value() || status.error().code == zdb::ErrorCode::Maybe) {
@@ -118,7 +122,7 @@ std::pair<int, bool> KVTestFramework::oneSet(
     }
 }
 
-std::expected<void, zdb::Error> KVTestFramework::setJson(
+std::expected<std::monostate, zdb::Error> KVTestFramework::setJson(
     int clientId,
     zdb::KVStoreClient& client,
     zdb::Key key,
@@ -199,7 +203,7 @@ bool KVTestFramework::checkSetConcurrent(
 
 KVTestFramework::~KVTestFramework() {
     server->Shutdown();
-    serverThread.join();
     targetServer->Shutdown();
+    serverThread.join();
     targetServerThread.join();
 }

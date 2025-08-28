@@ -17,7 +17,7 @@ class InMemoryKVStore : public StorageEngine {
 public:
     InMemoryKVStore();
     std::expected<std::optional<Value>, Error> get(const Key& key) const override;
-    std::expected<void, Error> set(const Key& key, const Value& value) override;
+    std::expected<std::monostate, Error> set(const Key& key, const Value& value) override;
     std::expected<std::optional<Value>, Error> erase(const Key& key) override;
     size_t size() const;
 private:

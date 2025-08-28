@@ -31,6 +31,7 @@ std::vector<grpc::Status> CircuitBreaker::call(const std::string& op, const std:
             auto status = rpc();
             if (status.ok()) {
                 state = State::Closed;
+                repeater.reset();
             } else {
                 if (isRetriable(op, toError(status).code)) {
                     state = State::Open;

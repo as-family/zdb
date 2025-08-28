@@ -11,7 +11,9 @@ TEST(RetryPolicyTest, ValidConstruction) {
         std::chrono::microseconds(1000),
         std::chrono::microseconds(5000),
         3,
-        2
+        2,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     );
     EXPECT_EQ(policy.baseDelay, std::chrono::microseconds(100));
     EXPECT_EQ(policy.maxDelay, std::chrono::microseconds(1000));
@@ -27,7 +29,9 @@ TEST(RetryPolicyTest, NegativeThresholdThrows) {
             std::chrono::microseconds(1000),
             std::chrono::microseconds(5000),
             -1,
-            1
+            1,
+            std::chrono::milliseconds(1000),
+            std::chrono::milliseconds(200)
         ),
         std::invalid_argument
     );
@@ -40,7 +44,9 @@ TEST(RetryPolicyTest, NegativeBaseDelayThrows) {
             std::chrono::microseconds(1000),
             std::chrono::microseconds(5000),
             3,
-            1
+            1,
+            std::chrono::milliseconds(1000),
+            std::chrono::milliseconds(200)
         ),
         std::invalid_argument
     );
@@ -53,7 +59,9 @@ TEST(RetryPolicyTest, NegativeMaxDelayThrows) {
             std::chrono::microseconds(-1000),
             std::chrono::microseconds(5000),
             3,
-            1
+            1,
+            std::chrono::milliseconds(1000),
+            std::chrono::milliseconds(200)
         ),
         std::invalid_argument
     );
@@ -66,7 +74,9 @@ TEST(RetryPolicyTest, NegativeResetTimeoutThrows) {
             std::chrono::microseconds(1000),
             std::chrono::microseconds(-5000),
             3,
-            1
+            1,
+            std::chrono::milliseconds(1000),
+            std::chrono::milliseconds(200)
         ),
         std::invalid_argument
     );
@@ -79,7 +89,9 @@ TEST(RetryPolicyTest, MaxDelayLessThanBaseDelayThrows) {
             std::chrono::microseconds(100),
             std::chrono::microseconds(5000),
             3,
-            1
+            1,
+            std::chrono::milliseconds(1000),
+            std::chrono::milliseconds(200)
         ),
         std::invalid_argument
     );
@@ -91,7 +103,9 @@ TEST(RetryPolicyTest, ZeroValuesAreAccepted) {
         std::chrono::microseconds(0),
         std::chrono::microseconds(0),
         0,
-        0
+        0,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     );
     EXPECT_EQ(policy.baseDelay, std::chrono::microseconds(0));
     EXPECT_EQ(policy.maxDelay, std::chrono::microseconds(0));
@@ -107,7 +121,9 @@ TEST(RetryPolicyTest, NegativeServicesToTryThrows) {
             std::chrono::microseconds(1000),
             std::chrono::microseconds(5000),
             3,
-            -1
+            -1,
+            std::chrono::milliseconds(1000),
+            std::chrono::milliseconds(200)
         ),
         std::invalid_argument
     );

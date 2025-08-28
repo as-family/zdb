@@ -1,0 +1,34 @@
+#ifndef RAFT_TEST_RAFT_H
+#define RAFT_TEST_RAFT_H
+
+#include "raft/Raft.hpp"
+#include "raft/Command.hpp"
+#include "raft/Channel.hpp"
+#include "raft/Types.hpp"
+
+struct TestRaft : raft::Raft {
+    TestRaft(raft::Channel& c) : channel {c} {}
+    bool start(raft::Command* cmd) override {
+        channel.send(cmd);
+        return true;
+    }
+    raft::AppendEntriesReply appendEntriesHandler(const raft::AppendEntriesArg& arg) override {
+        return {};
+    }
+    raft::RequestVoteReply requestVoteHandler(const raft::RequestVoteArg& arg) override {
+        return {};
+    }
+    void appendEntries() override {
+    }
+    void requestVote() override {
+    }
+    raft::Log& log() override {
+    }
+    raft::Log* makeLog() override {
+    }
+    void kill() override {
+    }
+    raft::Channel& channel;
+};
+
+#endif // RAFT_TEST_RAFT_H

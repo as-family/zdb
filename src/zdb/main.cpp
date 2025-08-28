@@ -31,11 +31,11 @@ int main(int /*argc*/, char** /*argv*/) {
     };
 
     InMemoryKVStore kvStore {};
-    KVStoreServiceImpl s{kvStore};
+    KVStoreServiceImpl s{kvStore, nullptr, nullptr};
     const KVStoreServer server {listenAddress, s};
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    const RetryPolicy policy {std::chrono::microseconds(100), std::chrono::milliseconds(500), std::chrono::seconds(5), 3, 3};
+    const RetryPolicy policy {std::chrono::microseconds(100), std::chrono::milliseconds(500), std::chrono::seconds(5), 3, 3, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Config config {peerAddresses, policy};
     const KVStoreClient client {config};
     std::cout << client.get(Key{"hello"}).error().what << '\n';

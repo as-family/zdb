@@ -15,6 +15,9 @@
 #include <expected>
 #include "Porcupine.hpp"
 #include "common/RetryPolicy.hpp"
+#include "raft/Raft.hpp"
+#include "raft/Channel.hpp"
+#include "raft/TestRaft.hpp"
 
 class KVTestFramework {
 public:
@@ -23,7 +26,7 @@ public:
         int nMaybe;
     };
     Porcupine porcupine;
-    KVTestFramework(std::string a, std::string r, NetworkConfig& c);
+    KVTestFramework(std::string a, std::string t, NetworkConfig& c);
     std::vector<ClientResult> spawnClientsAndWait(
         int nClients,
         std::chrono::seconds timeout,
@@ -44,7 +47,7 @@ public:
         zdb::Key key,
         uint64_t version
     );
-    std::expected<void, zdb::Error> setJson(int clientId, zdb::KVStoreClient& client, zdb::Key key, zdb::Value value);
+    std::expected<std::monostate, zdb::Error> setJson(int clientId, zdb::KVStoreClient& client, zdb::Key key, zdb::Value value);
     zdb::Value getJson(int clientId, zdb::KVStoreClient& client, zdb::Key key);
     bool checkSetConcurrent(
         zdb::KVStoreClient& client,
@@ -58,6 +61,8 @@ private:
     NetworkConfig& networkConfig;
     ProxyKVStoreService service;
     zdb::InMemoryKVStore mem;
+    raft::Channel channel;
+    TestRaft raft;
     zdb::KVStoreServiceImpl targetService;
     std::unique_ptr<grpc::Server> targetServer;
     std::unique_ptr<grpc::Server> server;

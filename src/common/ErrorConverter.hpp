@@ -32,7 +32,7 @@ std::expected<T, Error> toExpected(const grpc::Status& status, T v) {
 }
 
 template<typename T>
-std::expected<void, Error> toExpected(const grpc::Status& status) {
+std::expected<std::monostate, Error> toExpected(const grpc::Status& status) {
     if (status.ok()) {
         return {};
     }
@@ -41,7 +41,7 @@ std::expected<void, Error> toExpected(const grpc::Status& status) {
 
 ErrorCode errorCode(const zdb::Error& err);
 ErrorCode errorCode(const std::expected<zdb::Value, zdb::Error>& result);
-ErrorCode errorCode(const std::expected<void, zdb::Error>& result);
+ErrorCode errorCode(const std::expected<std::monostate, zdb::Error>& result);
 
 } // namespace zdb
 

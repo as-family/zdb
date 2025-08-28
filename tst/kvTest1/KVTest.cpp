@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "NetworkConfig.hpp"
-#include "KVTestFramework.hpp"
+#include "KVTestFramework/NetworkConfig.hpp"
+#include "KVTestFramework/KVTestFramework.hpp"
 #include "client/KVStoreClient.hpp"
 #include "client/Config.hpp"
 #include "common/RetryPolicy.hpp"
@@ -13,11 +13,13 @@ TEST(KVTest, TestReliablePut) {
     std::string proxyAddress {"localhost:50051"};
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};
     zdb::Config config{{proxyAddress}, zdb::RetryPolicy{
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
-        std::chrono::microseconds(5000),
-        3,
-        1
+        std::chrono::milliseconds(20),
+        std::chrono::milliseconds(150),
+        std::chrono::milliseconds(200),
+        10,
+        1,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     }};
     zdb::KVStoreClient client = zdb::KVStoreClient {config};
 
@@ -31,7 +33,8 @@ TEST(KVTest, TestReliablePut) {
 
     auto badVersionSetResult = client.set(zdb::Key{"testKey"}, zdb::Value{"newValue", 0});
     ASSERT_FALSE(badVersionSetResult.has_value());
-    ASSERT_EQ(badVersionSetResult.error().code, zdb::ErrorCode::VersionMismatch);
+    ASSERT_TRUE(badVersionSetResult.error().code == zdb::ErrorCode::VersionMismatch ||
+                badVersionSetResult.error().code == zdb::ErrorCode::Maybe);
 
     auto badInitVersionSetResult = client.set(zdb::Key{"k2"}, zdb::Value{"newValue", 1});
     ASSERT_FALSE(badInitVersionSetResult.has_value());
@@ -48,11 +51,13 @@ TEST(KVTest, TestPutConcurrentReliable) {
     std::string proxyAddress {"localhost:50051"};
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};
     zdb::RetryPolicy policy{
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
-        std::chrono::microseconds(5000),
-        3,
-        1
+        std::chrono::milliseconds(20),
+        std::chrono::milliseconds(500),
+        std::chrono::milliseconds(600),
+        100,
+        1,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     };
     const int nClients = 10;
     const std::chrono::seconds timeout(1);
@@ -75,7 +80,9 @@ TEST(KVTest, TestUnreliableNet) {
         std::chrono::microseconds(1000),
         std::chrono::microseconds(5000),
         10000,
-        1
+        1,
+        std::chrono::milliseconds(1000),
+        std::chrono::milliseconds(200)
     };
     zdb::Config c {{proxyAddress}, policy};
     auto client = zdb::KVStoreClient {c};

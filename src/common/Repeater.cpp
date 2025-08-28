@@ -42,4 +42,8 @@ std::vector<grpc::Status> Repeater::attempt(const std::string& op, const std::fu
     }
 }
 
+void Repeater::reset() {
+    backoff.reset();
+}
+
 } // namespace zdb

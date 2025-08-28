@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 #include "client/Config.hpp"
-#include "client/KVRPCService.hpp"
 #include "common/RetryPolicy.hpp"
 #include "server/KVStoreServer.hpp"
 #include "server/InMemoryKVStore.hpp"
@@ -13,9 +12,9 @@
 #include <type_traits>
 #include <atomic>
 #include "common/Error.hpp"
+#include "raft/TestRaft.hpp"
 
 using zdb::Config;
-using zdb::KVRPCService;
 using zdb::RetryPolicy;
 using zdb::InMemoryKVStore;
 using zdb::KVStoreServiceImpl;
@@ -24,7 +23,7 @@ using zdb::ErrorCode;
 
 class ConfigTest : public ::testing::Test {
 protected:
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 3};
+    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 3, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     
     // Test server setup for positive tests
     const std::string validServerAddr = "localhost:50053";
@@ -32,7 +31,9 @@ protected:
     const std::string invalidServerAddr = "localhost:99999";
     
     InMemoryKVStore kvStore;
-    KVStoreServiceImpl serviceImpl{kvStore};
+    raft::Channel channel{};
+    TestRaft raft{channel};
+    KVStoreServiceImpl serviceImpl{kvStore, &raft, &channel};
     std::unique_ptr<KVStoreServer> server1;
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread1;
@@ -134,7 +135,7 @@ TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
     
     auto result = config.currentService();
     ASSERT_TRUE(result.has_value());
-    KVRPCService* service = result.value();
+    zdb::KVRPCServicePtr service = result.value();
     EXPECT_TRUE(service->connected());
     EXPECT_TRUE(service->available());
 }
@@ -146,11 +147,11 @@ TEST_F(ConfigTest, NextServiceWhenCurrentServiceAvailable) {
     
     auto currentResult = config.currentService();
     ASSERT_TRUE(currentResult.has_value());
-    const KVRPCService* currentSvc = currentResult.value();
+    const zdb::KVRPCServicePtr currentSvc = currentResult.value();
     
     auto nextResult = config.nextService();
     ASSERT_TRUE(nextResult.has_value());
-    const KVRPCService* nextSvc = nextResult.value();
+    const zdb::KVRPCServicePtr nextSvc = nextResult.value();
     
     // Should return the same service if it's still available
     EXPECT_EQ(currentSvc, nextSvc);
@@ -163,11 +164,11 @@ TEST_F(ConfigTest, NextServiceSwitchesToAnotherService) {
     
     auto result1 = config.currentService();
     ASSERT_TRUE(result1.has_value());
-    const KVRPCService* service1 = result1.value();
+    const zdb::KVRPCServicePtr service1 = result1.value();
     
     auto result2 = config.nextService();
     ASSERT_TRUE(result2.has_value());
-    const KVRPCService* service2 = result2.value();
+    const zdb::KVRPCServicePtr service2 = result2.value();
     
     // Both should be valid services
     EXPECT_TRUE(service1->connected());
@@ -259,19 +260,19 @@ TEST_F(ConfigTest, ConstructorWithDifferentRetryPolicies) {
     const std::vector<std::string> addresses{validServerAddr};
     
     // Test with very short delays
-    const RetryPolicy shortPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(100), 1, 1};
+    const RetryPolicy shortPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     ASSERT_NO_THROW({
         const Config config(addresses, shortPolicy);
     });
     
     // Test with very long delays
-    const RetryPolicy longPolicy{std::chrono::microseconds(1000), std::chrono::microseconds(10000), std::chrono::microseconds(100000), 5, 1};
+    const RetryPolicy longPolicy{std::chrono::microseconds(1000), std::chrono::microseconds(10000), std::chrono::microseconds(100000), 5, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     ASSERT_NO_THROW({
         const Config config(addresses, longPolicy);
     });
     
     // Test with zero threshold
-    const RetryPolicy zeroThresholdPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 0, 1};
+    const RetryPolicy zeroThresholdPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 0, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     ASSERT_NO_THROW({
         const Config config(addresses, zeroThresholdPolicy);
     });
@@ -287,12 +288,12 @@ TEST_F(ConfigTest, ServicesMapIsProperlyPopulated) {
     // that we can get services and they work as expected
     auto result1 = config.currentService();
     ASSERT_TRUE(result1.has_value());
-    const KVRPCService* service1 = result1.value();
+    const zdb::KVRPCServicePtr service1 = result1.value();
     EXPECT_TRUE(service1->connected());
     
     auto result2 = config.nextService();
     ASSERT_TRUE(result2.has_value());
-    const KVRPCService* service2 = result2.value();
+    const zdb::KVRPCServicePtr service2 = result2.value();
     EXPECT_TRUE(service2->connected());
 }
 
@@ -305,7 +306,7 @@ TEST_F(ConfigTest, RapidSuccessiveCallsToNextService) {
     for (int i = 0; i < 10; ++i) {
         auto result = config.nextService();
         ASSERT_TRUE(result.has_value());
-        const KVRPCService* service = result.value();
+        const zdb::KVRPCServicePtr service = result.value();
         EXPECT_TRUE(service->connected());
     }
 }
@@ -373,7 +374,7 @@ TEST_F(ConfigTest, BasicThreadSafetyTest) {
 // Test currentService behavior when circuit breaker is open
 TEST_F(ConfigTest, CurrentServiceFailsWhenCircuitBreakerOpen) {
     // Use a policy with very low failure threshold to quickly open circuit breaker
-    const RetryPolicy lowThresholdPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(200), 1, 1};
+    const RetryPolicy lowThresholdPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(200), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, lowThresholdPolicy);
     
@@ -399,7 +400,7 @@ TEST_F(ConfigTest, CurrentServiceFailsWhenCircuitBreakerOpen) {
 // Test nextService behavior with circuit breaker recovery
 TEST_F(ConfigTest, NextServiceWithCircuitBreakerRecovery) {
     // Use a policy with short reset timeout for circuit breaker
-    const RetryPolicy shortResetPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(100), 1, 1};
+    const RetryPolicy shortResetPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, shortResetPolicy);
     
@@ -440,7 +441,7 @@ TEST_F(ConfigTest, NextActiveServiceIteratorPrioritizesCurrentService) {
     for (int i = 0; i < 5; ++i) {
         auto nextResult = config.nextService();
         ASSERT_TRUE(nextResult.has_value());
-        const KVRPCService* nextService = nextResult.value();
+        const zdb::KVRPCServicePtr nextService = nextResult.value();
         
         // Should get a valid, connected, and available service
         EXPECT_TRUE(nextService->connected());
@@ -476,14 +477,14 @@ TEST_F(ConfigTest, CurrentServiceTriggersReconnectionThroughAvailable) {
 // Test differentiation between connected and available states
 TEST_F(ConfigTest, ConnectedVsAvailableStates) {
     // Use a policy that quickly opens circuit breaker
-    const RetryPolicy quickFailPolicy{std::chrono::microseconds(5), std::chrono::microseconds(25), std::chrono::microseconds(100), 1, 1};
+    const RetryPolicy quickFailPolicy{std::chrono::microseconds(5), std::chrono::microseconds(25), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, quickFailPolicy);
     
     // Initially should have both connected and available service
     auto result = config.currentService();
     ASSERT_TRUE(result.has_value());
-    KVRPCService* service = result.value(); // Not const since available() is not const
+    zdb::KVRPCServicePtr service = result.value(); // Not const since available() is not const
     EXPECT_TRUE(service->connected());
     EXPECT_TRUE(service->available());
     
@@ -533,7 +534,7 @@ TEST_F(ConfigTest, NextServiceWithMixedServiceStates) {
 // Test that error messages are appropriate for circuit breaker scenarios
 TEST_F(ConfigTest, CircuitBreakerErrorMessages) {
     // Use a policy that opens circuit breaker quickly
-    const RetryPolicy fastFailPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(50), 1, 1};
+    const RetryPolicy fastFailPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(50), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, fastFailPolicy);
     
@@ -555,7 +556,7 @@ TEST_F(ConfigTest, CircuitBreakerErrorMessages) {
 // Test circuit breaker reset behavior in nextService
 TEST_F(ConfigTest, CircuitBreakerResetInNextService) {
     // Use a policy with very short reset timeout
-    const RetryPolicy shortResetPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(50), 1, 1};
+    const RetryPolicy shortResetPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(50), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, shortResetPolicy);
     
