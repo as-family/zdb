@@ -5,6 +5,7 @@
 #include "common/Error.hpp"
 #include <expected>
 #include <optional>
+#include <variant>
 
 namespace zdb {
 
@@ -15,6 +16,7 @@ public:
     virtual std::expected<std::optional<Value>, Error> get(const Key& key) const = 0;
     virtual std::expected<std::monostate, Error> set(const Key& key, const Value& value) = 0;
     virtual std::expected<std::optional<Value>, Error> erase(const Key& key) = 0;
+    virtual size_t size() const = 0;
 };
 
 } // namespace zdb

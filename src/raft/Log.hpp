@@ -14,27 +14,26 @@ namespace raft {
 struct LogEntry {
     uint64_t index;
     uint64_t term;
-    Command* command;
+    std::string command;
     ~LogEntry();
     bool operator==(const LogEntry& other) const;
 };
 
 class Log {
 public:
-    Log(Command* (* c)(const std::string&));
-    Log(Command* (* c)(const std::string&), std::vector<LogEntry>& es);
+    Log();
+    Log(std::vector<LogEntry> es);
     uint64_t lastIndex() const;
     uint64_t lastTerm() const;
     uint64_t firstIndex() const;
     uint64_t firstTerm() const;
     LogEntry* append(const proto::LogEntry& entry);
-    void append(const LogEntry& entry);
+    void append(const LogEntry entry);
     void merge(const Log& other);
     std::optional<LogEntry> at(uint64_t index);
     Log suffix(uint64_t start) const;
     std::vector<LogEntry> entries;
 private:
-    Command* (*commandFactory)(const std::string&);
     mutable std::mutex m{}; 
 };
 

@@ -3,8 +3,8 @@
 #include "common/RetryPolicy.hpp"
 #include "common/Error.hpp"
 #include "common/Types.hpp"
-#include "server/KVStoreServer.hpp"
-#include "server/InMemoryKVStore.hpp"
+#include "server/KVStoreServiceImpl.hpp"
+#include "storage/InMemoryKVStore.hpp"
 #include <thread>
 #include <chrono>
 #include <string>
@@ -13,6 +13,9 @@
 #include "client/Config.hpp"
 #include <stdexcept>
 #include "raft/TestRaft.hpp"
+#include "raft/Channel.hpp"
+#include "raft/SyncChannel.hpp"
+#include "common/KVStateMachine.hpp"
 
 using zdb::Config;
 using zdb::InMemoryKVStore;
@@ -30,9 +33,11 @@ const std::string SERVER_ADDR = "localhost:50052";
 class KVStoreClientTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    raft::Channel channel{};
-    TestRaft raft{channel};
-    KVStoreServiceImpl serviceImpl{kvStore, &raft, &channel};
+    raft::Channel* leader = new raft::SyncChannel();
+    raft::Channel* follower = new raft::SyncChannel();
+    TestRaft raft{*leader};
+    zdb::KVStateMachine kvState{&kvStore, leader, follower, &raft};
+    KVStoreServiceImpl serviceImpl{&kvState};
     std::unique_ptr<KVStoreServer> server;
     std::thread serverThread;
     const RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
@@ -238,9 +243,11 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     // Set up additional server
     const std::string serverAddress2 = "localhost:50053";
     InMemoryKVStore kvStore2;
-    raft::Channel channel2{};
+    auto channel2 = raft::SyncChannel{};
+    auto channel22 = raft::SyncChannel{};
     TestRaft raft2{channel2};
-    KVStoreServiceImpl serviceImpl2{kvStore2, &raft2, &channel2};
+    auto kvState2 = zdb::KVStateMachine{&kvStore2, &channel2, &channel22, &raft2};
+    KVStoreServiceImpl serviceImpl2{&kvState2};
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread2;
     
@@ -438,9 +445,12 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     const std::string serverAddress3 = "localhost:50055";
     
     InMemoryKVStore kvStore2, kvStore3;
-    raft::Channel channel2{}, channel3{};
+    raft::SyncChannel channel2, channel3;
+    raft::SyncChannel channel22, channel33;
     TestRaft raft2{channel2}, raft3{channel3};
-    KVStoreServiceImpl serviceImpl2{kvStore2, &raft2, &channel2}, serviceImpl3{kvStore3, &raft3, &channel3};
+    zdb::KVStateMachine kvState2{&kvStore2, &channel2, &channel22, &raft2};
+    zdb::KVStateMachine kvState3{&kvStore3, &channel3, &channel33, &raft3};
+    KVStoreServiceImpl serviceImpl2{&kvState2}, serviceImpl3{&kvState3};
     std::unique_ptr<KVStoreServer> server2, server3;
     std::thread serverThread2, serverThread3;
     

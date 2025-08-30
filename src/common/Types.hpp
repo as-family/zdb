@@ -47,12 +47,15 @@ struct State : public raft::State {
     Key key;
     std::variant<
         std::expected<std::optional<Value>, Error>,
-        std::expected<std::monostate, Error>
+        std::expected<std::monostate, Error>,
+        std::expected<size_t, Error>
     > u;
     State(const Key& k, const std::expected<std::optional<Value>, Error>& v)
         : key(k), u{v} {}
     State(const Key& k, const std::expected<std::monostate, Error>& v)
         : key(k), u{v} {}
+    explicit State(const std::expected<size_t, Error>& v)
+        : key(Key{"<dummy_key>"}), u{v} {}
 };
 
 } // namespace zdb

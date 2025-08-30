@@ -7,6 +7,8 @@
 #include "common/Error.hpp"
 #include "common/RPCService.hpp"
 #include <proto/kvStore.grpc.pb.h>
+#include <vector>
+#include "common/RetryPolicy.hpp"
 
 namespace zdb {
 
@@ -22,11 +24,14 @@ public:
     Config& operator=(const Config&) = delete;
     [[nodiscard]] std::expected<KVRPCServicePtr, Error> currentService();
     std::expected<KVRPCServicePtr, Error> nextService();
+    std::expected<KVRPCServicePtr, Error> forceNextService();
+    void resetUsed();
     const RetryPolicy policy;
 private:
     iterator nextActiveServiceIterator();
     map services;
     iterator cService;
+    std::unordered_map<std::string, bool> used;
 };
 } // namespace zdb
 

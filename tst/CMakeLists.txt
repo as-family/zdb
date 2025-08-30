@@ -27,18 +27,19 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/common/Repeater.cpp
     ${CMAKE_SOURCE_DIR}/src/common/CircuitBreaker.cpp
     ${CMAKE_SOURCE_DIR}/src/client/KVStoreClient.cpp
-    ${CMAKE_SOURCE_DIR}/src/server/InMemoryKVStore.cpp
-    ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp
+    ${CMAKE_SOURCE_DIR}/src/storage/InMemoryKVStore.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/KVStoreServiceImpl.cpp
     ${CMAKE_SOURCE_DIR}/src/client/Config.cpp
     ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
     ${CMAKE_SOURCE_DIR}/src/lock/Lock.cpp
-    ${CMAKE_SOURCE_DIR}/src/raft/RaftImpl.cpp
-    ${CMAKE_SOURCE_DIR}/src/raft/Channel.cpp
     ${CMAKE_SOURCE_DIR}/src/raft/RaftServiceImpl.cpp
     ${CMAKE_SOURCE_DIR}/src/raft/Log.cpp
     ${CMAKE_SOURCE_DIR}/src/raft/Types.cpp
     ${CMAKE_SOURCE_DIR}/src/raft/AsyncTimer.cpp
     ${CMAKE_SOURCE_DIR}/src/common/Util.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/Command.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/KVStateMachine.cpp
+    ${CMAKE_SOURCE_DIR}/src/raft/SyncChannel.cpp
     ${CMAKE_SOURCE_DIR}/tst/server/InMemoryKVStoreTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/ExponentialBackoffTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/RetryPolicyTest.cpp

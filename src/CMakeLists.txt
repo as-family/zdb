@@ -12,7 +12,6 @@ target_compile_options(zdb PUBLIC
   -Wextra
   -Wpedantic
   -g
-  -O0
   -Og
 
   -Wconversion
@@ -31,8 +30,8 @@ target_compile_options(zdb PUBLIC
 
 target_sources(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src/zdb/main.cpp
-  ${CMAKE_SOURCE_DIR}/src/server/InMemoryKVStore.cpp
-  ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp
+  ${CMAKE_SOURCE_DIR}/src/storage/InMemoryKVStore.cpp
+  ${CMAKE_SOURCE_DIR}/src/server/KVStoreServiceImpl.cpp
   ${CMAKE_SOURCE_DIR}/src/client/KVStoreClient.cpp
   ${CMAKE_SOURCE_DIR}/src/common/CircuitBreaker.cpp
   ${CMAKE_SOURCE_DIR}/src/common/Error.cpp
@@ -44,13 +43,14 @@ target_sources(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src/client/Config.cpp
   ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
   ${CMAKE_SOURCE_DIR}/src/lock/Lock.cpp
-  ${CMAKE_SOURCE_DIR}/src/raft/RaftImpl.cpp
-  ${CMAKE_SOURCE_DIR}/src/raft/Channel.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/RaftServiceImpl.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/Log.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/Types.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/AsyncTimer.cpp
   ${CMAKE_SOURCE_DIR}/src/common/Util.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/Command.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/KVStateMachine.cpp
+  ${CMAKE_SOURCE_DIR}/src/raft/SyncChannel.cpp
 )
 
 target_link_libraries(zdb PRIVATE

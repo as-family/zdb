@@ -10,14 +10,9 @@ namespace raft {
 
 class Channel {
 public:
-    Channel();
-    ~Channel();
-    void send(Command* cmd);
-    Command* receive();
-private:
-    std::mutex m;
-    std::condition_variable cv;
-    std::queue<Command*> queue;
+    virtual ~Channel() = default;
+    virtual void send(std::string) = 0;
+    virtual std::string receive() = 0;
 };
 
 } // namespace raft

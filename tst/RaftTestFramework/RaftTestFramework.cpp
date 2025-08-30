@@ -17,23 +17,6 @@
 #include "proto/raft.grpc.pb.h"
 #include "common/Util.hpp"
 
-raft::Command* commandFactory(const std::string& s) {
-    auto cmd = zdb::proto::Command {};
-    google::protobuf::Any any;
-    if (any.ParseFromString(s)) {
-        if (any.UnpackTo(&cmd)) {
-            if (cmd.op() == "get") {
-                return new zdb::Get {cmd};
-            } else if (cmd.op() == "put") {
-                return new zdb::Set {cmd};
-            } else {
-                return nullptr;
-            }
-        }
-    }
-    throw std::runtime_error{"could not deserialize command "};
-}
-
 RAFTTestFramework::RAFTTestFramework(
         std::vector<EndPoints>& c,
         zdb::RetryPolicy p
@@ -49,10 +32,11 @@ RAFTTestFramework::RAFTTestFramework(
     for (auto& e : config) {
         threads.emplace_back([this, &e, ps] {
             std::unique_lock l1{m1};
-            channels.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
+            leaders.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
+            followers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
             l1.unlock();
             std::unique_lock l2{m2};
-            rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, channels.at(e.raftTarget), policy, &commandFactory, [this, &e] (const std::string addr, zdb::RetryPolicy) -> Client* {
+            rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, *leaders.at(e.raftTarget), *followers.at(e.raftTarget), policy, [this, &e] (const std::string addr, zdb::RetryPolicy) -> Client* {
                 auto t = new Client{addr, e.raftNetworkConfig};
                 clients[e.raftTarget].push_back(t);
                 return t;
@@ -73,7 +57,9 @@ RAFTTestFramework::RAFTTestFramework(
             std::unique_lock l7{m7};
             raftProxyServers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftProxy, raftProxies.at(e.raftTarget)));
             l7.unlock();
-            // kvTests.emplace(std::piecewise_construct, std::forward_as_tuple(e.kvTarget), std::forward_as_tuple(e.kvProxy, e.kvTarget, e.kvNetworkConfig, &rafts.at(e.raftTarget), &channels.at(e.raftTarget)));
+            std::unique_lock l8{m8};
+            kvTests[e.kvTarget] = new KVTestFramework(e.kvProxy, e.kvTarget, e.kvNetworkConfig, leaders.at(e.raftTarget), followers.at(e.raftTarget), &rafts.at(e.raftTarget));
+            l8.unlock();
         });
     }
     for (auto& t : threads) {
@@ -135,6 +121,10 @@ std::unordered_map<std::string, raft::RaftImpl<RAFTTestFramework::Client>>& RAFT
     return rafts;
 }
 
+std::unordered_map<std::string, KVTestFramework*>& RAFTTestFramework::getKVFrameworks() {
+    return kvTests;
+}
+
 std::vector<uint64_t> RAFTTestFramework::terms() {
     std::vector<uint64_t> ts(rafts.size());
     std::transform(
@@ -185,5 +175,29 @@ void RAFTTestFramework::connect(std::string id) {
     }
 }
 
+std::pair<int, std::string> RAFTTestFramework::nCommitted(uint64_t index) {
+    int count = 0;
+    std::string c = "";
+    for (auto& [id, raft] : rafts) {
+        if (raft.log().lastIndex() >= index) {
+            auto entry = raft.log().at(index);
+            if (entry.has_value()) {
+                count++;
+                if (c == "") {
+                    c = entry.value().command;
+                } else {
+                    if (c != entry.value().command) {
+                        throw std::runtime_error{"Different commands committed at index " + std::to_string(index)};
+                    }
+                }
+            }
+        }
+    }
+    return {count, c};
+}
+
 RAFTTestFramework::~RAFTTestFramework() {
+    for (auto& [id, kvTest] : kvTests) {
+        delete kvTest;
+    }
 }

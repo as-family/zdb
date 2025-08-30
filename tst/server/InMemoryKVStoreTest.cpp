@@ -3,8 +3,8 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include "server/InMemoryKVStore.hpp"
 #include "common/Types.hpp"
+#include "storage/InMemoryKVStore.hpp"
 
 using zdb::InMemoryKVStore;
 using zdb::Key;

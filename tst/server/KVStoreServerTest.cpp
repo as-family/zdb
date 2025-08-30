@@ -1,8 +1,8 @@
 
 #include <gtest/gtest.h>
 #include <grpcpp/grpcpp.h>
-#include "server/KVStoreServer.hpp"
-#include "server/InMemoryKVStore.hpp"
+#include "server/KVStoreServiceImpl.hpp"
+#include "storage/InMemoryKVStore.hpp"
 #include "proto/kvStore.grpc.pb.h"
 #include <thread>
 #include <chrono>
@@ -13,6 +13,8 @@
 #include <grpcpp/security/credentials.h>
 #include "common/Types.hpp"
 #include "raft/TestRaft.hpp"
+#include "raft/SyncChannel.hpp"
+#include "common/KVStateMachine.hpp"
 
 using zdb::Key;
 using zdb::Value;
@@ -33,9 +35,11 @@ const std::string SERVER_ADDR = "localhost:50051";
 class KVStoreServerTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    raft::Channel channel{};
-    TestRaft raft{channel};
-    KVStoreServiceImpl serviceImpl {kvStore, &raft, &channel};
+    raft::SyncChannel leader{};
+    raft::SyncChannel follower{};
+    TestRaft raft{leader};
+    zdb::KVStateMachine kvState{&kvStore, &leader, &follower, &raft};
+    KVStoreServiceImpl serviceImpl{&kvState};
     std::unique_ptr<KVStoreServer> server;
     std::thread serverThread;
 

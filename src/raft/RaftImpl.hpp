@@ -23,14 +23,13 @@ namespace raft {
 template <typename Client>
 class RaftImpl : public Raft {
 public:
-    RaftImpl(std::vector<std::string> p, std::string s, Channel& c, zdb::RetryPolicy r, Command* (*f)(const std::string&), std::function<Client*(std::string, zdb::RetryPolicy)> g);
+    RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Channel& f, zdb::RetryPolicy r, std::function<Client*(std::string, zdb::RetryPolicy)> g);
     void appendEntries() override;
     void requestVote() override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
     RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) override;
-    bool start(Command* command) override;
+    bool start(std::string command) override;
     void kill() override;
-    Log* makeLog() override;
     Log& log() override;
     ~RaftImpl();
 private:
@@ -40,10 +39,10 @@ private:
     std::mutex appendEntriesMutex{};
     std::atomic<std::chrono::steady_clock::rep> time {};
     Channel& serviceChannel;
+    Channel& followerChannel;
     zdb::RetryPolicy policy;
     zdb::FullJitter fullJitter;
     std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
-    Command* (*commandFactory)(const std::string&);
     Log mainLog;
     std::atomic<bool> killed;
     std::unordered_map<std::string, Client*> peers;
@@ -52,13 +51,13 @@ private:
 };
 
 template <typename Client>
-RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c, zdb::RetryPolicy r, Command* (*f)(const std::string&), std::function<Client*(std::string, zdb::RetryPolicy)> g)
+RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Channel& f, zdb::RetryPolicy r, std::function<Client*(std::string, zdb::RetryPolicy)> g)
     : serviceChannel {c},
+      followerChannel {f},
       policy {r},
       fullJitter {},
       lastHeartbeat {std::chrono::steady_clock::now()},
-      commandFactory {f},
-      mainLog {f},
+      mainLog {},
       electionTimer {},
       heartbeatTimer {} {
     selfId = s;
@@ -165,9 +164,10 @@ void RaftImpl<Client>::appendEntries(){
     }
     std::vector<std::thread> threads;
     std::mutex threadsMutex{};
+    int successCount = 1;
     for (auto& [peerId, _] : peers) {
         threads.emplace_back(
-            [this, peerId, &threadsMutex] {
+            [this, peerId, &threadsMutex, &successCount] {
                 auto& peer = peers.at(peerId);
                 auto n = nextIndex.at(peerId);
                 auto v = mainLog.at(n);
@@ -181,7 +181,7 @@ void RaftImpl<Client>::appendEntries(){
                     arg.set_prevlogterm(0);
                 } else {
                     arg.set_prevlogindex(prevLogIndex);
-                    auto t = g.at(prevLogIndex - 1);
+                    auto t = mainLog.at(prevLogIndex - 1);
                     if (!t.has_value()) {
                         throw std::runtime_error {"cannot set prevLogTerm"};
                     }
@@ -192,7 +192,7 @@ void RaftImpl<Client>::appendEntries(){
                     auto e = arg.add_entries();
                     e->set_index(eg.index);
                     e->set_term(eg.term);
-                    e->set_command(eg.command->serialize());
+                    e->set_command(eg.command);
                 }
                 proto::AppendEntriesReply reply;
                 auto status = peer->call(
@@ -209,6 +209,17 @@ void RaftImpl<Client>::appendEntries(){
                     if (reply.success()) {
                         nextIndex[peerId] = g.lastIndex() + 1;
                         matchIndex[peerId] = g.lastIndex();
+                        ++successCount;
+                        if (successCount > clusterSize / 2 && commitIndex < g.lastIndex()) {
+                            auto i = commitIndex + 1;
+                            commitIndex = g.lastIndex();
+                            for (; i <= commitIndex; ++i) {
+                                auto c = mainLog.at(i);
+                                if (c.has_value()) {
+                                    serviceChannel.send(c.value().command);
+                                }
+                            }
+                        }
                     } else {
                         if (reply.term() > currentTerm) {
                             currentTerm = reply.term();
@@ -301,17 +312,18 @@ void RaftImpl<Client>::requestVote(){
 }
 
 template <typename Client>
-bool RaftImpl<Client>::start(Command* command) {
+bool RaftImpl<Client>::start(std::string command) {
     std::unique_lock startLock{m};
     if (role != Role::Leader) {
         return false;
     }
     LogEntry e {
-        nextIndex[selfId]++,
+        mainLog.lastIndex() + 1,
         currentTerm,
         command
     };
     mainLog.append(e);
+    appendEntries();
     return true;
 }
 
@@ -320,11 +332,6 @@ void RaftImpl<Client>::kill(){
     std::unique_lock killLock {m};
     killed = true;
     cv.notify_all();
-}
-
-template <typename Client>
-Log* RaftImpl<Client>::makeLog() {
-    return new Log(commandFactory);
 }
 
 template <typename Client>

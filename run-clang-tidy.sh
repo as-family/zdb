@@ -498,7 +498,7 @@ EOF
                 <div class="meta-label">Analysis Duration</div>
                 <div class="meta-value">
 EOF
-           echo "$((end_time - start_time)) seconds" >> "$html_file"
+    echo "$((end_time - start_time)) seconds" >> "$html_file"
            cat >> "$html_file" << EOF
 </div>
             </div>

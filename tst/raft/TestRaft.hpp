@@ -8,7 +8,7 @@
 
 struct TestRaft : raft::Raft {
     TestRaft(raft::Channel& c) : channel {c} {}
-    bool start(raft::Command* cmd) override {
+    bool start(std::string cmd) override {
         channel.send(cmd);
         return true;
     }
@@ -23,8 +23,6 @@ struct TestRaft : raft::Raft {
     void requestVote() override {
     }
     raft::Log& log() override {
-    }
-    raft::Log* makeLog() override {
     }
     void kill() override {
     }

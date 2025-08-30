@@ -81,9 +81,6 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
                 return {};
             }
             if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(policy.channelTimeout))) {
-                 if (!stub) {
-                    stub = Service::NewStub(channel);
-                }
                 if (!stub) {
                     stub = Service::NewStub(channel);
                 }

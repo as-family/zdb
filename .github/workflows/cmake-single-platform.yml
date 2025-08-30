@@ -41,14 +41,13 @@ jobs:
         # Install LLVM 18
         wget -q https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
-        sudo ./llvm.sh 18
+        sudo ./llvm.sh 18 all
     
         # Install other dependencies
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends \
           cppcheck \
-          clang-tools-18 \
-          libc++-18-dev
+          jq
 
     - name: Setup vcpkg
       run: |

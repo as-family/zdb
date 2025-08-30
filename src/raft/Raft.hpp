@@ -25,9 +25,8 @@ public:
     virtual RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) = 0;
     virtual void appendEntries() = 0;
     virtual void requestVote() = 0;
-    virtual bool start(Command* command) = 0;
+    virtual bool start(std::string command) = 0;
     virtual Log& log() = 0;
-    virtual Log* makeLog() = 0;
     virtual void kill() = 0;
     virtual Role getRole() const { return role; }
     virtual std::string getSelfId() const { return selfId; }

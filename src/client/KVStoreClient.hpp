@@ -36,15 +36,19 @@ private:
         grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
         Rep& reply) const {
+        auto serviceResult = config.currentService();
         for (int i = 0; i < config.policy.servicesToTry; ++i) {
-            auto serviceResult = config.nextService();
             if (serviceResult.has_value()) {
                 auto callResult = serviceResult.value()->call(op, f, request, reply);
                 if (callResult.has_value()) {
                     return {};
                 } else {
-                    if (!isRetriable(op, callResult.error().back().code)) {
+                    if (callResult.error().back().code == ErrorCode::NotLeader) {
+                        serviceResult = config.forceNextService();
+                    } else if (!isRetriable(op, callResult.error().back().code)) {
                         return callResult;
+                    } else {
+                        serviceResult = config.nextService();
                     }
                 }
             }

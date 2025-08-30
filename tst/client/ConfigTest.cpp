@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include "client/Config.hpp"
 #include "common/RetryPolicy.hpp"
-#include "server/KVStoreServer.hpp"
-#include "server/InMemoryKVStore.hpp"
+#include "server/KVStoreServiceImpl.hpp"
+#include "storage/InMemoryKVStore.hpp"
 #include <thread>
 #include <chrono>
 #include <string>
@@ -13,6 +13,8 @@
 #include <atomic>
 #include "common/Error.hpp"
 #include "raft/TestRaft.hpp"
+#include "raft/SyncChannel.hpp"
+#include "common/KVStateMachine.hpp"
 
 using zdb::Config;
 using zdb::RetryPolicy;
@@ -31,9 +33,11 @@ protected:
     const std::string invalidServerAddr = "localhost:99999";
     
     InMemoryKVStore kvStore;
-    raft::Channel channel{};
-    TestRaft raft{channel};
-    KVStoreServiceImpl serviceImpl{kvStore, &raft, &channel};
+    raft::Channel* leader = new raft::SyncChannel();
+    raft::Channel* follower = new raft::SyncChannel();
+    TestRaft raft{*leader};
+    zdb::KVStateMachine kvState{&kvStore, leader, follower, &raft};
+    KVStoreServiceImpl serviceImpl{&kvState};
     std::unique_ptr<KVStoreServer> server1;
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread1;
@@ -65,6 +69,8 @@ protected:
         if (serverThread2.joinable()) {
             serverThread2.join();
         }
+        delete leader;
+        delete follower;
     }
 };
 

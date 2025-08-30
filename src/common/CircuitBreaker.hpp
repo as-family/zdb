@@ -7,6 +7,7 @@
 #include <grpcpp/support/status.h>
 #include <vector>
 #include <string>
+#include <chrono>
 
 namespace zdb {
 
@@ -21,7 +22,7 @@ public:
     std::vector<grpc::Status> call(const std::string& op, const std::function<grpc::Status()>& rpc);
     [[nodiscard]] bool open();
 private:
-    State state{State::Closed};
+    State state;
     RetryPolicy policy;
     Repeater repeater;
     std::chrono::steady_clock::time_point lastFailureTime;

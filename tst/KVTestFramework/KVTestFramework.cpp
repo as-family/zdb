@@ -1,7 +1,7 @@
 #include "KVTestFramework.hpp"
 #include <string>
 #include <grpcpp/grpcpp.h>
-#include "server/InMemoryKVStore.hpp"
+#include "storage/InMemoryKVStore.hpp"
 #include "client/Config.hpp"
 #include "client/KVStoreClient.hpp"
 #include <vector>
@@ -14,20 +14,33 @@
 #include <sstream>
 #include "raft/Raft.hpp"
 #include "raft/Channel.hpp"
+#include "raft/SyncChannel.hpp"
 
-KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c)
+KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c, raft::Channel* l, raft::Channel* f, raft::Raft* r)
     : addr {a},
       targetServerAddr {t},
       networkConfig(c),
       service {ProxyKVStoreService {targetServerAddr, networkConfig}},
       mem {zdb::InMemoryKVStore {}},
-      channel{},
-      raft {channel},
-      targetService {zdb::KVStoreServiceImpl {mem, &raft, &channel}},
+      leader{l},
+      follower{f},
+      raft {r},
       rng(std::random_device{}()) {
+    if (raft != nullptr) {
+        owner = false;
+        kvState = new zdb::KVStateMachine{&mem, leader, follower, raft};
+        targetService = new zdb::KVStoreServiceImpl {kvState};
+    } else {
+        owner = true;
+        leader = new raft::SyncChannel {};
+        follower = new raft::SyncChannel {};
+        raft = new TestRaft {*leader};
+        kvState = new zdb::KVStateMachine{&mem, leader, follower, raft};
+        targetService = new zdb::KVStoreServiceImpl {kvState};
+    }
     grpc::ServerBuilder targetSB{};
     targetSB.AddListeningPort(targetServerAddr, grpc::InsecureServerCredentials());
-    targetSB.RegisterService(&targetService);
+    targetSB.RegisterService(targetService);
     targetServer = targetSB.BuildAndStart();
     targetServerThread = std::thread([this]() { targetServer->Wait(); });
 
@@ -206,4 +219,11 @@ KVTestFramework::~KVTestFramework() {
     targetServer->Shutdown();
     serverThread.join();
     targetServerThread.join();
+    if (owner) {
+        delete leader;
+        delete follower;
+        delete raft;
+    }
+    delete kvState;
+    delete targetService;
 }

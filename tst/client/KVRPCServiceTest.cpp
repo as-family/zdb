@@ -1,8 +1,8 @@
 
 #include "common/RetryPolicy.hpp"
 #include "common/Error.hpp"
-#include "server/KVStoreServer.hpp"
-#include "server/InMemoryKVStore.hpp"
+#include "server/KVStoreServiceImpl.hpp"
+#include "storage/InMemoryKVStore.hpp"
 #include <gtest/gtest.h>
 #include <grpcpp/grpcpp.h>
 #include <thread>
@@ -17,6 +17,9 @@
 #include "common/Types.hpp"
 #include "client/Config.hpp"
 #include "raft/TestRaft.hpp"
+#include "common/KVStateMachine.hpp"
+#include "raft/Channel.hpp"
+#include "raft/SyncChannel.hpp"
 
 using zdb::Value;
 using zdb::InMemoryKVStore;
@@ -35,7 +38,14 @@ using zdb::kvStore::SizeReply;
 // Helper to start a real gRPC server for integration tests
 class TestKVServer {
 public:
-    explicit TestKVServer(std::string addr) : kvStore{}, channel{}, raft{channel}, serviceImpl{kvStore, &raft, &channel}, address{std::move(addr)} {
+    explicit TestKVServer(std::string addr)
+        : kvStore{},
+          leader{new raft::SyncChannel()},
+          follower{new raft::SyncChannel()},
+          raft{*leader},
+          kvState{&kvStore, leader, follower, &raft},
+          serviceImpl{&kvState},
+          address{std::move(addr)} {
         grpc::ServerBuilder builder;
         builder.AddListeningPort(address, grpc::InsecureServerCredentials());
         builder.RegisterService(&serviceImpl);
@@ -45,11 +55,15 @@ public:
         if (server) {
             server->Shutdown();
         }
+        delete leader;
+        delete follower;
     }
 private:
     InMemoryKVStore kvStore;
-    raft::Channel channel;
+    raft::Channel* leader;
+    raft::Channel* follower;
     TestRaft raft;
+    zdb::KVStateMachine kvState;
     KVStoreServiceImpl serviceImpl;
     std::unique_ptr<grpc::Server> server;
     std::string address;
