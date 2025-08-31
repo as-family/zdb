@@ -33,6 +33,13 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
     }
 }
 
+std::expected<std::monostate, Error> toExpected(const grpc::Status& status) {
+    if (status.ok()) {
+        return {};
+    }
+    return std::unexpected {toError(status)};
+}
+
 grpc::Status toGrpcStatus(const Error& error) {
     proto::ErrorDetails details;
     details.set_code(static_cast<proto::ErrorCode>(error.code));

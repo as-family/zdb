@@ -7,12 +7,10 @@ target_include_directories(zdb PRIVATE
   ${CMAKE_BINARY_DIR}
 )
 
-target_compile_options(zdb PUBLIC
+target_compile_options(zdb PRIVATE
   -Wall
   -Wextra
   -Wpedantic
-  -g
-  -Og
 
   -Wconversion
   -Wsign-conversion
@@ -26,6 +24,12 @@ target_compile_options(zdb PUBLIC
   -Wduplicated-branches
   -Wlogical-op
   -Wnull-dereference
+)
+
+# Add debug flags only for Debug and RelWithDebInfo builds
+target_compile_options(zdb PRIVATE
+  $<$<CONFIG:Debug>:-g -Og>
+  $<$<CONFIG:RelWithDebInfo>:-g>
 )
 
 target_sources(zdb PRIVATE

@@ -24,6 +24,7 @@ void KVStateMachine::consumeChannel() {
         }
         auto command = commandFactory(s);
         command->apply(this);
+        delete command;
     }
 }
 
@@ -88,7 +89,8 @@ raft::State* KVStateMachine::handleSize() {
 }
 
 KVStateMachine::~KVStateMachine() {
-    follower->send("");
+    delete follower;
+    delete leader;
     if (t.joinable()) {
         t.join();
     }

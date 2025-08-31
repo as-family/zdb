@@ -4,7 +4,9 @@
 #include <memory>
 #include <grpcpp/grpcpp.h>
 #include "KVTestFramework/NetworkConfig.hpp"
-#include <string>
+#include <expected>
+#include <vector>
+#include "common/Error.hpp"
 #include <thread>
 #include <expected>
 #include <vector>
@@ -18,7 +20,7 @@ template<typename Service>
 class ProxyService {
     using Stub = typename Service::Stub;
 public:
-    ProxyService(const std::string original, NetworkConfig& c)
+    ProxyService(const std::string& original, NetworkConfig& c)
     : originalAddress{original},
       networkConfig{c} {}
 
@@ -34,7 +36,7 @@ public:
             return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::UNAVAILABLE, "Disconnected"))});
         }
         grpc::ClientContext c;
-        if (networkConfig.reliable()) {
+        if (networkConfig.isReliable()) {
             auto status = (stub.get()->*f)(&c, request, &reply);
             if (status.ok()) {
                 return {};
@@ -42,14 +44,14 @@ public:
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(status)});
             }
         } else {
-            if (networkConfig.drop()) {
+            if (networkConfig.shouldDrop()) {
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
             auto status = (stub.get()->*f)(&c, request, &reply);
-            if (networkConfig.drop()) {
+            if (networkConfig.shouldDrop()) {
                return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
-            if (networkConfig.delay()) {
+            if (networkConfig.shouldDelay()) {
                 std::this_thread::sleep_for(networkConfig.delayTime());
             }
             if (status.ok()) {

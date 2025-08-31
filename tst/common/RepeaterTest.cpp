@@ -76,7 +76,7 @@ TEST(RepeaterTest, RetriableFailureExceedsThreshold) {
     };
     auto status = repeater.attempt("get", rpc);
     EXPECT_FALSE(status.back().ok());
-    EXPECT_GE(callCount, 2); // Should not retry more than threshold
+    EXPECT_EQ(callCount, 2);
     EXPECT_EQ(status.back().error_code(), grpc::StatusCode::UNAVAILABLE);
 }
 

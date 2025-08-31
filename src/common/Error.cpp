@@ -30,7 +30,7 @@ std::string toString(const ErrorCode& code) {
     std::unreachable();
 }
 
-const std::unordered_map<std::string, std::unordered_set<ErrorCode>> retriableErrorCodes = {
+const std::unordered_map<std::string, std::unordered_set<ErrorCode, ErrorCodeHash>> retriableErrorCodes = {
     {"erase", {
         ErrorCode::ServiceTemporarilyUnavailable,
         ErrorCode::AllServicesUnavailable,

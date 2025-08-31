@@ -16,28 +16,24 @@
 #include "raft/Channel.hpp"
 #include "raft/SyncChannel.hpp"
 
-KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c, raft::Channel* l, raft::Channel* f, raft::Raft* r)
+KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel* l, raft::Channel* f, raft::Raft* r)
     : addr {a},
       targetServerAddr {t},
       networkConfig(c),
-      service {ProxyKVStoreService {targetServerAddr, networkConfig}},
       mem {zdb::InMemoryKVStore {}},
       leader{l},
       follower{f},
       raft {r},
+      service {ProxyKVStoreService {targetServerAddr, networkConfig}},
       rng(std::random_device{}()) {
-    if (raft != nullptr) {
-        owner = false;
-        kvState = new zdb::KVStateMachine{&mem, leader, follower, raft};
-        targetService = new zdb::KVStoreServiceImpl {kvState};
-    } else {
+    if (!raft) {
         owner = true;
         leader = new raft::SyncChannel {};
         follower = new raft::SyncChannel {};
         raft = new TestRaft {*leader};
-        kvState = new zdb::KVStateMachine{&mem, leader, follower, raft};
-        targetService = new zdb::KVStoreServiceImpl {kvState};
     }
+    kvState = new zdb::KVStateMachine{&mem, leader, follower, raft};
+    targetService  = new zdb::KVStoreServiceImpl {kvState};
     grpc::ServerBuilder targetSB{};
     targetSB.AddListeningPort(targetServerAddr, grpc::InsecureServerCredentials());
     targetSB.RegisterService(targetService);
@@ -124,7 +120,7 @@ std::pair<int, bool> KVTestFramework::oneSet(
             std::stringstream ss(getValue.data);
             int getClientId;
             ss >> getClientId;
-            if (clientId != getClientId && getValue.data != data) {
+            if (clientId != getClientId || getValue.data != data) {
                 throw std::runtime_error("oneSet: wrong value " + getValue.data);
             }
         }
@@ -207,7 +203,7 @@ bool KVTestFramework::checkSetConcurrent(
         totalOK += result.nOK;
         totalMaybe += result.nMaybe;
     }
-    if (networkConfig.reliable()) {
+    if (networkConfig.isReliable()) {
         return value.version == totalOK;
     } else {
         return value.version <= totalOK + totalMaybe;
@@ -215,15 +211,12 @@ bool KVTestFramework::checkSetConcurrent(
 }
 
 KVTestFramework::~KVTestFramework() {
+    delete targetService;
+    if (owner) {
+        delete raft;
+    }
     server->Shutdown();
     targetServer->Shutdown();
     serverThread.join();
     targetServerThread.join();
-    if (owner) {
-        delete leader;
-        delete follower;
-        delete raft;
-    }
-    delete kvState;
-    delete targetService;
 }

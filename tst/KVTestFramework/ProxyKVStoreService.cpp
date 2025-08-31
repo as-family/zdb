@@ -1,7 +1,7 @@
 #include "ProxyKVStoreService.hpp"
 #include <grpcpp/grpcpp.h>
 
-ProxyKVStoreService::ProxyKVStoreService(const std::string original, NetworkConfig& c)
+ProxyKVStoreService::ProxyKVStoreService(const std::string& original, NetworkConfig& c)
     : originalAddress{original}, channel{grpc::CreateChannel(original, grpc::InsecureChannelCredentials())},
       stub{zdb::kvStore::KVStoreService::NewStub(channel)}, networkConfig{c} {}
 

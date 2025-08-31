@@ -6,6 +6,7 @@
 #include <optional>
 #include <condition_variable>
 #include "raft/Channel.hpp"
+#include <cstddef>
 
 namespace raft {
 
@@ -13,6 +14,7 @@ class SyncChannel : public Channel {
 public:
     void send(std::string) override;
     std::string receive() override;
+    ~SyncChannel();
 private:
     std::mutex m;
     std::condition_variable cv;

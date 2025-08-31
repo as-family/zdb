@@ -23,7 +23,10 @@ Config::iterator Config::nextActiveServiceIterator() {
     return services.end();
 }
 
-Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p) : policy{p}, used{} {
+Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p)
+    : policy{p},
+      rng{std::random_device{}()},
+      dist{0, addresses.size() - 1} {
     for (auto address : addresses) {
         services.emplace(std::piecewise_construct, 
                         std::forward_as_tuple(address), 
@@ -35,19 +38,6 @@ Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p) :
     if (cService == services.end()) {
         throw std::runtime_error("Config: Could not connect to any server");
     }
-}
-
-std::expected<KVRPCServicePtr, Error> Config::currentService() {
-    if (cService == services.end()) {
-        return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "No service available")};
-    }
-
-    // Check if current service is available (circuit breaker not open)
-    if (!cService->second.available()) {
-        return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "Current service not available")};
-    }
-
-    return &(cService->second);
 }
 
 std::expected<KVRPCServicePtr, Error> Config::nextService() {
@@ -64,13 +54,10 @@ std::expected<KVRPCServicePtr, Error> Config::nextService() {
 }
 
 
-std::expected<KVRPCServicePtr, Error> Config::forceNextService() {
-    used[cService->first] = true;
-    for (auto i = services.begin(); i != services.end(); ++i) {
+std::expected<KVRPCServicePtr, Error> Config::randomService() {
+    while(true) {
+        auto i = std::next(services.begin(), dist(rng));
         if (i == cService) {
-            continue;
-        }
-        if (used[i->first]) {
             continue;
         }
         if (i->second.available()) {
@@ -78,13 +65,7 @@ std::expected<KVRPCServicePtr, Error> Config::forceNextService() {
             return &i->second;
         }
     }
-    return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "No available services left")};
-}
-
-void Config::resetUsed() {
-    for (auto& [key, _] : used) {
-        used[key] = false;
-    }
+    std::unreachable();
 }
 
 } // namespace zdb

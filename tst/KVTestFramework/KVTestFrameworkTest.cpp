@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
 #include "KVTestFramework.hpp"
 #include "NetworkConfig.hpp"
+#include "NetworkConfig.hpp"
 #include <chrono>
 #include <algorithm>
+#include <thread>
 
 TEST(KVTestFrameworkTest, SpawnClientsAndWaitCoordinatesResults) {
     NetworkConfig networkConfig {true, 0, 0};

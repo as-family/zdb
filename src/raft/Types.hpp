@@ -6,7 +6,6 @@
 #include "raft/Log.hpp"
 #include <proto/raft.pb.h>
 #include <string>
-#include "raft/Log.hpp" 
 
 namespace raft {
 

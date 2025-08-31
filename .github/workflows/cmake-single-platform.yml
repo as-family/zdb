@@ -39,15 +39,19 @@ jobs:
     - name: Install dependencies and static analysis tools
       run: |
         # Install LLVM 18
-        wget -q https://apt.llvm.org/llvm.sh
-        chmod +x llvm.sh
-        sudo ./llvm.sh 18 all
-    
+        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+
         # Install other dependencies
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends \
           cppcheck \
-          jq
+          jq \
+          llvm-18 \
+          clang-18 \
+          clang-tools-18 \
+          clang-extra-tools-18 \
+          libc++-18
+
 
     - name: Setup vcpkg
       run: |

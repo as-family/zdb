@@ -20,7 +20,7 @@ template<typename Service>
 class RPCService {
 public:
     using Stub = typename Service::Stub;
-    RPCService(const std::string address, const RetryPolicy p);
+    RPCService(const std::string& address, const RetryPolicy p);
     RPCService(const RPCService&) = delete;
     RPCService& operator=(const RPCService&) = delete;
     std::expected<std::monostate, Error> connect();
@@ -30,7 +30,6 @@ public:
         grpc::Status (Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
         Rep& reply) {
-        std::unique_lock l {m};
         if (!connected()) {
             return std::unexpected {std::vector<Error>{Error{ErrorCode::ServiceTemporarilyUnavailable, "Not connected"}}};
         }
@@ -59,15 +58,13 @@ private:
     CircuitBreaker circuitBreaker;
     std::shared_ptr<grpc::Channel> channel;
     std::unique_ptr<Stub> stub;
-    std::mutex m;
 };
 
 template<typename Service>
-RPCService<Service>::RPCService(const std::string address, const RetryPolicy p) 
+RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p) 
     : addr {address},
       policy {p},
-      circuitBreaker {p},
-      m{} {}
+      circuitBreaker {p} {}
 
 template<typename Service>
 std::expected<std::monostate, Error> RPCService<Service>::connect() {

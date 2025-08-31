@@ -9,6 +9,7 @@
 #include "raft/Command.hpp"
 #include <chrono>
 #include <string>
+#include <unordered_map>
 
 namespace raft {
 

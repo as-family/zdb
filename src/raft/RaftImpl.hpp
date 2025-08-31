@@ -138,6 +138,13 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         reply.success = false;
         return reply;
     }
+    if (arg.term > currentTerm) {
+        std::unique_lock termLock {m};
+        currentTerm = arg.term;
+        role = Role::Follower;
+        votedFor.reset();
+        termLock.unlock();
+    }
     auto e = mainLog.at(arg.prevLogIndex);
     if (!e.has_value() || e.value().term == arg.prevLogTerm) {
         mainLog.merge(arg.entries);
@@ -147,6 +154,13 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         }
         commitLock.unlock();
         lastHeartbeat = std::chrono::steady_clock::now();
+        for (; lastApplied < commitIndex; ++lastApplied) {
+            if (lastApplied == 0) {
+                continue;
+            }
+            auto c = mainLog.at(lastApplied);
+            followerChannel.send(c.value().command);
+        }
         reply.success = true;
         return reply;
     } else {
@@ -182,13 +196,10 @@ void RaftImpl<Client>::appendEntries(){
                 } else {
                     arg.set_prevlogindex(prevLogIndex);
                     auto t = mainLog.at(prevLogIndex - 1);
-                    if (!t.has_value()) {
-                        throw std::runtime_error {"cannot set prevLogTerm"};
-                    }
                     arg.set_prevlogterm(t.value().term);
                 }
                 arg.set_leadercommit(commitIndex);
-                for (const auto& eg : g.entries) {
+                for (const auto& eg : g.data()) {
                     auto e = arg.add_entries();
                     e->set_index(eg.index);
                     e->set_term(eg.term);
@@ -210,16 +221,6 @@ void RaftImpl<Client>::appendEntries(){
                         nextIndex[peerId] = g.lastIndex() + 1;
                         matchIndex[peerId] = g.lastIndex();
                         ++successCount;
-                        if (successCount > clusterSize / 2 && commitIndex < g.lastIndex()) {
-                            auto i = commitIndex + 1;
-                            commitIndex = g.lastIndex();
-                            for (; i <= commitIndex; ++i) {
-                                auto c = mainLog.at(i);
-                                if (c.has_value()) {
-                                    serviceChannel.send(c.value().command);
-                                }
-                            }
-                        }
                     } else {
                         if (reply.term() > currentTerm) {
                             currentTerm = reply.term();
@@ -227,8 +228,6 @@ void RaftImpl<Client>::appendEntries(){
                         } else {
                             if (nextIndex[peerId] > 1) {
                                 --nextIndex[peerId];
-                            } else {
-                                throw std::runtime_error {"Failed to commit empty log! "};
                             }
                         }
                     }
@@ -240,6 +239,33 @@ void RaftImpl<Client>::appendEntries(){
         if(t.joinable()) {
             t.join();
         }
+    }
+    if (role != Role::Leader) {
+        return;
+    }
+    if (successCount > clusterSize / 2) {
+        auto n = mainLog.lastIndex();
+        for (; n > commitIndex; --n) {
+            if (mainLog.at(n).has_value() && mainLog.at(n).value().term == currentTerm) {
+                auto matches = 0;
+                for (auto& [peerId, index] : matchIndex) {
+                    if (index >= n) {
+                        ++matches;
+                    }
+                }
+                if (matches + 1 > clusterSize / 2) {
+                    commitIndex = n;
+                    break;
+                }
+            }
+        }
+    }
+    for (; lastApplied < commitIndex; ++lastApplied) {
+        if (lastApplied == 0) {
+            continue;
+        }
+        auto c = mainLog.at(lastApplied);
+        serviceChannel.send(c.value().command);
     }
 }
 

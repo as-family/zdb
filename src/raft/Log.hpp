@@ -27,14 +27,16 @@ public:
     uint64_t lastTerm() const;
     uint64_t firstIndex() const;
     uint64_t firstTerm() const;
-    LogEntry* append(const proto::LogEntry& entry);
-    void append(const LogEntry entry);
+    void append(const proto::LogEntry& entry);
+    void append(const LogEntry& entry);
     void merge(const Log& other);
-    std::optional<LogEntry> at(uint64_t index);
+    std::optional<LogEntry> at(uint64_t index) const;
     Log suffix(uint64_t start) const;
+    const std::vector<LogEntry>& data() const;
+
+ private:
+    mutable std::mutex m{};
     std::vector<LogEntry> entries;
-private:
-    mutable std::mutex m{}; 
 };
 
 } // namespace raft

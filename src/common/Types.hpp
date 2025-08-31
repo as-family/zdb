@@ -9,6 +9,7 @@
 #include <optional>
 #include "common/Error.hpp"
 #include <variant>
+#include <functional>
 
 namespace zdb {
 
@@ -41,6 +42,14 @@ struct Value {
     bool operator==(const Value& other) const {
         return data == other.data && version == other.version;
     }
+
+    Value& operator=(const Value& other) {
+        if (this != &other) {
+            data = other.data;
+            version = other.version;
+        }
+        return *this;
+    }
 };
 
 struct State : public raft::State {
@@ -55,7 +64,7 @@ struct State : public raft::State {
     State(const Key& k, const std::expected<std::monostate, Error>& v)
         : key(k), u{v} {}
     explicit State(const std::expected<size_t, Error>& v)
-        : key(Key{"<dummy_key>"}), u{v} {}
+        : key(Key{""}), u{v} {}
 };
 
 } // namespace zdb

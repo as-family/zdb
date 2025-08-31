@@ -55,7 +55,7 @@ TEST(KVTest, TestPutConcurrentReliable) {
         std::chrono::milliseconds(500),
         std::chrono::milliseconds(600),
         100,
-        1,
+        2,
         std::chrono::milliseconds(1000),
         std::chrono::milliseconds(200)
     };
@@ -93,7 +93,7 @@ TEST(KVTest, TestUnreliableNet) {
             auto r = kvTest.setJson(0, client, zdb::Key{"k"}, zdb::Value{std::to_string(i), t});
             if (r.has_value() || r.error().code != zdb::ErrorCode::Maybe) {
                 if (i > 0 && (r.has_value() || r.error().code != zdb::ErrorCode::VersionMismatch)) {
-                    FAIL() << "shouldn't have happen more than once " << r.error().what;
+                    FAIL() << "shouldn't have happened more than once " << r.error().what;
                 }
                 break;
             }

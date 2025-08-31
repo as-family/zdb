@@ -7,15 +7,19 @@
 
 namespace zdb {
 
-Lock::Lock(const Key key, KVStoreClient& c) : lockKey(key), client(c) {}
+Lock::Lock(const Key key, KVStoreClient& c) : lockKey(key), lockValue {"", 1000}, client(c) {}
 
 void Lock::acquire() {
     auto c = zdb_generate_random_alphanumeric_string(16);
     client.waitSet(lockKey, Value{c, 0});
+    lockValue = Value{c, 1};
 }
 
 void Lock::release() {
     auto v = client.waitGet(lockKey, 1);
+    if (v != lockValue) {
+        return;
+    }
     client.waitSet(lockKey, v);
     while (true) {
         auto t = client.erase(lockKey);

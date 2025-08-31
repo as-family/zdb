@@ -8,25 +8,25 @@
 
 class ProxyKVStoreService : public zdb::kvStore::KVStoreService::Service {
 public:
-    ProxyKVStoreService(const std::string original, NetworkConfig& c);
+    ProxyKVStoreService(const std::string& original, NetworkConfig& c);
     template<typename Req, typename Rep>
     grpc::Status call(
         grpc::Status (zdb::kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req* request,
         Rep* reply) const {
         grpc::ClientContext c;
-        if (networkConfig.reliable()) {
+        if (networkConfig.isReliable()) {
             auto status = (stub.get()->*f)(&c, *request, reply);
             return status;
         } else {
-            if (networkConfig.drop()) {
+            if (networkConfig.shouldDrop()) {
                 return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped");
             }
             auto status = (stub.get()->*f)(&c, *request, reply);
-            if (networkConfig.drop()) {
+            if (networkConfig.shouldDrop()) {
                return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped");
             }
-            if (networkConfig.delay()) {
+            if (networkConfig.shouldDelay()) {
                 std::this_thread::sleep_for(networkConfig.delayTime());
             }
             return status;

@@ -28,7 +28,7 @@ public:
         int nMaybe;
     };
     Porcupine porcupine;
-    KVTestFramework(std::string a, std::string t, NetworkConfig& c, raft::Channel* l = nullptr, raft::Channel* f = nullptr, raft::Raft* r = nullptr);
+    KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel* l = nullptr, raft::Channel* f = nullptr, raft::Raft* r = nullptr);
     std::vector<ClientResult> spawnClientsAndWait(
         int nClients,
         std::chrono::seconds timeout,
@@ -61,19 +61,19 @@ private:
     std::string addr;
     std::string targetServerAddr;
     NetworkConfig& networkConfig;
-    ProxyKVStoreService service;
     zdb::InMemoryKVStore mem;
     raft::Channel* leader;
     raft::Channel* follower;
-    zdb::KVStateMachine* kvState;
     raft::Raft* raft;
+    zdb::KVStateMachine* kvState;
     zdb::KVStoreServiceImpl* targetService;
+    ProxyKVStoreService service;
     std::unique_ptr<grpc::Server> targetServer;
     std::unique_ptr<grpc::Server> server;
     std::thread serverThread;
     std::thread targetServerThread;
     std::default_random_engine rng;
-    bool owner;
+    bool owner {false};
 };
 
 #endif // KV_TEST_FRAMEWORK_H

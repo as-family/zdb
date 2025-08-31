@@ -22,9 +22,8 @@ public:
     Config(const std::vector<std::string>& addresses, const RetryPolicy policy);
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
-    [[nodiscard]] std::expected<KVRPCServicePtr, Error> currentService();
     std::expected<KVRPCServicePtr, Error> nextService();
-    std::expected<KVRPCServicePtr, Error> forceNextService();
+    std::expected<KVRPCServicePtr, Error> randomService();
     void resetUsed();
     const RetryPolicy policy;
 private:
@@ -32,6 +31,8 @@ private:
     map services;
     iterator cService;
     std::unordered_map<std::string, bool> used;
+    std::default_random_engine rng;
+    std::uniform_int_distribution<std::size_t> dist;
 };
 } // namespace zdb
 

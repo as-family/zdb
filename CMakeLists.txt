@@ -48,12 +48,12 @@ protobuf_generate(
     ${CMAKE_SOURCE_DIR}/proto/raft.proto
 )
 
-target_link_libraries(protobuf_generated PRIVATE
+target_link_libraries(protobuf_generated PUBLIC
   protobuf::libprotobuf
   gRPC::grpc++
 )
 
-target_include_directories(protobuf_generated PRIVATE
+target_include_directories(protobuf_generated PUBLIC
   ${CMAKE_BINARY_DIR}
 )
 
@@ -72,24 +72,33 @@ add_custom_target(post-test-analysis
   DEPENDS tests
   COMMAND ${CMAKE_COMMAND} -E echo "Running tests (ctest), then post-test static analysis..."
   COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-  # cppcheck via shared script (skips gracefully if cppcheck not installed)
-  COMMAND bash -lc "if [ -f '${CMAKE_SOURCE_DIR}/run-cppcheck.sh' ]; then \
-    chmod +x '${CMAKE_SOURCE_DIR}/run-cppcheck.sh'; \
-    '${CMAKE_SOURCE_DIR}/run-cppcheck.sh' '${CMAKE_BINARY_DIR}' '${CMAKE_SOURCE_DIR}/cppcheck-report.xml'; \
-  else \
-    echo 'run-cppcheck.sh not found at ${CMAKE_SOURCE_DIR}, skipping cppcheck.'; \
-  fi"
-  # run-clang-tidy.sh (skips gracefully if missing)
-  COMMAND bash -lc "if [ -f '${CMAKE_SOURCE_DIR}/run-clang-tidy.sh' ]; then \
-    echo 'Running run-clang-tidy.sh...'; \
-  chmod +x '${CMAKE_SOURCE_DIR}/run-clang-tidy.sh'; \
-  bash '${CMAKE_SOURCE_DIR}/run-clang-tidy.sh' '${CMAKE_BINARY_DIR}' both; \
-  else \
-    echo 'run-clang-tidy.sh not found at ${CMAKE_SOURCE_DIR}, skipping.'; \
-  fi"
-  COMMENT "Run cppcheck and run-clang-tidy.sh after tests"
-  VERBATIM
 )
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/run-cppcheck.sh")
+  add_custom_command(TARGET post-test-analysis POST_BUILD
+    COMMAND "${CMAKE_SOURCE_DIR}/run-cppcheck.sh" "${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}/cppcheck-report.xml"
+    COMMENT "Running cppcheck analysis via run-cppcheck.sh"
+    VERBATIM
+  )
+else()
+  add_custom_command(TARGET post-test-analysis POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo "run-cppcheck.sh not found at ${CMAKE_SOURCE_DIR}, skipping cppcheck."
+    VERBATIM
+  )
+endif()
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/run-clang-tidy.sh")
+  add_custom_command(TARGET post-test-analysis POST_BUILD
+    COMMAND "${CMAKE_SOURCE_DIR}/run-clang-tidy.sh" "${CMAKE_BINARY_DIR}" "both"
+    COMMENT "Running clang-tidy analysis via run-clang-tidy.sh"
+    VERBATIM
+  )
+else()
+  add_custom_command(TARGET post-test-analysis POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo "run-clang-tidy.sh not found at ${CMAKE_SOURCE_DIR}, skipping."
+    VERBATIM
+  )
+endif()
 
 # --- Installation ---
 install(TARGETS zdb

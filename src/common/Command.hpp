@@ -134,7 +134,7 @@ struct Erase : public raft::Command {
 
 struct Size : public raft::Command {
     Size() {}
-    Size(const proto::Command& cmd) {}
+    Size(const proto::Command&) {}
 
     std::string serialize() const override {
         auto c = proto::Command {};
@@ -155,7 +155,7 @@ struct Size : public raft::Command {
     }
 
     bool operator==(const raft::Command& other) const override {
-        if (auto o = dynamic_cast<const Size*>(&other)) {
+        if (dynamic_cast<const Size*>(&other)) {
             return true;
         }
         return false;

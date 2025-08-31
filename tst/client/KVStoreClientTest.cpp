@@ -36,11 +36,11 @@ protected:
     raft::Channel* leader = new raft::SyncChannel();
     raft::Channel* follower = new raft::SyncChannel();
     TestRaft raft{*leader};
-    zdb::KVStateMachine kvState{&kvStore, leader, follower, &raft};
-    KVStoreServiceImpl serviceImpl{&kvState};
+    zdb::KVStateMachine* kvState = new zdb::KVStateMachine{&kvStore, leader, follower, &raft};
+    KVStoreServiceImpl serviceImpl{kvState};
     std::unique_ptr<KVStoreServer> server;
     std::thread serverThread;
-    const RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy policy{std::chrono::milliseconds(100), std::chrono::milliseconds(1000), std::chrono::milliseconds(5000), 3, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     std::vector<std::string> addresses{SERVER_ADDR};
 
     void SetUp() override {
@@ -243,11 +243,11 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     // Set up additional server
     const std::string serverAddress2 = "localhost:50053";
     InMemoryKVStore kvStore2;
-    auto channel2 = raft::SyncChannel{};
-    auto channel22 = raft::SyncChannel{};
-    TestRaft raft2{channel2};
-    auto kvState2 = zdb::KVStateMachine{&kvStore2, &channel2, &channel22, &raft2};
-    KVStoreServiceImpl serviceImpl2{&kvState2};
+    auto channel2 = new raft::SyncChannel{};
+    auto channel22 = new raft::SyncChannel{};
+    TestRaft raft2{*channel2};
+    zdb::KVStateMachine* kvState2 = new zdb::KVStateMachine{&kvStore2, channel2, channel22, &raft2};
+    KVStoreServiceImpl serviceImpl2{kvState2};
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread2;
     
@@ -374,7 +374,7 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
 
 // Test client behavior with multiple server restarts
 TEST_F(KVStoreClientTest, MultipleServerRestarts) {
-    const RetryPolicy fastRetryPolicy{std::chrono::microseconds(25), std::chrono::microseconds(100), std::chrono::microseconds(300), 2, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy fastRetryPolicy{std::chrono::milliseconds(25), std::chrono::milliseconds(100), std::chrono::milliseconds(300), 3, 1, std::chrono::milliseconds(20), std::chrono::milliseconds(200)};
     Config c{addresses, fastRetryPolicy};
     KVStoreClient client{c};
     
@@ -397,7 +397,7 @@ TEST_F(KVStoreClientTest, MultipleServerRestarts) {
         // Restart server
         server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
         serverThread = std::thread([this]() { server->wait(); });
-        std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for circuit breaker reset
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         
         // Client should recover
         auto newSetResult = client.set(Key{"after_restart_" + std::to_string(restart)}, Value{"recovery"});
@@ -408,7 +408,7 @@ TEST_F(KVStoreClientTest, MultipleServerRestarts) {
 // Test client resilience with circuit breaker behavior during extended outage
 TEST_F(KVStoreClientTest, CircuitBreakerDuringExtendedOutage) {
     // Use a policy with a low failure threshold to trigger circuit breaker quickly
-    const RetryPolicy circuitBreakerPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(200), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy circuitBreakerPolicy{std::chrono::milliseconds(10), std::chrono::milliseconds(50), std::chrono::milliseconds(200), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Config c{addresses, circuitBreakerPolicy};
     KVStoreClient client{c};
     
@@ -445,12 +445,14 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     const std::string serverAddress3 = "localhost:50055";
     
     InMemoryKVStore kvStore2, kvStore3;
-    raft::SyncChannel channel2, channel3;
-    raft::SyncChannel channel22, channel33;
-    TestRaft raft2{channel2}, raft3{channel3};
-    zdb::KVStateMachine kvState2{&kvStore2, &channel2, &channel22, &raft2};
-    zdb::KVStateMachine kvState3{&kvStore3, &channel3, &channel33, &raft3};
-    KVStoreServiceImpl serviceImpl2{&kvState2}, serviceImpl3{&kvState3};
+    raft::Channel *channel2 = new raft::SyncChannel();
+    raft::Channel *channel3 = new raft::SyncChannel();
+    raft::Channel *channel22 = new raft::SyncChannel();
+    raft::Channel *channel33 = new raft::SyncChannel();
+    TestRaft raft2{*channel2}, raft3{*channel3};
+    zdb::KVStateMachine* kvState2 = new zdb::KVStateMachine{&kvStore2, channel2, channel22, &raft2};
+    zdb::KVStateMachine* kvState3 = new zdb::KVStateMachine{&kvStore3, channel3, channel33, &raft3};
+    KVStoreServiceImpl serviceImpl2{kvState2}, serviceImpl3{kvState3};
     std::unique_ptr<KVStoreServer> server2, server3;
     std::thread serverThread2, serverThread3;
     
@@ -567,7 +569,7 @@ TEST_F(KVStoreClientTest, DataPersistenceAfterServerRestart) {
     
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
     serverThread = std::thread([this]() { server->wait(); });
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     
     auto newSize = client.size();
     ASSERT_TRUE(newSize.has_value());
@@ -665,7 +667,7 @@ TEST_F(KVStoreClientTest, IntermittentConnectivityResilience) {
     // 3. Restore service - wait much longer for circuit breaker reset
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
     serverThread = std::thread([this]() { server->wait(); });
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::seconds(1)); // Wait for circuit breaker reset
     EXPECT_TRUE(client.set(Key{"intermittent2"}, Value{"value2"}).has_value());
     
     // 4. Another failure
@@ -678,6 +680,6 @@ TEST_F(KVStoreClientTest, IntermittentConnectivityResilience) {
     // 5. Final restore - wait much longer for circuit breaker reset
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
     serverThread = std::thread([this]() { server->wait(); });
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::seconds(1)); // Wait for circuit breaker reset
     EXPECT_TRUE(client.set(Key{"intermittent3"}, Value{"value3"}).has_value());
 }

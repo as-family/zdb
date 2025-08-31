@@ -67,8 +67,17 @@ grpc::Status KVStoreServiceImpl::erase(
     if (!s) {
         return toGrpcStatus(Error {ErrorCode::Internal, "failed to cast state"});
     }
-    auto v = std::get<std::expected<std::monostate, Error>>(s->u);
-    return toGrpcStatus(v);
+    auto v = std::get<std::expected<std::optional<Value>, Error>>(s->u);
+    if (!v.has_value()) {
+        return toGrpcStatus(v.error());
+    }
+    else if (!v->has_value()) {
+        return toGrpcStatus(Error {ErrorCode::KeyNotFound, "key not found"});
+    } else {
+        reply->mutable_value()->set_data(v->value().data);
+        reply->mutable_value()->set_version(v->value().version);
+        return grpc::Status::OK;
+    }
 }
 
 grpc::Status KVStoreServiceImpl::size(
@@ -88,6 +97,10 @@ grpc::Status KVStoreServiceImpl::size(
     }
     reply->set_size(v.value());
     return grpc::Status::OK;
+}
+
+KVStoreServiceImpl::~KVStoreServiceImpl() {
+    delete kvStateMachine;
 }
 
 } // namespace zdb

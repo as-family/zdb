@@ -35,11 +35,11 @@ const std::string SERVER_ADDR = "localhost:50051";
 class KVStoreServerTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    raft::SyncChannel leader{};
-    raft::SyncChannel follower{};
-    TestRaft raft{leader};
-    zdb::KVStateMachine kvState{&kvStore, &leader, &follower, &raft};
-    KVStoreServiceImpl serviceImpl{&kvState};
+    raft::Channel* leader = new raft::SyncChannel{};
+    raft::Channel* follower = new raft::SyncChannel{};
+    TestRaft raft{*leader};
+    zdb::KVStateMachine* kvState = new zdb::KVStateMachine{&kvStore, leader, follower, &raft};
+    KVStoreServiceImpl serviceImpl{kvState};
     std::unique_ptr<KVStoreServer> server;
     std::thread serverThread;
 
@@ -235,7 +235,6 @@ TEST_F(KVStoreServerTest, GetEmptyKey) {
     GetReply getRep;
     grpc::ClientContext ctx;
     auto status = stub->get(&ctx, getReq, &getRep);
-    // Should return NOT_FOUND for empty key
     ASSERT_FALSE(status.ok());
     ASSERT_EQ(status.error_code(), grpc::StatusCode::NOT_FOUND);
 }

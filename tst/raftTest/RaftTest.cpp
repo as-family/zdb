@@ -53,15 +53,15 @@ zdb::RetryPolicy makePolicy(int servers) {
     return zdb::RetryPolicy {
         std::chrono::milliseconds(10),
         std::chrono::milliseconds(50),
-        std::chrono::minutes(1),
+        std::chrono::milliseconds(60),
         10,
-        servers,
+        10,
         std::chrono::milliseconds(4),
-        std::chrono::milliseconds(50)
+        std::chrono::milliseconds(4)
     };
 }
 
-TEST(Raft, InititialElection) {
+TEST(Raft, InitialElection) {
     std::vector<EndPoints> config = makeConfig(3);
     zdb::RetryPolicy p = makePolicy(config.size());
     RAFTTestFramework framework{config, p};
@@ -151,19 +151,20 @@ TEST(Raft, BasicAgreeOneValue) {
     RAFTTestFramework framework{config, p};
     EXPECT_NO_THROW(framework.check1Leader());
     auto kvFrameworks = framework.getKVFrameworks();
+    auto clientPolicy = zdb::RetryPolicy {
+        std::chrono::milliseconds(10),
+        std::chrono::milliseconds(500),
+        std::chrono::milliseconds(60),
+        3,
+        10,
+        std::chrono::milliseconds(20),
+        std::chrono::milliseconds(20)
+    };
     auto r = kvFrameworks.begin()->second->spawnClientsAndWait(
         1,
         std::chrono::seconds(1),
         getKVProxies(config),
-        zdb::RetryPolicy {
-            std::chrono::milliseconds(10),
-            std::chrono::milliseconds(50),
-            std::chrono::minutes(1),
-            10,
-            static_cast<int>(config.size()),
-            std::chrono::milliseconds(100),
-            std::chrono::milliseconds(100)
-        },
+        clientPolicy,
         [](int id, zdb::KVStoreClient& client, std::atomic<bool>& done) {
             std::ignore = id;
             int nOK = 0;
@@ -184,15 +185,7 @@ TEST(Raft, BasicAgreeOneValue) {
         1,
         std::chrono::seconds(1),
         getKVProxies(config),
-        zdb::RetryPolicy {
-            std::chrono::milliseconds(10),
-            std::chrono::milliseconds(50),
-            std::chrono::minutes(1),
-            10,
-            static_cast<int>(config.size()),
-            std::chrono::milliseconds(100),
-            std::chrono::milliseconds(100)
-        },
+        clientPolicy,
         [](int id, zdb::KVStoreClient& client, std::atomic<bool>& done) {
             std::ignore = id;
             int nOK = 0;

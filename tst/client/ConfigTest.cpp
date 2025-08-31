@@ -36,8 +36,8 @@ protected:
     raft::Channel* leader = new raft::SyncChannel();
     raft::Channel* follower = new raft::SyncChannel();
     TestRaft raft{*leader};
-    zdb::KVStateMachine kvState{&kvStore, leader, follower, &raft};
-    KVStoreServiceImpl serviceImpl{&kvState};
+    zdb::KVStateMachine* kvState = new zdb::KVStateMachine {&kvStore, leader, follower, &raft};
+    KVStoreServiceImpl serviceImpl{kvState};
     std::unique_ptr<KVStoreServer> server1;
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread1;
@@ -69,8 +69,6 @@ protected:
         if (serverThread2.joinable()) {
             serverThread2.join();
         }
-        delete leader;
-        delete follower;
     }
 };
 
@@ -80,7 +78,7 @@ TEST_F(ConfigTest, ConstructorWithSingleValidAddress) {
     
     ASSERT_NO_THROW({
         Config config(addresses, policy);
-        auto result = config.currentService();
+        auto result = config.nextService();
         ASSERT_TRUE(result.has_value());
     });
 }
@@ -91,7 +89,7 @@ TEST_F(ConfigTest, ConstructorWithMultipleValidAddresses) {
     
     ASSERT_NO_THROW({
         Config config(addresses, policy);
-        auto result = config.currentService();
+        auto result = config.nextService();
         ASSERT_TRUE(result.has_value());
     });
 }
@@ -129,17 +127,17 @@ TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
     
     ASSERT_NO_THROW({
         Config config(addresses, policy);
-        auto result = config.currentService();
+        auto result = config.nextService();
         ASSERT_TRUE(result.has_value());
     });
 }
 
-// Test currentService() returns valid service after successful construction
+// Test nextService() returns valid service after successful construction
 TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
-    auto result = config.currentService();
+    auto result = config.nextService();
     ASSERT_TRUE(result.has_value());
     zdb::KVRPCServicePtr service = result.value();
     EXPECT_TRUE(service->connected());
@@ -151,7 +149,7 @@ TEST_F(ConfigTest, NextServiceWhenCurrentServiceAvailable) {
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
-    auto currentResult = config.currentService();
+    auto currentResult = config.nextService();
     ASSERT_TRUE(currentResult.has_value());
     const zdb::KVRPCServicePtr currentSvc = currentResult.value();
     
@@ -168,7 +166,7 @@ TEST_F(ConfigTest, NextServiceSwitchesToAnotherService) {
     const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, policy);
     
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     const zdb::KVRPCServicePtr service1 = result1.value();
     
@@ -213,7 +211,7 @@ TEST_F(ConfigTest, NextServiceWhenAllServicesUnavailable) {
     Config config(addresses, policy);
     
     // First verify we have a working service
-    auto result = config.currentService();
+    auto result = config.nextService();
     EXPECT_TRUE(result.has_value());
     
     // Note: Now we can use the shutdown method to test service unavailability
@@ -292,7 +290,7 @@ TEST_F(ConfigTest, ServicesMapIsProperlyPopulated) {
     
     // We can't directly access the private services map, but we can verify
     // that we can get services and they work as expected
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     const zdb::KVRPCServicePtr service1 = result1.value();
     EXPECT_TRUE(service1->connected());
@@ -358,7 +356,7 @@ TEST_F(ConfigTest, BasicThreadSafetyTest) {
     
     auto testFunction = [&config, &successCount, &exceptionCount]() {
         for (int i = 0; i < 100; ++i) {
-            auto result = config.currentService();
+            auto result = config.nextService();
             if (result.has_value()) {
                 successCount++;
             } else {
@@ -385,7 +383,7 @@ TEST_F(ConfigTest, CurrentServiceFailsWhenCircuitBreakerOpen) {
     Config config(addresses, lowThresholdPolicy);
     
     // Verify service works initially
-    auto result = config.currentService();
+    auto result = config.nextService();
     ASSERT_TRUE(result.has_value());
     
     // Shutdown server to trigger circuit breaker opening
@@ -395,10 +393,10 @@ TEST_F(ConfigTest, CurrentServiceFailsWhenCircuitBreakerOpen) {
     }
     
     // Wait a bit for the circuit breaker to open after failed operations
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
     // currentService should now fail due to circuit breaker being open
-    auto resultAfterFailure = config.currentService();
+    auto resultAfterFailure = config.nextService();
     EXPECT_FALSE(resultAfterFailure.has_value());
     EXPECT_EQ(resultAfterFailure.error().code, ErrorCode::AllServicesUnavailable);
 }
@@ -411,7 +409,7 @@ TEST_F(ConfigTest, NextServiceWithCircuitBreakerRecovery) {
     Config config(addresses, shortResetPolicy);
     
     // Get initial service
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     
     // Temporarily shutdown first server to trigger circuit breaker
@@ -440,7 +438,7 @@ TEST_F(ConfigTest, NextActiveServiceIteratorPrioritizesCurrentService) {
     Config config(addresses, policy);
     
     // Get initial service - should be one of the two available services
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     
     // Call nextService multiple times - should prefer to stay with current service if available
@@ -461,7 +459,7 @@ TEST_F(ConfigTest, CurrentServiceTriggersReconnectionThroughAvailable) {
     Config config(addresses, policy);
     
     // Get initial service
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     
     // Briefly shutdown and restart server to simulate temporary disconnection
@@ -476,7 +474,7 @@ TEST_F(ConfigTest, CurrentServiceTriggersReconnectionThroughAvailable) {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // currentService should be able to recover (non-const allows state modification)
-    auto result2 = config.currentService();
+    auto result2 = config.nextService();
     EXPECT_TRUE(result2.has_value());
 }
 
@@ -488,7 +486,7 @@ TEST_F(ConfigTest, ConnectedVsAvailableStates) {
     Config config(addresses, quickFailPolicy);
     
     // Initially should have both connected and available service
-    auto result = config.currentService();
+    auto result = config.nextService();
     ASSERT_TRUE(result.has_value());
     zdb::KVRPCServicePtr service = result.value(); // Not const since available() is not const
     EXPECT_TRUE(service->connected());
@@ -503,7 +501,7 @@ TEST_F(ConfigTest, ConnectedVsAvailableStates) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
     // currentService should fail because service is not available
-    auto resultAfterShutdown = config.currentService();
+    auto resultAfterShutdown = config.nextService();
     EXPECT_FALSE(resultAfterShutdown.has_value());
     EXPECT_EQ(resultAfterShutdown.error().code, ErrorCode::AllServicesUnavailable);
 }
@@ -514,7 +512,7 @@ TEST_F(ConfigTest, NextServiceWithMixedServiceStates) {
     Config config(addresses, policy);
     
     // Initially both services should be available
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     
     // Temporarily shutdown one server
@@ -553,7 +551,7 @@ TEST_F(ConfigTest, CircuitBreakerErrorMessages) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
     // Error message should indicate service unavailability
-    auto result = config.currentService();
+    auto result = config.nextService();
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code, ErrorCode::AllServicesUnavailable);
     EXPECT_FALSE(result.error().what.empty());
@@ -567,7 +565,7 @@ TEST_F(ConfigTest, CircuitBreakerResetInNextService) {
     Config config(addresses, shortResetPolicy);
     
     // Get initial service
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     
     // Shutdown server to trigger circuit breaker

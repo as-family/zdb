@@ -1,6 +1,5 @@
 #ifndef STORAGE_ENGINE_HPP
 #define STORAGE_ENGINE_HPP
-
 #include "common/Types.hpp"
 #include "common/Error.hpp"
 #include <expected>

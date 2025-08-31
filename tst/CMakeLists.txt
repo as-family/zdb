@@ -64,7 +64,6 @@ if(${BUILD_TESTING})
   )
 
   target_link_libraries(tests PRIVATE
-    GTest::gtest_main
     GTest::gmock_main
     gRPC::grpc++
     protobuf::libprotobuf
@@ -78,7 +77,6 @@ if(${BUILD_TESTING})
     -Wextra
     -Wpedantic
     -g
-    -O0
     -Og
 
     -Wconversion

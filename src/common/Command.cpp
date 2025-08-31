@@ -7,8 +7,7 @@ namespace zdb
 
 raft::Command* commandFactory(const std::string& s) {
     auto cmd = zdb::proto::Command {};
-    google::protobuf::Any any;
-    if (!any.ParseFromString(s) || !any.UnpackTo(&cmd)) {
+    if (!cmd.ParseFromString(s)) {
         throw std::invalid_argument{"commandFactory: deserialization failed"};
     }
     if (cmd.op() == "get") {
@@ -16,6 +15,12 @@ raft::Command* commandFactory(const std::string& s) {
     }
     if (cmd.op() == "set") {
         return new Set{cmd};
+    }
+    if (cmd.op() == "erase") {
+        return new Erase{cmd};
+    }
+    if (cmd.op() == "size") {
+        return new Size{cmd};
     }
     throw std::invalid_argument{"commandFactory: unknown op: " + cmd.op()};
 }

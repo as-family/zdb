@@ -4,9 +4,6 @@
 namespace raft {
 
 RaftServiceImpl::RaftServiceImpl(Raft* r) : raft(r) {
-    if (raft == nullptr) {
-        throw std::invalid_argument("Raft pointer cannot be null");
-    }
 }
 
 grpc::Status RaftServiceImpl::requestVote(
