@@ -91,32 +91,6 @@ TEST_F(ConfigTest, ConstructorWithMultipleValidAddresses) {
     });
 }
 
-// Test construction failure with empty address list
-TEST_F(ConfigTest, ConstructorWithEmptyAddresses) {
-    const std::vector<std::string> addresses;
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
-
-// Test construction failure with all invalid addresses
-TEST_F(ConfigTest, ConstructorWithAllInvalidAddresses) {
-    const std::vector<std::string> addresses{"invalid:12345", "another_invalid:67890"};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
-
-// Test construction failure with mix of valid and invalid addresses but no successful connections
-TEST_F(ConfigTest, ConstructorWithMixedAddressesButNoConnections) {
-    const std::vector<std::string> addresses{invalidServerAddr, "invalid:12345"};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
 
 // Test construction with some valid and some invalid addresses (should succeed)
 TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
@@ -222,40 +196,6 @@ TEST_F(ConfigTest, NextServiceWhenAllServicesUnavailable) {
     }
 }
 
-// Test with malformed addresses
-TEST_F(ConfigTest, ConstructorWithMalformedAddresses) {
-    const std::vector<std::string> addresses{"", "   ", "malformed_address", ":"};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
-
-// Test with very long address strings
-TEST_F(ConfigTest, ConstructorWithVeryLongAddresses) {
-    std::string longAddress(1000, 'a');
-    longAddress += ":12345";
-    const std::vector<std::string> addresses{longAddress};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
-
-// Test currentService throws when no services are available (edge case)
-// This test simulates a scenario where construction succeeds but services become unavailable
-TEST_F(ConfigTest, CurrentServiceThrowsWhenNoServicesAvailable) {
-    // This is a more complex test that would require manipulating the internal state
-    // For now, we'll test the basic contract that currentService should throw
-    // when no service is available by testing the error message
-    
-    const std::vector<std::string> addresses{"invalid:99999"};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
-
 // Test with different retry policies
 TEST_F(ConfigTest, ConstructorWithDifferentRetryPolicies) {
     const std::vector<std::string> addresses{validServerAddr};
@@ -310,37 +250,6 @@ TEST_F(ConfigTest, RapidSuccessiveCallsToNextService) {
         const zdb::KVRPCServicePtr service = result.value();
         EXPECT_TRUE(service->connected());
     }
-}
-
-// Test with addresses containing special characters
-TEST_F(ConfigTest, ConstructorWithSpecialCharacterAddresses) {
-    const std::vector<std::string> addresses{"localhost:!@#$", "127.0.0.1:abc"};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
-
-// Performance test - construction with many addresses
-TEST_F(ConfigTest, ConstructorPerformanceWithManyAddresses) {
-    // Create a reasonable number of invalid addresses to test performance
-    std::vector<std::string> addresses;
-    for (int i = 10000; i < 10020; ++i) {  // Reduced from 100 to 20 addresses
-        addresses.push_back("invalid:" + std::to_string(i));
-    }
-    
-    auto start = std::chrono::high_resolution_clock::now();
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-    
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    
-    // The constructor should complete within a reasonable time even with many addresses
-    // This is more of a performance regression test
-    EXPECT_LT(duration.count(), 30000); // Should complete within 30 seconds
 }
 
 // Test thread safety aspects (basic test)

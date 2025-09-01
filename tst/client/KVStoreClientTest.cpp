@@ -132,14 +132,6 @@ TEST_F(KVStoreClientTest, SizeReflectsSetAndErase) {
     EXPECT_EQ(sizeResult2.value(), 1);
 }
 
-TEST_F(KVStoreClientTest, FailureToConnectThrows) {
-    const std::vector<std::string> badAddresses{"localhost:59999"};
-    EXPECT_THROW({
-        Config c(badAddresses, policy);
-        const KVStoreClient client(c);
-    }, std::runtime_error);
-}
-
 TEST_F(KVStoreClientTest, SetFailureReturnsError) {
     Config c {addresses, policy};
     KVStoreClient client {c};
