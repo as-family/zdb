@@ -5,6 +5,7 @@
 #include "client/Config.hpp"
 #include "common/RetryPolicy.hpp"
 #include <chrono>
+#include <thread>
 #include "common/Types.hpp"
 #include <raft/RaftImpl.hpp>
 #include <raft/SyncChannel.hpp>

@@ -43,7 +43,7 @@ std::string Get::serialize() const {
 
 void Get::apply(raft::StateMachine& stateMachine) {
     auto& kvState = dynamic_cast<zdb::KVStateMachine&>(stateMachine);
-    kvState.get(key);
+    std::ignore = kvState.get(key);
 }
 
 bool Get::operator==(const raft::Command& other) const {
@@ -76,7 +76,7 @@ std::string Set::serialize() const {
 
 void Set::apply(raft::StateMachine& stateMachine) {
     auto& kvState = dynamic_cast<zdb::KVStateMachine&>(stateMachine);
-    kvState.set(key, value);
+    std::ignore = kvState.set(key, value);
 }
 
 bool Set::operator==(const raft::Command& other) const {
@@ -107,7 +107,7 @@ std::string Erase::serialize() const {
 
 void Erase::apply(raft::StateMachine& stateMachine) {
     auto& kvState = dynamic_cast<zdb::KVStateMachine&>(stateMachine);
-    kvState.erase(key);
+    std::ignore = kvState.erase(key);
 }
 
 bool Erase::operator==(const raft::Command& other) const {
@@ -137,7 +137,7 @@ std::string Size::serialize() const {
 
 void Size::apply(raft::StateMachine& stateMachine) {
     auto& kvState = dynamic_cast<zdb::KVStateMachine&>(stateMachine);
-    kvState.size();
+    std::ignore = kvState.size();
 }
 
 bool Size::operator==(const raft::Command& other) const {

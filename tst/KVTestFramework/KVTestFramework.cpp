@@ -31,6 +31,7 @@ KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, Net
       targetServer {targetServerAddr, targetService},
       server {addr, service},
       rng(std::random_device{}()) {
+    targetProxyService.connectTarget();
 }
 
 std::vector<KVTestFramework::ClientResult> KVTestFramework::spawnClientsAndWait(
