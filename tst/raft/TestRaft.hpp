@@ -13,9 +13,11 @@ struct TestRaft : raft::Raft {
         return true;
     }
     raft::AppendEntriesReply appendEntriesHandler(const raft::AppendEntriesArg& arg) override {
+        std::ignore = arg;
         return {};
     }
     raft::RequestVoteReply requestVoteHandler(const raft::RequestVoteArg& arg) override {
+        std::ignore = arg;
         return {};
     }
     void appendEntries() override {
@@ -23,6 +25,8 @@ struct TestRaft : raft::Raft {
     void requestVote() override {
     }
     raft::Log& log() override {
+        static raft::Log dummyLog;
+        return dummyLog;
     }
     void kill() override {
     }

@@ -20,6 +20,7 @@
 #include "raft/TestRaft.hpp"
 #include "storage/InMemoryKVStore.hpp"
 #include "common/KVStateMachine.hpp"
+#include "common/RetryPolicy.hpp"
 
 class KVTestFramework {
 public:
@@ -28,7 +29,7 @@ public:
         int nMaybe;
     };
     Porcupine porcupine;
-    KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel* l = nullptr, raft::Channel* f = nullptr, raft::Raft* r = nullptr);
+    KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel& l, raft::Channel& f, raft::Raft& r, zdb::RetryPolicy p);
     std::vector<ClientResult> spawnClientsAndWait(
         int nClients,
         std::chrono::seconds timeout,
@@ -62,18 +63,16 @@ private:
     std::string targetServerAddr;
     NetworkConfig& networkConfig;
     zdb::InMemoryKVStore mem;
-    raft::Channel* leader;
-    raft::Channel* follower;
-    raft::Raft* raft;
-    zdb::KVStateMachine* kvState;
-    zdb::KVStoreServiceImpl* targetService;
+    raft::Channel& leader;
+    raft::Channel& follower;
+    raft::Raft& raft;
+    zdb::KVStateMachine kvState;
+    zdb::KVStoreServiceImpl targetService;
+    ProxyService<zdb::kvStore::KVStoreService> targetProxyService;
     ProxyKVStoreService service;
-    std::unique_ptr<grpc::Server> targetServer;
-    std::unique_ptr<grpc::Server> server;
-    std::thread serverThread;
-    std::thread targetServerThread;
+    zdb::RPCServer<zdb::KVStoreServiceImpl> targetServer;
+    zdb::RPCServer<ProxyKVStoreService> server;
     std::default_random_engine rng;
-    bool owner {false};
 };
 
 #endif // KV_TEST_FRAMEWORK_H

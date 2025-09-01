@@ -5,6 +5,7 @@
 #include <grpcpp/grpcpp.h>
 #include <thread>
 #include <stdexcept>
+#include <chrono>
 
 namespace zdb {
 
@@ -23,6 +24,7 @@ private:
     std::string addr;
     Service& service;
     std::unique_ptr<grpc::Server> server;
+    std::thread serverThread;
 };
 
 template<typename Service>
@@ -35,6 +37,7 @@ RPCServer<Service>::RPCServer(const std::string& address, Service& s)
     if (!server) {
         throw std::runtime_error("Failed to start gRPC server on address: " + address);
     }
+    serverThread = std::thread([this]() { this->wait(); });
 }
 
 template<typename Service>
@@ -47,8 +50,12 @@ void RPCServer<Service>::wait() {
 template<typename Service>
 void RPCServer<Service>::shutdown() {
     if (server) {
-        server->Shutdown();
+        auto deadline = std::chrono::system_clock::now() + std::chrono::milliseconds(10);
+        server->Shutdown(deadline);
         server.reset();
+    }
+    if (serverThread.joinable()) {
+        serverThread.join();
     }
 }
 

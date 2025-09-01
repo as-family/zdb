@@ -19,7 +19,7 @@ enum class ErrorCode {
     VersionMismatch,
     Maybe,
     KeyNotFound,
-    TimeOut,
+    Timeout,
     NotLeader,
     Internal,
     Unknown

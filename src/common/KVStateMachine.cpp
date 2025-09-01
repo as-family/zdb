@@ -5,25 +5,26 @@
 
 namespace zdb {
 
-KVStateMachine::KVStateMachine(StorageEngine* s, raft::Channel* leaderChannel, raft::Channel* followerChannel, raft::Raft* r)
+KVStateMachine::KVStateMachine(StorageEngine& s, raft::Channel& leaderChannel, raft::Channel& followerChannel, raft::Raft& r)
     : storageEngine(s),
       leader(leaderChannel),
       follower(followerChannel),
       raft {r},
       t {std::thread(&KVStateMachine::consumeChannel, this)} {}
 
-raft::State* KVStateMachine::applyCommand(raft::Command* command) {
-    return command->apply(this);
+void KVStateMachine::applyCommand(raft::Command* command) {
+    command->apply(*this);
 }
 
 void KVStateMachine::consumeChannel() {
-    while (true) {
-        std::string s = follower->receive();
+    
+    while (!follower.isClosed()) {
+        std::string s = follower.receive();
         if (s == "") {
             break;
         }
         auto command = commandFactory(s);
-        command->apply(this);
+        command->apply(*this);
         delete command;
     }
 }
@@ -34,67 +35,79 @@ void KVStateMachine::snapshot() {
 
 void KVStateMachine::restore(const std::string& snapshot) {
     // Restore the state from a snapshot
+    std::ignore = snapshot;
 }
 
-raft::State* KVStateMachine::get(Key key) {
-    auto value = storageEngine->get(key);
-    return new State{key, value};
+State KVStateMachine::get(Key key) {
+    auto value = storageEngine.get(key);
+    return State{key, value};
 }
 
-raft::State* KVStateMachine::set(Key key, Value value) {
-    auto result = storageEngine->set(key, value);
-    return new State{key, result};
+State KVStateMachine::set(Key key, Value value) {
+    auto result = storageEngine.set(key, value);
+    return State{key, result};
 }
 
-raft::State* KVStateMachine::erase(Key key) {
-    auto result = storageEngine->erase(key);
-    return new State{key, result};
+State KVStateMachine::erase(Key key) {
+    auto result = storageEngine.erase(key);
+    return State{key, result};
 }
 
-raft::State* KVStateMachine::size() {
-    auto result = storageEngine->size();
-    return new State{result};
+State KVStateMachine::size() {
+    auto result = storageEngine.size();
+    return State{result};
 }
 
-raft::State* KVStateMachine::handleGet(Key key) {
+State KVStateMachine::handleGet(Key key, std::chrono::system_clock::time_point t) {
     auto c = Get{key};
-    raft->start(c.serialize());
-    leader->receive();
-    auto value = storageEngine->get(key);
-    return new State{key, value};
+    raft.start(c.serialize());
+    auto r = leader.receiveUntil(t);
+    if (!r.has_value()) {
+        return State{key, std::expected<std::optional<Value>, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+    }
+    auto value = storageEngine.get(key);
+    return State{key, value};
 }
 
-raft::State* KVStateMachine::handleSet(Key key, Value value) {
+State KVStateMachine::handleSet(Key key, Value value, std::chrono::system_clock::time_point t) {
     auto c = Set{key, value};
-    raft->start(c.serialize());
-    leader->receive();
-    auto result = storageEngine->set(key, value);
-    return new State{key, result};
+    raft.start(c.serialize());
+    auto r = leader.receiveUntil(t);
+    if (!r.has_value()) {
+        return State{key, std::expected<std::monostate, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+    }
+    auto result = storageEngine.set(key, value);
+    return State{key, result};
 }
 
-raft::State* KVStateMachine::handleErase(Key key) {
+State KVStateMachine::handleErase(Key key, std::chrono::system_clock::time_point t) {
     auto c = Erase{key};
-    raft->start(c.serialize());
-    leader->receive();
-    auto result = storageEngine->erase(key);
-    return new State{key, result};
+    raft.start(c.serialize());
+    auto r = leader.receiveUntil(t);
+    if (!r.has_value()) {
+        return State{key, std::expected<std::optional<Value>, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+    }
+    auto result = storageEngine.erase(key);
+    return State{key, result};
 }
 
-raft::State* KVStateMachine::handleSize() {
+State KVStateMachine::handleSize(std::chrono::system_clock::time_point t) {
     auto c = Size{};
-    raft->start(c.serialize());
-    leader->receive();
-    auto size = storageEngine->size();
-    return new State{size};
+    raft.start(c.serialize());
+    auto r = leader.receiveUntil(t);
+    if (!r.has_value()) {
+        return State{std::expected<size_t, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+    }
+    auto size = storageEngine.size();
+    return State{size};
 }
 
 KVStateMachine::~KVStateMachine() {
-    delete follower;
-    delete leader;
+    follower.close();
+    leader.close();
     if (t.joinable()) {
         t.join();
     }
 }
 
 } // namespace zdb
-

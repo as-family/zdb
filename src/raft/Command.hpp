@@ -11,7 +11,7 @@ class State;
 struct Command {
     virtual ~Command() = default;
     virtual std::string serialize() const = 0;
-    virtual State* apply(raft::StateMachine* stateMachine) = 0;
+    virtual void apply(raft::StateMachine& stateMachine) = 0;
     virtual bool operator==(const Command& other) const = 0;
     virtual bool operator!=(const Command& other) const = 0;
 };

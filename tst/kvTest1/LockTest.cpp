@@ -7,6 +7,8 @@
 #include "KVTestFramework/NetworkConfig.hpp"
 #include "common/RetryPolicy.hpp"
 #include <gtest/gtest.h>
+#include "raft/SyncChannel.hpp"
+#include "raft/TestRaft.hpp"
 
 const int nClient = 10;
 const int nSec = 2;
@@ -51,7 +53,19 @@ void runClients(int nClients, bool reliable) {
     NetworkConfig networkConfig {reliable, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};
+    raft::SyncChannel leader{};
+    raft::SyncChannel follower{};
+    TestRaft raft{leader};
+    zdb::RetryPolicy proxyPolicy {
+        std::chrono::milliseconds(20),
+        std::chrono::milliseconds(150),
+        std::chrono::milliseconds(200),
+        1,
+        1,
+        std::chrono::milliseconds(10),
+        std::chrono::milliseconds(20)
+    };
+    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
 
     kvTest.spawnClientsAndWait(nClients, std::chrono::seconds(nSec), {proxyAddress}, zdb::RetryPolicy{
         std::chrono::milliseconds(100),
@@ -84,7 +98,19 @@ TEST(LockTest, AcquireLock) {
     NetworkConfig networkConfig {true, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};
+    raft::SyncChannel leader{};
+    raft::SyncChannel follower{};
+    TestRaft raft{leader};
+    zdb::RetryPolicy proxyPolicy {
+        std::chrono::milliseconds(20),
+        std::chrono::milliseconds(150),
+        std::chrono::milliseconds(200),
+        1,
+        1,
+        std::chrono::milliseconds(10),
+        std::chrono::milliseconds(20)
+    };
+    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
     zdb::RetryPolicy policy{
         std::chrono::microseconds(100),
         std::chrono::microseconds(1000),
@@ -105,7 +131,19 @@ TEST(LockTest, ReleaseLock) {
     NetworkConfig networkConfig {true, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig};
+    raft::SyncChannel leader{};
+    raft::SyncChannel follower{};
+    TestRaft raft{leader};
+    zdb::RetryPolicy proxyPolicy {
+        std::chrono::milliseconds(20),
+        std::chrono::milliseconds(150),
+        std::chrono::milliseconds(200),
+        1,
+        1,
+        std::chrono::milliseconds(10),
+        std::chrono::milliseconds(20)
+    };
+    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
     zdb::RetryPolicy policy{
         std::chrono::microseconds(100),
         std::chrono::microseconds(1000),

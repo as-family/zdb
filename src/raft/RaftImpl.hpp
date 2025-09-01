@@ -23,7 +23,7 @@ namespace raft {
 template <typename Client>
 class RaftImpl : public Raft {
 public:
-    RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Channel& f, zdb::RetryPolicy r, std::function<Client*(std::string, zdb::RetryPolicy)> g);
+    RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Channel& f, zdb::RetryPolicy r, std::function<Client&(std::string, zdb::RetryPolicy)> g);
     void appendEntries() override;
     void requestVote() override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
@@ -45,13 +45,13 @@ private:
     std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
     Log mainLog;
     std::atomic<bool> killed;
-    std::unordered_map<std::string, Client*> peers;
+    std::unordered_map<std::string, Client&> peers;
     AsyncTimer electionTimer;
     AsyncTimer heartbeatTimer;
 };
 
 template <typename Client>
-RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Channel& f, zdb::RetryPolicy r, std::function<Client*(std::string, zdb::RetryPolicy)> g)
+RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Channel& f, zdb::RetryPolicy r, std::function<Client&(std::string, zdb::RetryPolicy)> g)
     : serviceChannel {c},
       followerChannel {f},
       policy {r},
@@ -70,7 +70,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
     }
     p.erase(std::remove(p.begin(), p.end(), selfId), p.end());
     for (const auto& peer : p) {
-        peers[peer] = g(peer, policy);
+        peers.emplace(std::piecewise_construct, std::forward_as_tuple(peer), std::forward_as_tuple(g(peer, policy)));
     }
     electionTimeout = std::chrono::milliseconds(150);
     heartbeatInterval = std::chrono::milliseconds(20);
@@ -115,8 +115,8 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
         reply.voteGranted = true;
         return reply;
     }
-    if (votedFor.has_value() && votedFor.value() == arg.candidateId || !votedFor.has_value()) {
-        if (mainLog.lastTerm() == arg.lastLogTerm && mainLog.lastIndex() <= arg.lastLogIndex || mainLog.lastTerm() < arg.lastLogTerm) {
+    if ((votedFor.has_value() && votedFor.value() == arg.candidateId) || !votedFor.has_value()) {
+        if ((mainLog.lastTerm() == arg.lastLogTerm && mainLog.lastIndex() <= arg.lastLogIndex) || mainLog.lastTerm() < arg.lastLogTerm) {
             std::unique_lock voteLock {m};
             votedFor = arg.candidateId;
             lastHeartbeat = std::chrono::steady_clock::now();
@@ -206,7 +206,7 @@ void RaftImpl<Client>::appendEntries(){
                     e->set_command(eg.command);
                 }
                 proto::AppendEntriesReply reply;
-                auto status = peer->call(
+                auto status = peer.call(
                     "appendEntries",
                     &proto::Raft::Stub::appendEntries,
                     arg,
@@ -297,7 +297,7 @@ void RaftImpl<Client>::requestVote(){
                 arg.set_lastlogindex(mainLog.lastIndex());
                 arg.set_lastlogterm(mainLog.lastTerm());
                 proto::RequestVoteReply reply;
-                auto status = peer->call(
+                auto status = peer.call(
                     "requestVote",
                     &proto::Raft::Stub::requestVote,
                     arg,
@@ -367,9 +367,6 @@ Log& RaftImpl<Client>::log(){
 
 template <typename Client>
 RaftImpl<Client>::~RaftImpl() {
-    for (auto& [_, peer] : peers) {
-        delete peer;
-    }
 }
 
 } // namespace raft

@@ -4,10 +4,10 @@ namespace raft {
 
 void SyncChannel::send(std::string cmd) {
     std::unique_lock<std::mutex> lock(m);
-    while(value.has_value() && !value.value().empty()) {
+    while(value.has_value() && !closed) {
         cv.wait(lock);
     }
-    if (value.has_value()) {
+    if (closed) {
         return;
     }
     value = cmd;
@@ -16,24 +16,47 @@ void SyncChannel::send(std::string cmd) {
 
 std::string SyncChannel::receive() {
     std::unique_lock<std::mutex> lock(m);
-    while (!value.has_value()) {
+    while (!value.has_value() && !closed) {
         cv.wait(lock);
     }
-    std::string cmd = value.value();
-    if (cmd == "") {
-        return cmd;
+    if (closed) {
+        return "";
     }
+    std::string cmd = value.value();
     value.reset();
     cv.notify_one();
     return cmd;
 }
 
-SyncChannel::~SyncChannel() {
+std::optional<std::string> SyncChannel::receiveUntil(std::chrono::system_clock::time_point t) {
     std::unique_lock<std::mutex> lock(m);
-    value = "";
+    while (!value.has_value() && !closed) {
+        if (cv.wait_until(lock, t) == std::cv_status::timeout) {
+            return std::nullopt;
+        }
+    }
+    if (closed) {
+        return std::nullopt;
+    }
+    std::string cmd = value.value();
+    value.reset();
+    cv.notify_one();
+    return cmd;
+}
+
+void SyncChannel::close() {
+    std::unique_lock<std::mutex> lock(m);
+    closed = true;
     cv.notify_all();
-    lock.unlock();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+}
+
+bool SyncChannel::isClosed() {
+    std::unique_lock<std::mutex> lock(m);
+    return closed;
+}
+
+SyncChannel::~SyncChannel() {
+    close();
 }
 
 } // namespace raft

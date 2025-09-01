@@ -12,7 +12,7 @@
 
 namespace zdb {
 
-KVStoreServiceImpl::KVStoreServiceImpl(KVStateMachine* kv)
+KVStoreServiceImpl::KVStoreServiceImpl(KVStateMachine& kv)
     : kvStateMachine {kv} {}
 
 grpc::Status KVStoreServiceImpl::get(
@@ -21,12 +21,8 @@ grpc::Status KVStoreServiceImpl::get(
     kvStore::GetReply *reply) {
     std::ignore = context;
     Key key{request->key().data()};
-    auto state = kvStateMachine->handleGet(key);
-    auto s = static_cast<zdb::State*>(state);
-    if (!s) {
-        return toGrpcStatus(Error {ErrorCode::Internal, "failed to cast state"});
-    }
-    const auto& v = std::get<std::expected<std::optional<Value>, Error>>(s->u);
+    auto state = kvStateMachine.handleGet(key, context->deadline());
+    const auto& v = std::get<std::expected<std::optional<Value>, Error>>(state.u);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
     }
@@ -47,12 +43,8 @@ grpc::Status KVStoreServiceImpl::set(
     std::ignore = reply;
     Key key{request->key().data()};
     Value value{request->value().data(), request->value().version()};
-    auto state = kvStateMachine->handleSet(key, value);
-    auto s = static_cast<zdb::State*>(state);
-    if (!s) {
-        return toGrpcStatus(Error {ErrorCode::Internal, "failed to cast state"});
-    }
-    auto v = std::get<std::expected<std::monostate, Error>>(s->u);
+    auto state = kvStateMachine.handleSet(key, value, context->deadline());
+    auto v = std::get<std::expected<std::monostate, Error>>(state.u);
     return toGrpcStatus(v);
 }
 
@@ -62,12 +54,8 @@ grpc::Status KVStoreServiceImpl::erase(
     kvStore::EraseReply* reply) {
     std::ignore = context;
     Key key{request->key().data()};
-    auto state = kvStateMachine->handleErase(key);
-    auto s = static_cast<zdb::State*>(state);
-    if (!s) {
-        return toGrpcStatus(Error {ErrorCode::Internal, "failed to cast state"});
-    }
-    auto v = std::get<std::expected<std::optional<Value>, Error>>(s->u);
+    auto state = kvStateMachine.handleErase(key, context->deadline());
+    auto v = std::get<std::expected<std::optional<Value>, Error>>(state.u);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
     }
@@ -86,12 +74,8 @@ grpc::Status KVStoreServiceImpl::size(
     kvStore::SizeReply *reply) {
     std::ignore = context;
     std::ignore = request;
-    auto state = kvStateMachine->handleSize();
-    auto s = static_cast<zdb::State*>(state);
-    if (!s) {
-        return toGrpcStatus(Error {ErrorCode::Internal, "failed to cast state"});
-    }
-    auto v = std::get<std::expected<size_t, Error>>(s->u);
+    auto state = kvStateMachine.handleSize(context->deadline());
+    auto v = std::get<std::expected<size_t, Error>>(state.u);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
     }
@@ -100,7 +84,6 @@ grpc::Status KVStoreServiceImpl::size(
 }
 
 KVStoreServiceImpl::~KVStoreServiceImpl() {
-    delete kvStateMachine;
 }
 
 } // namespace zdb

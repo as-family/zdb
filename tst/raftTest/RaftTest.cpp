@@ -150,7 +150,7 @@ TEST(Raft, BasicAgreeOneValue) {
     auto p = makePolicy(config.size());
     RAFTTestFramework framework{config, p};
     EXPECT_NO_THROW(framework.check1Leader());
-    auto kvFrameworks = framework.getKVFrameworks();
+    auto& kvFrameworks = framework.getKVFrameworks(config[0].raftTarget);
     auto clientPolicy = zdb::RetryPolicy {
         std::chrono::milliseconds(10),
         std::chrono::milliseconds(500),
@@ -160,7 +160,7 @@ TEST(Raft, BasicAgreeOneValue) {
         std::chrono::milliseconds(20),
         std::chrono::milliseconds(20)
     };
-    auto r = kvFrameworks.begin()->second->spawnClientsAndWait(
+    auto r = kvFrameworks.spawnClientsAndWait(
         1,
         std::chrono::seconds(1),
         getKVProxies(config),
@@ -181,7 +181,7 @@ TEST(Raft, BasicAgreeOneValue) {
         }
     );
     EXPECT_EQ(r[0].nOK, 1);
-    auto r2 = kvFrameworks.begin()->second->spawnClientsAndWait(
+    auto r2 = kvFrameworks.spawnClientsAndWait(
         1,
         std::chrono::seconds(1),
         getKVProxies(config),

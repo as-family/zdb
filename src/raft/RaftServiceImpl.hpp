@@ -13,7 +13,7 @@ namespace raft {
 
 class RaftServiceImpl final : public proto::Raft::Service {
 public:
-    RaftServiceImpl(Raft* r);
+    RaftServiceImpl(Raft& r);
     grpc::Status appendEntries(
         grpc::ServerContext* context,
         const proto::AppendEntriesArg* request,
@@ -24,7 +24,7 @@ public:
         proto::RequestVoteReply* response) override;
     ~RaftServiceImpl();
 private:
-    Raft* raft;
+    Raft& raft;
 };
 
 } // namespace raft

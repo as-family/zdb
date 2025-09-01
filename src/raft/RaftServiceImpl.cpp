@@ -3,14 +3,14 @@
 
 namespace raft {
 
-RaftServiceImpl::RaftServiceImpl(Raft* r) : raft(r) {
+RaftServiceImpl::RaftServiceImpl(Raft& r) : raft(r) {
 }
 
 grpc::Status RaftServiceImpl::requestVote(
     grpc::ServerContext* context,
     const proto::RequestVoteArg* request,
     proto::RequestVoteReply* reply) {
-    auto r = raft->requestVoteHandler(*request);
+    auto r = raft.requestVoteHandler(*request);
     reply->set_term(r.term);
     reply->set_votegranted(r.voteGranted);
     return grpc::Status::OK;
@@ -22,7 +22,7 @@ grpc::Status RaftServiceImpl::appendEntries(
     proto::AppendEntriesReply* reply) {
     Log log{};
     AppendEntriesArg arg {*request, log};
-    auto r = raft->appendEntriesHandler(arg);
+    auto r = raft.appendEntriesHandler(arg);
     reply->set_success(r.success);
     reply->set_term(r.term);
     return grpc::Status::OK;

@@ -7,6 +7,8 @@
 #include "common/Error.hpp"
 #include "common/RPCService.hpp"
 #include <proto/kvStore.grpc.pb.h>
+#include <proto/kvStore.grpc.pb.h>
+#include <random>
 #include <vector>
 #include "common/RetryPolicy.hpp"
 

@@ -18,9 +18,7 @@ Log::Log()
     : entries{} {}
 
 Log::Log(std::vector<LogEntry> es)
-    : entries{es} {
-
-}
+    : entries{es} {}
 
 void Log::append(const proto::LogEntry& entry) {
     std::lock_guard g{m};

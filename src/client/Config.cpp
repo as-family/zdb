@@ -55,7 +55,7 @@ std::expected<KVRPCServicePtr, Error> Config::nextService() {
 
 
 std::expected<KVRPCServicePtr, Error> Config::randomService() {
-    while(true) {
+    for (int j = 0; j < 10 * services.size(); ++j) {
         auto i = std::next(services.begin(), dist(rng));
         if (i == cService) {
             continue;
@@ -65,7 +65,7 @@ std::expected<KVRPCServicePtr, Error> Config::randomService() {
             return &i->second;
         }
     }
-    std::unreachable();
+    return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "No available services left")};
 }
 
 } // namespace zdb

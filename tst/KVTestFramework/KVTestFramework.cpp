@@ -16,7 +16,7 @@
 #include "raft/Channel.hpp"
 #include "raft/SyncChannel.hpp"
 
-KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel* l, raft::Channel* f, raft::Raft* r)
+KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel& l, raft::Channel& f, raft::Raft& r, zdb::RetryPolicy p)
     : addr {a},
       targetServerAddr {t},
       networkConfig(c),
@@ -24,27 +24,13 @@ KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, Net
       leader{l},
       follower{f},
       raft {r},
-      service {ProxyKVStoreService {targetServerAddr, networkConfig}},
+      kvState {mem, leader, follower, raft},
+      targetService {kvState},
+      targetProxyService{targetServerAddr, networkConfig, p},
+      service {targetProxyService},
+      targetServer {targetServerAddr, targetService},
+      server {addr, service},
       rng(std::random_device{}()) {
-    if (!raft) {
-        owner = true;
-        leader = new raft::SyncChannel {};
-        follower = new raft::SyncChannel {};
-        raft = new TestRaft {*leader};
-    }
-    kvState = new zdb::KVStateMachine{&mem, leader, follower, raft};
-    targetService  = new zdb::KVStoreServiceImpl {kvState};
-    grpc::ServerBuilder targetSB{};
-    targetSB.AddListeningPort(targetServerAddr, grpc::InsecureServerCredentials());
-    targetSB.RegisterService(targetService);
-    targetServer = targetSB.BuildAndStart();
-    targetServerThread = std::thread([this]() { targetServer->Wait(); });
-
-    grpc::ServerBuilder sb{};
-    sb.AddListeningPort(addr, grpc::InsecureServerCredentials());
-    sb.RegisterService(&service);
-    server = sb.BuildAndStart();
-    serverThread = std::thread([this]() { server->Wait(); });
 }
 
 std::vector<KVTestFramework::ClientResult> KVTestFramework::spawnClientsAndWait(
@@ -211,12 +197,4 @@ bool KVTestFramework::checkSetConcurrent(
 }
 
 KVTestFramework::~KVTestFramework() {
-    delete targetService;
-    if (owner) {
-        delete raft;
-    }
-    server->Shutdown();
-    targetServer->Shutdown();
-    serverThread.join();
-    targetServerThread.join();
 }

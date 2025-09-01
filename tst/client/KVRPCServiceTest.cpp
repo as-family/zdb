@@ -40,10 +40,10 @@ class TestKVServer {
 public:
     explicit TestKVServer(std::string addr)
         : kvStore{},
-          leader{new raft::SyncChannel()},
-          follower{new raft::SyncChannel()},
-          raft{*leader},
-          kvState {new zdb::KVStateMachine{&kvStore, leader, follower, &raft}},
+          leader{},
+          follower{},
+          raft{leader},
+          kvState{kvStore, leader, follower, raft},
           serviceImpl{kvState},
           address{std::move(addr)} {
         grpc::ServerBuilder builder;
@@ -58,10 +58,10 @@ public:
     }
 private:
     InMemoryKVStore kvStore;
-    raft::Channel* leader;
-    raft::Channel* follower;
+    raft::SyncChannel leader;
+    raft::SyncChannel follower;
     TestRaft raft;
-    zdb::KVStateMachine* kvState;
+    zdb::KVStateMachine kvState;
     KVStoreServiceImpl serviceImpl;
     std::unique_ptr<grpc::Server> server;
     std::string address;

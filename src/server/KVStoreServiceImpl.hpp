@@ -12,7 +12,7 @@ namespace zdb {
 
 class KVStoreServiceImpl final : public kvStore::KVStoreService::Service {
 public:
-    KVStoreServiceImpl(KVStateMachine* kv);
+    KVStoreServiceImpl(KVStateMachine& kv);
     grpc::Status get(
         grpc::ServerContext* context,
         const kvStore::GetRequest* request,
@@ -31,7 +31,7 @@ public:
         kvStore::SizeReply* reply) override;
     ~KVStoreServiceImpl();
 private:
-    KVStateMachine* kvStateMachine;
+    KVStateMachine& kvStateMachine;
 };
 
 using KVStoreServer = RPCServer<KVStoreServiceImpl>;

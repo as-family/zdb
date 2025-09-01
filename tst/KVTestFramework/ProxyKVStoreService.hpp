@@ -2,36 +2,11 @@
 #define PROXY_KV_STORE_SERVICE_H
 
 #include "proto/kvStore.grpc.pb.h"
-#include "NetworkConfig.hpp"
-#include <thread>
-#include <spdlog/spdlog.h>
+#include "KVTestFramework/ProxyService.hpp"
 
 class ProxyKVStoreService : public zdb::kvStore::KVStoreService::Service {
 public:
-    ProxyKVStoreService(const std::string& original, NetworkConfig& c);
-    template<typename Req, typename Rep>
-    grpc::Status call(
-        grpc::Status (zdb::kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
-        const Req* request,
-        Rep* reply) const {
-        grpc::ClientContext c;
-        if (networkConfig.isReliable()) {
-            auto status = (stub.get()->*f)(&c, *request, reply);
-            return status;
-        } else {
-            if (networkConfig.shouldDrop()) {
-                return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped");
-            }
-            auto status = (stub.get()->*f)(&c, *request, reply);
-            if (networkConfig.shouldDrop()) {
-               return grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped");
-            }
-            if (networkConfig.shouldDelay()) {
-                std::this_thread::sleep_for(networkConfig.delayTime());
-            }
-            return status;
-        }
-    }
+    ProxyKVStoreService(ProxyService<zdb::kvStore::KVStoreService>& p);
     grpc::Status get(
         grpc::ServerContext* context,
         const zdb::kvStore::GetRequest* request,
@@ -49,10 +24,7 @@ public:
         const zdb::kvStore::SizeRequest* request,
         zdb::kvStore::SizeReply* reply) override;
 private:
-    std::string originalAddress;
-    std::shared_ptr<grpc::Channel> channel;
-    std::unique_ptr<zdb::kvStore::KVStoreService::Stub> stub;
-    NetworkConfig& networkConfig;
+    ProxyService<zdb::kvStore::KVStoreService>& proxy;
 };
 
 #endif // PROXY_KV_STORE_SERVICE_H

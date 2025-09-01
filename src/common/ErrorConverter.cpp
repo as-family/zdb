@@ -22,7 +22,7 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
         case ErrorCode::AllServicesUnavailable:
             return grpc::StatusCode::UNAVAILABLE;
 
-        case ErrorCode::TimeOut:
+        case ErrorCode::Timeout:
             return grpc::StatusCode::DEADLINE_EXCEEDED;
 
         case ErrorCode::NotLeader:
@@ -76,7 +76,7 @@ Error toError(const grpc::Status& status) {
             code = ErrorCode::ServiceTemporarilyUnavailable;
             break;
         case grpc::StatusCode::DEADLINE_EXCEEDED:
-            code = ErrorCode::TimeOut;
+            code = ErrorCode::Timeout;
             break;
         case grpc::StatusCode::FAILED_PRECONDITION:
             code = ErrorCode::NotLeader;
