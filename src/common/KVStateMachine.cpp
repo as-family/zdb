@@ -78,7 +78,7 @@ std::unique_ptr<raft::State> KVStateMachine::handleGet(Get c, std::chrono::syste
 
 std::unique_ptr<raft::State> KVStateMachine::handleSet(Set c, std::chrono::system_clock::time_point t) {
     if (!raft.start(c.serialize())) {
-        return std::make_unique<State>(State{c.key, std::expected<std::optional<Value>, Error>{
+        return std::make_unique<State>(State{c.key, std::expected<std::monostate, Error>{
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}});
     }
     while (true) {
@@ -102,7 +102,7 @@ std::unique_ptr<raft::State> KVStateMachine::handleErase(Erase c, std::chrono::s
     while (true) {
         auto r = leader.receiveUntil(t);
         if (!r.has_value()) {
-            return std::make_unique<State>(State{c.key, std::expected<std::monostate, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}});
+            return std::make_unique<State>(State{c.key, std::expected<std::optional<Value>, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}});
         }
         auto cc = commandFactory(r.value());
         auto s = applyCommand(*cc);

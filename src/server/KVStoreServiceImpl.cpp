@@ -24,7 +24,8 @@ grpc::Status KVStoreServiceImpl::get(
     Key key{request->key().data()};
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
     auto g = Get{uuid, key};
-    auto state = static_cast<State*>(kvStateMachine.handleGet(g, context->deadline()).get());
+    auto p = kvStateMachine.handleGet(g, context->deadline());
+    auto state = static_cast<State*>(p.get());
     const auto& v = std::get<std::expected<std::optional<Value>, Error>>(state->u);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
@@ -48,7 +49,8 @@ grpc::Status KVStoreServiceImpl::set(
     Value value{request->value().data(), request->value().version()};
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
     auto s = Set{uuid, key, value};
-    auto state = static_cast<State*>(kvStateMachine.handleSet(s, context->deadline()).get());
+    auto p = kvStateMachine.handleSet(s, context->deadline());
+    auto state = static_cast<State*>(p.get());
     auto v = std::get<std::expected<std::monostate, Error>>(state->u);
     return toGrpcStatus(v);
 }
@@ -61,7 +63,8 @@ grpc::Status KVStoreServiceImpl::erase(
     Key key{request->key().data()};
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
     auto e = Erase{uuid, key};
-    auto state = static_cast<State*>(kvStateMachine.handleErase(e, context->deadline()).get());
+    auto p = kvStateMachine.handleErase(e, context->deadline());
+    auto state = static_cast<State*>(p.get());
     auto v = std::get<std::expected<std::optional<Value>, Error>>(state->u);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
@@ -82,7 +85,8 @@ grpc::Status KVStoreServiceImpl::size(
     std::ignore = context;
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
     auto sz = Size{uuid};
-    auto state = static_cast<State*>(kvStateMachine.handleSize(sz, context->deadline()).get());
+    auto p = kvStateMachine.handleSize(sz, context->deadline());
+    auto state = static_cast<State*>(p.get());
     auto v = std::get<std::expected<size_t, Error>>(state->u);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
