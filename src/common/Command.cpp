@@ -1,26 +1,27 @@
 #include "common/Command.hpp"
 #include "proto/types.pb.h"
 #include <google/protobuf/any.pb.h>
+#include <memory>
 
 namespace zdb
 {
 
-raft::Command* commandFactory(const std::string& s) {
+std::unique_ptr<raft::Command> commandFactory(const std::string& s) {
     auto cmd = zdb::proto::Command {};
     if (!cmd.ParseFromString(s)) {
         throw std::invalid_argument{"commandFactory: deserialization failed"};
     }
     if (cmd.op() == "get") {
-        return new Get{cmd};
+        return std::make_unique<Get>(cmd);
     }
     if (cmd.op() == "set") {
-        return new Set{cmd};
+        return std::make_unique<Set>(cmd);
     }
     if (cmd.op() == "erase") {
-        return new Erase{cmd};
+        return std::make_unique<Erase>(cmd);
     }
     if (cmd.op() == "size") {
-        return new Size{cmd};
+        return std::make_unique<Size>(cmd);
     }
     throw std::invalid_argument{"commandFactory: unknown op: " + cmd.op()};
 }

@@ -12,8 +12,8 @@ KVStateMachine::KVStateMachine(StorageEngine& s, raft::Channel& leaderChannel, r
       raft {r},
       t {std::thread(&KVStateMachine::consumeChannel, this)} {}
 
-void KVStateMachine::applyCommand(raft::Command* command) {
-    command->apply(*this);
+void KVStateMachine::applyCommand(raft::Command& command) {
+    command.apply(*this);
 }
 
 void KVStateMachine::consumeChannel() {
@@ -25,7 +25,6 @@ void KVStateMachine::consumeChannel() {
         }
         auto command = commandFactory(s);
         command->apply(*this);
-        delete command;
     }
 }
 

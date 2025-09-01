@@ -18,7 +18,7 @@ public:
     KVStateMachine& operator=(const KVStateMachine&) = delete;
     KVStateMachine(KVStateMachine&&) = delete;
     KVStateMachine& operator=(KVStateMachine&&) = delete;
-    void applyCommand(raft::Command* command) override;
+    void applyCommand(raft::Command& command) override;
     void consumeChannel() override;
     void snapshot() override;
     void restore(const std::string& snapshot) override;

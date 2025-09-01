@@ -14,7 +14,6 @@
 #include "common/Types.hpp"
 #include <expected>
 #include "Porcupine.hpp"
-#include "common/RetryPolicy.hpp"
 #include "raft/Raft.hpp"
 #include "raft/Channel.hpp"
 #include "raft/TestRaft.hpp"

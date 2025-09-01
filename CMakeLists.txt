@@ -70,7 +70,7 @@ add_subdirectory(tst)
 # Usage: cmake --build <build_dir> --target post-test-analysis
 add_custom_target(post-test-analysis
   DEPENDS tests
-  COMMAND ${CMAKE_COMMAND} -E echo "Running tests (ctest), then post-test static analysis..."
+  COMMAND ${CMAKE_COMMAND} -E echo "Running tests with ctest, then post-test static analysis..."
   COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
 )
 

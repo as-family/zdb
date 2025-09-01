@@ -5,6 +5,7 @@
 #include "raft/Command.hpp"
 #include "raft/Channel.hpp"
 #include "raft/Types.hpp"
+#include <tuple>
 
 struct TestRaft : raft::Raft {
     TestRaft(raft::Channel& c) : channel {c} {}

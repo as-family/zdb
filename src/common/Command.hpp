@@ -67,7 +67,7 @@ struct Size : public raft::Command {
 
 };
 
-raft::Command* commandFactory(const std::string& s);
+std::unique_ptr<raft::Command> commandFactory(const std::string& s);
 
 } // namespace zdb
 

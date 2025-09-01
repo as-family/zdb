@@ -52,11 +52,11 @@ void RPCServer<Service>::shutdown() {
     if (server) {
         auto deadline = std::chrono::system_clock::now() + std::chrono::milliseconds(10);
         server->Shutdown(deadline);
-        server.reset();
     }
     if (serverThread.joinable()) {
         serverThread.join();
     }
+    server.reset();
 }
 
 template<typename Service>
