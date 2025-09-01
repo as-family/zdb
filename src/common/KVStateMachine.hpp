@@ -9,6 +9,7 @@
 #include "raft/Raft.hpp"
 #include <chrono>
 #include "common/Command.hpp"
+#include <memory>
 
 namespace zdb {
 
@@ -19,7 +20,7 @@ public:
     KVStateMachine& operator=(const KVStateMachine&) = delete;
     KVStateMachine(KVStateMachine&&) = delete;
     KVStateMachine& operator=(KVStateMachine&&) = delete;
-    void applyCommand(raft::Command& command) override;
+    std::unique_ptr<raft::State> applyCommand(raft::Command& command) override;
     void consumeChannel() override;
     void snapshot() override;
     void restore(const std::string& snapshot) override;

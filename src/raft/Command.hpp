@@ -3,6 +3,8 @@
 
 #include <string>
 #include "common/Util.hpp"
+#include "raft/StateMachine.hpp"
+#include <memory>
 
 namespace raft {
 
@@ -12,7 +14,7 @@ class State;
 struct Command {
     virtual ~Command() = default;
     virtual std::string serialize() const = 0;
-    virtual void apply(raft::StateMachine& stateMachine) = 0;
+    virtual std::unique_ptr<State> apply(raft::StateMachine& stateMachine) = 0;
     virtual bool operator==(const Command& other) const = 0;
     virtual bool operator!=(const Command& other) const = 0;
     virtual UUIDV7 getUUID() const {

@@ -5,6 +5,7 @@
 #include "raft/Command.hpp"
 #include <unordered_map>
 #include <string>
+#include <memory>
 
 namespace raft {
 
@@ -17,7 +18,7 @@ class StateMachine {
 public:
     virtual ~StateMachine() = default;
 
-    virtual void applyCommand(raft::Command& command) = 0;
+    virtual std::unique_ptr<State> applyCommand(raft::Command& command) = 0;
     virtual void consumeChannel() = 0;
     virtual void snapshot() = 0;
     virtual void restore(const std::string& snapshot) = 0;

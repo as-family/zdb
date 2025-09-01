@@ -47,9 +47,9 @@ std::string Get::serialize() const {
     return s;
 }
 
-void Get::apply(raft::StateMachine& stateMachine) {
+std::unique_ptr<raft::State> Get::apply(raft::StateMachine& stateMachine) {
     auto& kvState = dynamic_cast<zdb::KVStateMachine&>(stateMachine);
-    std::ignore = kvState.get(key);
+    return std::make_unique<raft::State>(kvState.get(key));
 }
 
 bool Get::operator==(const raft::Command& other) const {
@@ -84,9 +84,9 @@ std::string Set::serialize() const {
     return s;
 }
 
-void Set::apply(raft::StateMachine& stateMachine) {
+std::unique_ptr<raft::State> Set::apply(raft::StateMachine& stateMachine) {
     auto& kvState = dynamic_cast<zdb::KVStateMachine&>(stateMachine);
-    std::ignore = kvState.set(key, value);
+    return std::make_unique<raft::State>(kvState.set(key, value));
 }
 
 bool Set::operator==(const raft::Command& other) const {
@@ -119,9 +119,9 @@ std::string Erase::serialize() const {
     return s;
 }
 
-void Erase::apply(raft::StateMachine& stateMachine) {
+std::unique_ptr<raft::State> Erase::apply(raft::StateMachine& stateMachine) {
     auto& kvState = dynamic_cast<zdb::KVStateMachine&>(stateMachine);
-    std::ignore = kvState.erase(key);
+    return std::make_unique<raft::State>(kvState.erase(key));
 }
 
 bool Erase::operator==(const raft::Command& other) const {
@@ -153,9 +153,9 @@ std::string Size::serialize() const {
     return s;
 }
 
-void Size::apply(raft::StateMachine& stateMachine) {
+std::unique_ptr<raft::State> Size::apply(raft::StateMachine& stateMachine) {
     auto& kvState = dynamic_cast<zdb::KVStateMachine&>(stateMachine);
-    std::ignore = kvState.size();
+    return std::make_unique<raft::State>(kvState.size());
 }
 
 bool Size::operator==(const raft::Command& other) const {

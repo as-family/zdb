@@ -12,8 +12,8 @@ KVStateMachine::KVStateMachine(StorageEngine& s, raft::Channel& leaderChannel, r
       raft {r},
       consumerThread {std::thread(&KVStateMachine::consumeChannel, this)} {}
 
-void KVStateMachine::applyCommand(raft::Command& command) {
-    command.apply(*this);
+std::unique_ptr<raft::State> KVStateMachine::applyCommand(raft::Command& command) {
+    return command.apply(*this);
 }
 
 void KVStateMachine::consumeChannel() {
@@ -62,51 +62,71 @@ State KVStateMachine::handleGet(Get c, std::chrono::system_clock::time_point t) 
         return State{c.key, std::expected<std::optional<Value>, Error>{
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}};
     }
-    auto r = leader.receiveUntil(t);
-    if (!r.has_value()) {
-        return State{c.key, std::expected<std::optional<Value>, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+    while (true) {
+        auto r = leader.receiveUntil(t);
+        if (!r.has_value()) {
+            return State{c.key, std::expected<std::optional<Value>, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+        }
+        auto cc = commandFactory(r.value());
+        auto s = applyCommand(*cc);
+        if (cc->getUUID() == c.getUUID()) {
+            return *static_cast<State*>(s.get());
+        }
     }
-    auto value = storageEngine.get(c.key);
-    return State{c.key, value};
 }
 
 State KVStateMachine::handleSet(Set c, std::chrono::system_clock::time_point t) {
     if (!raft.start(c.serialize())) {  
         return State{c.key, std::expected<std::optional<Value>, Error>{  
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}};  
-    } 
-    auto r = leader.receiveUntil(t);
-    if (!r.has_value()) {
-        return State{c.key, std::expected<std::monostate, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
     }
-    auto result = storageEngine.set(c.key, c.value);
-    return State{c.key, result};
+    while (true) {
+        auto r = leader.receiveUntil(t);
+        if (!r.has_value()) {
+            return State{c.key, std::expected<std::monostate, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+        }
+        auto cc = commandFactory(r.value());
+        auto s = applyCommand(*cc);
+        if(cc->getUUID() == c.getUUID()) {
+            return *static_cast<State*>(s.get());
+        }
+    }
 }
 
 State KVStateMachine::handleErase(Erase c, std::chrono::system_clock::time_point t) {
     if (!raft.start(c.serialize())) {  
         return State{c.key, std::expected<std::optional<Value>, Error>{  
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}};  
-    } 
-    auto r = leader.receiveUntil(t);
-    if (!r.has_value()) {
-        return State{c.key, std::expected<std::optional<Value>, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
     }
-    auto result = storageEngine.erase(c.key);
-    return State{c.key, result};
+    while (true) {
+        auto r = leader.receiveUntil(t);
+        if (!r.has_value()) {
+            return State{c.key, std::expected<std::monostate, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+        }
+        auto cc = commandFactory(r.value());
+        auto s = applyCommand(*cc);
+        if(cc->getUUID() == c.getUUID()) {
+            return *static_cast<State*>(s.get());
+        }
+    }
 }
 
 State KVStateMachine::handleSize(Size c, std::chrono::system_clock::time_point t) {
     if (!raft.start(c.serialize())) {  
         return State{std::expected<size_t, Error>{  
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}};  
-    } 
-    auto r = leader.receiveUntil(t);
-    if (!r.has_value()) {
-        return State{std::expected<size_t, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
     }
-    auto size = storageEngine.size();
-    return State{size};
+    while (true) {
+        auto r = leader.receiveUntil(t);
+        if (!r.has_value()) {
+            return State{std::expected<size_t, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+        }
+        auto cc = commandFactory(r.value());
+        auto s = applyCommand(*cc);
+        if(cc->getUUID() == c.getUUID()) {
+            return *static_cast<State*>(s.get());
+        }
+    }
 }
 
 KVStateMachine::~KVStateMachine() {

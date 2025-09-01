@@ -19,7 +19,7 @@ struct Get : public raft::Command {
 
     std::string serialize() const override;
 
-    void apply(raft::StateMachine& stateMachine) override;
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
     bool operator==(const raft::Command& other) const override;
     bool operator!=(const raft::Command& other) const override;
 
@@ -34,7 +34,7 @@ struct Set : public raft::Command {
 
     std::string serialize() const override;
 
-    void apply(raft::StateMachine& stateMachine) override;
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
 
     bool operator==(const raft::Command& other) const override;
     bool operator!=(const raft::Command& other) const override;
@@ -49,7 +49,7 @@ struct Erase : public raft::Command {
 
     std::string serialize() const override;
 
-    void apply(raft::StateMachine& stateMachine) override;
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
 
     bool operator==(const raft::Command& other) const override;
     bool operator!=(const raft::Command& other) const override;
@@ -62,7 +62,7 @@ struct Size : public raft::Command {
 
     std::string serialize() const override;
 
-    void apply(raft::StateMachine& stateMachine) override;
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
 
     bool operator==(const raft::Command& other) const override;
     bool operator!=(const raft::Command& other) const override;
