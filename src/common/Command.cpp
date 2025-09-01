@@ -33,7 +33,7 @@ Get::Get(UUIDV7& u, const Key& k) : key(k) {
 }
 
 Get::Get(const proto::Command& cmd) : key{cmd.key()} {
-    // TODO: Extract UUID from cmd.requestid().uuid() when implementing response correlation
+    uuid = string_to_uuid_v7(cmd.requestid().uuid());
 }
 
 std::string Get::serialize() const {
@@ -68,7 +68,7 @@ Set::Set(UUIDV7& u, const Key& k, const Value& v) : key(k), value(v) {
 }
 
 Set::Set(const proto::Command& cmd) : key{cmd.key()}, value{cmd.value()} {
-    // TODO: Extract UUID from cmd.requestid().uuid() when implementing response correlation
+    uuid = string_to_uuid_v7(cmd.requestid().uuid());
 }
 
 std::string Set::serialize() const {
@@ -105,7 +105,7 @@ Erase::Erase(UUIDV7& u, const Key& k) : key(k) {
 }
 
 Erase::Erase(const proto::Command& cmd) : key{cmd.key()} {
-    // TODO: Extract UUID from cmd.requestid().uuid() when implementing response correlation
+    uuid = string_to_uuid_v7(cmd.requestid().uuid());
 }
 
 std::string Erase::serialize() const {
@@ -139,8 +139,8 @@ Size::Size(UUIDV7& u) {
     uuid = u;
 }
 
-Size::Size(const proto::Command&) {
-    // TODO: Extract UUID from cmd.requestid().uuid() when implementing response correlation
+Size::Size(const proto::Command& cmd) {
+    uuid = string_to_uuid_v7(cmd.requestid().uuid());
 }
 
 std::string Size::serialize() const {

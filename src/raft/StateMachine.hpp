@@ -12,6 +12,7 @@ namespace raft {
 class Command;
 
 struct State {
+    virtual ~State() = default;
 };
 
 class StateMachine {
