@@ -32,42 +32,18 @@ RAFTTestFramework::RAFTTestFramework(
     std::vector<std::thread> threads;
     for (auto& e : config) {
         threads.emplace_back([this, &e, ps] {
-
-            std::unique_lock l1{m1};
             leaders.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
             followers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
-            l1.unlock();
-
-            std::unique_lock l2{m2};
             rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, leaders.at(e.raftTarget), followers.at(e.raftTarget), policy, [this, &e](const std::string addr, zdb::RetryPolicy) -> Client& {
                 clients[e.raftTarget].emplace(std::piecewise_construct, std::forward_as_tuple(addr), std::forward_as_tuple(addr, e.raftNetworkConfig, policy));
                 return clients[e.raftTarget].at(addr);
             }));
-            l2.unlock();
-
-            std::unique_lock l3{m3};
             raftServices.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(rafts.at(e.raftTarget)));
-            l3.unlock();
-
-            std::unique_lock l4{m4};
             raftServers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, raftServices.at(e.raftTarget)));
-            l4.unlock();
-
-            std::unique_lock l5{m5};
             proxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, e.raftNetworkConfig, policy));
-            l5.unlock();
-
-            std::unique_lock l6{m6};
             raftProxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(proxies.at(e.raftTarget)));
-            l6.unlock();
-
-            std::unique_lock l7{m7};
             raftProxyServers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftProxy, raftProxies.at(e.raftTarget)));
-            l7.unlock();
-
-            std::unique_lock l8{m8};
             kvTests.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.kvProxy, e.kvTarget, e.kvNetworkConfig, leaders.at(e.raftTarget), followers.at(e.raftTarget), rafts.at(e.raftTarget), policy));
-            l8.unlock();
         });
     }
     for (auto& t : threads) {
@@ -126,7 +102,7 @@ std::string RAFTTestFramework::check1Leader() {
 }
 
 std::unordered_map<std::string, raft::RaftImpl<RAFTTestFramework::Client>>& RAFTTestFramework::getRafts() {
-    return rafts;
+    return rafts.stdMap();
 }
 
 KVTestFramework& RAFTTestFramework::getKVFrameworks(std::string target) {
