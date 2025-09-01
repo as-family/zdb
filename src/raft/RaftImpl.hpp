@@ -33,6 +33,7 @@ public:
     Log& log() override;
     ~RaftImpl();
 private:
+    void applyCommittedEntries(Channel& channel);
     std::mutex m{};
     std::condition_variable cv{};
     std::mutex commitIndexMutex{};
@@ -154,13 +155,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         }
         commitLock.unlock();
         lastHeartbeat = std::chrono::steady_clock::now();
-        for (; lastApplied < commitIndex; ++lastApplied) {
-            if (lastApplied == 0) {
-                continue;
-            }
-            auto c = mainLog.at(lastApplied);
-            followerChannel.send(c.value().command);
-        }
+        applyCommittedEntries(followerChannel);
         reply.success = true;
         return reply;
     } else {
@@ -260,12 +255,17 @@ void RaftImpl<Client>::appendEntries(){
             }
         }
     }
+    applyCommittedEntries(serviceChannel);
+}
+
+template <typename Client>
+void RaftImpl<Client>::applyCommittedEntries(Channel& channel) {
     for (; lastApplied < commitIndex; ++lastApplied) {
         if (lastApplied == 0) {
             continue;
         }
         auto c = mainLog.at(lastApplied);
-        serviceChannel.send(c.value().command);
+        channel.send(c.value().command);
     }
 }
 

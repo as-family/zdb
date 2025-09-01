@@ -2,10 +2,8 @@
 #define RAFT_TEST_RAFT_H
 
 #include "raft/Raft.hpp"
-#include "raft/Command.hpp"
 #include "raft/Channel.hpp"
 #include "raft/Types.hpp"
-#include <tuple>
 
 struct TestRaft : raft::Raft {
     TestRaft(raft::Channel& c) : channel {c} {}
@@ -26,8 +24,6 @@ struct TestRaft : raft::Raft {
     void requestVote() override {
     }
     raft::Log& log() override {
-        static raft::Log dummyLog;
-        return dummyLog;
     }
     void kill() override {
     }

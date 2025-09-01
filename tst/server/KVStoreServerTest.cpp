@@ -41,11 +41,9 @@ protected:
     zdb::KVStateMachine kvState {kvStore, leader, follower, raft};
     KVStoreServiceImpl serviceImpl{kvState};
     std::unique_ptr<KVStoreServer> server;
-    std::thread serverThread;
 
     void SetUp() override {
         server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-        serverThread = std::thread([this]() { server->wait(); });
         // Wait for server to start
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
@@ -54,9 +52,6 @@ protected:
         // Gracefully shutdown the server
         if (server) {
             server->shutdown();
-        }
-        if (serverThread.joinable()) {
-            serverThread.join();
         }
     }
 };

@@ -31,6 +31,7 @@ target_compile_options(zdb PRIVATE
   $<$<CONFIG:Debug>:-g -Og>
   $<$<CONFIG:RelWithDebInfo>:-g>
 )
+target_compile_features(zdb PRIVATE cxx_std_23)
 
 target_sources(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src/zdb/main.cpp

@@ -45,7 +45,6 @@ public:
     void connect(std::string);
     void start();
     std::pair<int, std::string> nCommitted(uint64_t index);
-    ~RAFTTestFramework();
 private:
     std::vector<EndPoints>& config;
     zdb::RetryPolicy policy;

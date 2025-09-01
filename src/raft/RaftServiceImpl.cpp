@@ -28,6 +28,4 @@ grpc::Status RaftServiceImpl::appendEntries(
     return grpc::Status::OK;
 }
 
-RaftServiceImpl::~RaftServiceImpl() {}
-
 } // namespace raft

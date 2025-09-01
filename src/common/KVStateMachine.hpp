@@ -36,7 +36,7 @@ private:
     raft::Channel& leader;
     raft::Channel& follower;
     raft::Raft& raft;
-    std::thread t;
+    std::thread consumerThread;
 };
 
 } // namespace zdb

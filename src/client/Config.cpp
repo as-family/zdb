@@ -8,6 +8,7 @@
 #include <tuple>
 #include <expected>
 #include "client/Config.hpp"
+#include <mutex>
 
 namespace zdb {
 
@@ -25,23 +26,21 @@ Config::iterator Config::nextActiveServiceIterator() {
 
 Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p)
     : policy{p},
-      rng{std::random_device{}()},
-      dist{0, addresses.size() - 1} {
+      rng{std::random_device{}()} {
+    if (addresses.empty()) {
+        throw std::invalid_argument("Config: No addresses provided");
+    }
+    dist = std::uniform_int_distribution<std::size_t>(0, addresses.size() - 1);
     for (auto address : addresses) {
         services.emplace(std::piecewise_construct, 
                         std::forward_as_tuple(address), 
                         std::forward_as_tuple(address, p));
-        used[address] = false;
     }
     cService = services.end();
-    cService = nextActiveServiceIterator();
-    if (cService == services.end()) {
-        throw std::runtime_error("Config: Could not connect to any server");
-    }
 }
 
 std::expected<KVRPCServicePtr, Error> Config::nextService() {
-    // Check if current service is both connected and available (circuit breaker not open)
+    std::lock_guard lock{m};
     if (cService != services.end() && cService->second.available()) {
         return &(cService->second);
     }
@@ -55,6 +54,7 @@ std::expected<KVRPCServicePtr, Error> Config::nextService() {
 
 
 std::expected<KVRPCServicePtr, Error> Config::randomService() {
+    std::lock_guard lock{m};
     for (int j = 0; j < 10 * services.size(); ++j) {
         auto i = std::next(services.begin(), dist(rng));
         if (i == cService) {

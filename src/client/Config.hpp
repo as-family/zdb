@@ -11,6 +11,7 @@
 #include <random>
 #include <vector>
 #include "common/RetryPolicy.hpp"
+#include <mutex>
 
 namespace zdb {
 
@@ -32,9 +33,9 @@ private:
     iterator nextActiveServiceIterator();
     map services;
     iterator cService;
-    std::unordered_map<std::string, bool> used;
     std::default_random_engine rng;
     std::uniform_int_distribution<std::size_t> dist;
+    std::mutex m;
 };
 } // namespace zdb
 

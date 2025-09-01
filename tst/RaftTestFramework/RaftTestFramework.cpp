@@ -182,6 +182,3 @@ std::pair<int, std::string> RAFTTestFramework::nCommitted(uint64_t index) {
     }
     return {count, c};
 }
-
-RAFTTestFramework::~RAFTTestFramework() {
-}

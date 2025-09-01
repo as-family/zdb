@@ -2,6 +2,7 @@
 #include "proto/types.pb.h"
 #include <google/protobuf/any.pb.h>
 #include <memory>
+#include "common/KVStateMachine.hpp"
 
 namespace zdb
 {

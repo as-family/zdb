@@ -7,9 +7,6 @@
 
 namespace raft {
 
-LogEntry::~LogEntry() {
-}
-
 bool LogEntry::operator==(const LogEntry& other) const {
     return index == other.index && term == other.term;
 }
@@ -80,7 +77,7 @@ std::optional<LogEntry> Log::at(uint64_t index) const {
     }
     return *i;
 }
-const std::vector<LogEntry>& Log::data() const {
+const std::vector<LogEntry> Log::data() const {
     std::lock_guard g{m};
     return entries;
 }

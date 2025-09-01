@@ -15,7 +15,6 @@ struct LogEntry {
     uint64_t index;
     uint64_t term;
     std::string command;
-    ~LogEntry();
     bool operator==(const LogEntry& other) const;
 };
 
@@ -32,7 +31,7 @@ public:
     void merge(const Log& other);
     std::optional<LogEntry> at(uint64_t index) const;
     Log suffix(uint64_t start) const;
-    const std::vector<LogEntry>& data() const;
+    const std::vector<LogEntry> data() const;
 
  private:
     mutable std::mutex m{};

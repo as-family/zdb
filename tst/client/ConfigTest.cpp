@@ -48,9 +48,6 @@ protected:
         server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
         server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl);
         
-        serverThread1 = std::thread([this]() { server1->wait(); });
-        serverThread2 = std::thread([this]() { server2->wait(); });
-        
         // Give servers time to start
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
     }
@@ -424,7 +421,6 @@ TEST_F(ConfigTest, NextServiceWithCircuitBreakerRecovery) {
     
     // Restart first server
     server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
-    serverThread1 = std::thread([this]() { server1->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // After circuit breaker reset timeout, should be able to use services again
@@ -470,7 +466,6 @@ TEST_F(ConfigTest, CurrentServiceTriggersReconnectionThroughAvailable) {
     
     // Restart server quickly
     server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
-    serverThread1 = std::thread([this]() { server1->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // currentService should be able to recover (non-const allows state modification)
@@ -527,7 +522,6 @@ TEST_F(ConfigTest, NextServiceWithMixedServiceStates) {
     
     // Restart the second server
     server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl);
-    serverThread2 = std::thread([this]() { server2->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // Should be able to use services again
@@ -576,7 +570,6 @@ TEST_F(ConfigTest, CircuitBreakerResetInNextService) {
     
     // Restart server immediately
     server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
-    serverThread1 = std::thread([this]() { server1->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Wait for circuit breaker reset
     
     // nextService should work after reset timeout

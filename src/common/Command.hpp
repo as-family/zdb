@@ -5,7 +5,8 @@
 #include "raft/StateMachine.hpp"
 #include "common/Types.hpp"
 #include "proto/types.pb.h"
-#include "common/KVStateMachine.hpp"
+#include <string>
+#include <memory>
 
 namespace zdb {
 

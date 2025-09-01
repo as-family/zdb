@@ -43,13 +43,10 @@ struct Value {
         return data == other.data && version == other.version;
     }
 
-    Value& operator=(const Value& other) {
-        if (this != &other) {
-            data = other.data;
-            version = other.version;
-        }
-        return *this;
-    }
+    Value(const Value&) = default;
+    Value& operator=(const Value&) = default;  
+    Value(Value&&) = default;  
+    Value& operator=(Value&&) = default; 
 };
 
 struct State : public raft::State {

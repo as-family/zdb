@@ -18,7 +18,6 @@ public:
     RPCServer& operator=(const RPCServer&) = delete;
     RPCServer(RPCServer&&) = delete;
     RPCServer& operator=(RPCServer&&) = delete;
-    void wait();
     void shutdown();
 private:
     std::string addr;
@@ -37,14 +36,7 @@ RPCServer<Service>::RPCServer(const std::string& address, Service& s)
     if (!server) {
         throw std::runtime_error("Failed to start gRPC server on address: " + address);
     }
-    serverThread = std::thread([this]() { this->wait(); });
-}
-
-template<typename Service>
-void RPCServer<Service>::wait() {
-    if (server) {
-        server->Wait();
-    }
+    serverThread = std::thread([this]() { server->Wait(); });
 }
 
 template<typename Service>
