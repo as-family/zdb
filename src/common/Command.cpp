@@ -28,9 +28,13 @@ std::unique_ptr<raft::Command> commandFactory(const std::string& s) {
 }
 
 
-Get::Get(const Key& k) : key(k) {}
+Get::Get(UUIDV7& u, const Key& k) : key(k) {
+    uuid = u;
+}
 
-Get::Get(const proto::Command& cmd) : key{cmd.key()} {}
+Get::Get(const proto::Command& cmd) : key{cmd.key()} {
+    // TODO: Extract UUID from cmd.requestid().uuid() when implementing response correlation
+}
 
 std::string Get::serialize() const {
     auto c = proto::Command {};
@@ -59,9 +63,13 @@ bool Get::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
-Set::Set(const Key& k, const Value& v) : key(k), value(v) {}
+Set::Set(UUIDV7& u, const Key& k, const Value& v) : key(k), value(v) {
+    uuid = u;
+}
 
-Set::Set(const proto::Command& cmd) : key{cmd.key()}, value{cmd.value()} {}
+Set::Set(const proto::Command& cmd) : key{cmd.key()}, value{cmd.value()} {
+    // TODO: Extract UUID from cmd.requestid().uuid() when implementing response correlation
+}
 
 std::string Set::serialize() const {
     auto c = proto::Command {};
@@ -92,9 +100,13 @@ bool Set::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
-Erase::Erase(const Key& k) : key(k) {}
+Erase::Erase(UUIDV7& u, const Key& k) : key(k) {
+    uuid = u;
+}
 
-Erase::Erase(const proto::Command& cmd) : key{cmd.key()} {}
+Erase::Erase(const proto::Command& cmd) : key{cmd.key()} {
+    // TODO: Extract UUID from cmd.requestid().uuid() when implementing response correlation
+}
 
 std::string Erase::serialize() const {
     auto c = proto::Command {};
@@ -123,9 +135,13 @@ bool Erase::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
-Size::Size() {}
+Size::Size(UUIDV7& u) {
+    uuid = u;
+}
 
-Size::Size(const proto::Command&) {}
+Size::Size(const proto::Command&) {
+    // TODO: Extract UUID from cmd.requestid().uuid() when implementing response correlation
+}
 
 std::string Size::serialize() const {
     auto c = proto::Command {};

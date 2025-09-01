@@ -8,6 +8,7 @@
 #include "interface/StorageEngine.hpp"
 #include "raft/Raft.hpp"
 #include <chrono>
+#include "common/Command.hpp"
 
 namespace zdb {
 
@@ -22,10 +23,10 @@ public:
     void consumeChannel() override;
     void snapshot() override;
     void restore(const std::string& snapshot) override;
-    State handleGet(Key key, std::chrono::system_clock::time_point t);
-    State handleSet(Key key, Value value, std::chrono::system_clock::time_point t);
-    State handleErase(Key key, std::chrono::system_clock::time_point t);
-    State handleSize(std::chrono::system_clock::time_point t);
+    State handleGet(Get c, std::chrono::system_clock::time_point t);
+    State handleSet(Set c, std::chrono::system_clock::time_point t);
+    State handleErase(Erase c, std::chrono::system_clock::time_point t);
+    State handleSize(Size c, std::chrono::system_clock::time_point t);
     State get(Key key);
     State set(Key key, Value value);
     State erase(Key key);

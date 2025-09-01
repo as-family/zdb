@@ -73,7 +73,7 @@ std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
 }
 
 std::expected<size_t, Error> KVStoreClient::size() const {
-    const kvStore::SizeRequest request;
+    kvStore::SizeRequest request;
     kvStore::SizeReply reply;
     auto t = call(
         "size",

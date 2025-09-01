@@ -9,6 +9,7 @@
 #include "common/Types.hpp"
 #include <variant>
 #include <tuple>
+#include "common/Util.hpp"
 
 namespace zdb {
 
@@ -21,7 +22,9 @@ grpc::Status KVStoreServiceImpl::get(
     kvStore::GetReply *reply) {
     std::ignore = context;
     Key key{request->key().data()};
-    auto state = kvStateMachine.handleGet(key, context->deadline());
+    auto uuid = string_to_uuid_v7(request->requestid().uuid());
+    auto g = Get{uuid, key};
+    auto state = kvStateMachine.handleGet(g, context->deadline());
     const auto& v = std::get<std::expected<std::optional<Value>, Error>>(state.u);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
@@ -43,7 +46,9 @@ grpc::Status KVStoreServiceImpl::set(
     std::ignore = reply;
     Key key{request->key().data()};
     Value value{request->value().data(), request->value().version()};
-    auto state = kvStateMachine.handleSet(key, value, context->deadline());
+    auto uuid = string_to_uuid_v7(request->requestid().uuid());
+    auto s = Set{uuid, key, value};
+    auto state = kvStateMachine.handleSet(s, context->deadline());
     auto v = std::get<std::expected<std::monostate, Error>>(state.u);
     return toGrpcStatus(v);
 }
@@ -54,7 +59,9 @@ grpc::Status KVStoreServiceImpl::erase(
     kvStore::EraseReply* reply) {
     std::ignore = context;
     Key key{request->key().data()};
-    auto state = kvStateMachine.handleErase(key, context->deadline());
+    auto uuid = string_to_uuid_v7(request->requestid().uuid());
+    auto e = Erase{uuid, key};
+    auto state = kvStateMachine.handleErase(e, context->deadline());
     auto v = std::get<std::expected<std::optional<Value>, Error>>(state.u);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());
@@ -73,8 +80,9 @@ grpc::Status KVStoreServiceImpl::size(
     const kvStore::SizeRequest *request,
     kvStore::SizeReply *reply) {
     std::ignore = context;
-    std::ignore = request;
-    auto state = kvStateMachine.handleSize(context->deadline());
+    auto uuid = string_to_uuid_v7(request->requestid().uuid());
+    auto sz = Size{uuid};
+    auto state = kvStateMachine.handleSize(sz, context->deadline());
     auto v = std::get<std::expected<size_t, Error>>(state.u);
     if (!v.has_value()) {
         return toGrpcStatus(v.error());

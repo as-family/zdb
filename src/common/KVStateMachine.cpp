@@ -57,50 +57,46 @@ State KVStateMachine::size() {
     return State{result};
 }
 
-State KVStateMachine::handleGet(Key key, std::chrono::system_clock::time_point t) {
-    auto c = Get{key};
+State KVStateMachine::handleGet(Get c, std::chrono::system_clock::time_point t) {
+    if (!raft.start(c.serialize())) {
+        return State{c.key, std::expected<std::optional<Value>, Error>{
+            std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}};
+    }
+    auto r = leader.receiveUntil(t);
+    if (!r.has_value()) {
+        return State{c.key, std::expected<std::optional<Value>, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+    }
+    auto value = storageEngine.get(c.key);
+    return State{c.key, value};
+}
+
+State KVStateMachine::handleSet(Set c, std::chrono::system_clock::time_point t) {
     if (!raft.start(c.serialize())) {  
-        return State{key, std::expected<std::optional<Value>, Error>{  
+        return State{c.key, std::expected<std::optional<Value>, Error>{  
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}};  
     } 
     auto r = leader.receiveUntil(t);
     if (!r.has_value()) {
-        return State{key, std::expected<std::optional<Value>, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+        return State{c.key, std::expected<std::monostate, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
     }
-    auto value = storageEngine.get(key);
-    return State{key, value};
+    auto result = storageEngine.set(c.key, c.value);
+    return State{c.key, result};
 }
 
-State KVStateMachine::handleSet(Key key, Value value, std::chrono::system_clock::time_point t) {
-    auto c = Set{key, value};
+State KVStateMachine::handleErase(Erase c, std::chrono::system_clock::time_point t) {
     if (!raft.start(c.serialize())) {  
-        return State{key, std::expected<std::optional<Value>, Error>{  
+        return State{c.key, std::expected<std::optional<Value>, Error>{  
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}};  
     } 
     auto r = leader.receiveUntil(t);
     if (!r.has_value()) {
-        return State{key, std::expected<std::monostate, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
+        return State{c.key, std::expected<std::optional<Value>, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
     }
-    auto result = storageEngine.set(key, value);
-    return State{key, result};
+    auto result = storageEngine.erase(c.key);
+    return State{c.key, result};
 }
 
-State KVStateMachine::handleErase(Key key, std::chrono::system_clock::time_point t) {
-    auto c = Erase{key};
-    if (!raft.start(c.serialize())) {  
-        return State{key, std::expected<std::optional<Value>, Error>{  
-            std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}};  
-    } 
-    auto r = leader.receiveUntil(t);
-    if (!r.has_value()) {
-        return State{key, std::expected<std::optional<Value>, Error>{std::unexpected(Error{ErrorCode::Timeout, "request timed out"})}};
-    }
-    auto result = storageEngine.erase(key);
-    return State{key, result};
-}
-
-State KVStateMachine::handleSize(std::chrono::system_clock::time_point t) {
-    auto c = Size{};
+State KVStateMachine::handleSize(Size c, std::chrono::system_clock::time_point t) {
     if (!raft.start(c.serialize())) {  
         return State{std::expected<size_t, Error>{  
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}};  

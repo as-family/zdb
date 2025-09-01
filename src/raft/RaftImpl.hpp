@@ -261,9 +261,7 @@ void RaftImpl<Client>::appendEntries(){
 template <typename Client>
 void RaftImpl<Client>::applyCommittedEntries(Channel& channel) {
     for (; lastApplied < commitIndex; ++lastApplied) {
-        if (lastApplied == 0) {
-            continue;
-        }
+        ++lastApplied;
         auto c = mainLog.at(lastApplied);
         channel.send(c.value().command);
     }

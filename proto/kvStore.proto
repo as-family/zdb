@@ -12,6 +12,7 @@ service KVStoreService {
 
 message GetRequest {
     zdb.proto.Key key = 1;
+    zdb.proto.RequestID requestID = 2;
 }
 
 message GetReply {
@@ -21,6 +22,7 @@ message GetReply {
 message SetRequest {
     zdb.proto.Key key = 1;
     zdb.proto.Value value = 2;
+    zdb.proto.RequestID requestID = 3;
 }
 
 message SetReply {
@@ -28,6 +30,7 @@ message SetReply {
 
 message EraseRequest  {
     zdb.proto.Key key = 1;
+    zdb.proto.RequestID requestID = 2;
 }
 
 message EraseReply {
@@ -35,6 +38,7 @@ message EraseReply {
 }
 
 message SizeRequest {
+    zdb.proto.RequestID requestID = 2;
 }
 
 message SizeReply {
