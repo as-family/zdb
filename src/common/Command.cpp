@@ -40,6 +40,7 @@ std::string Get::serialize() const {
     auto c = proto::Command {};
     c.set_op("get");
     c.mutable_key()->set_data(key.data);
+    c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
     std::string s;
     if (!c.SerializeToString(&s)) {
         throw std::runtime_error("failed to serialize Get command");
@@ -77,6 +78,7 @@ std::string Set::serialize() const {
     c.mutable_key()->set_data(key.data);
     c.mutable_value()->set_data(value.data);
     c.mutable_value()->set_version(value.version);
+    c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
     std::string s;
     if (!c.SerializeToString(&s)) {
         throw std::runtime_error("failed to serialize Set command");
@@ -112,6 +114,7 @@ std::string Erase::serialize() const {
     auto c = proto::Command {};
     c.set_op("erase");
     c.mutable_key()->set_data(key.data);
+    c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
     std::string s;
     if (!c.SerializeToString(&s)) {
         throw std::runtime_error("failed to serialize Erase command");
@@ -146,6 +149,7 @@ Size::Size(const proto::Command& cmd) {
 std::string Size::serialize() const {
     auto c = proto::Command {};
     c.set_op("size");
+    c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
     std::string s;
     if (!c.SerializeToString(&s)) {
         throw std::runtime_error("failed to serialize Size command");
