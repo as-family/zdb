@@ -58,6 +58,9 @@ target_include_directories(protobuf_generated SYSTEM PUBLIC
   ${CMAKE_BINARY_DIR}
 )
 
+# Set position-independent code for protobuf_generated to allow linking into shared libraries
+set_target_properties(protobuf_generated PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 # Enable testing at the root level for proper CTest integration
 if(${BUILD_TESTING})
   include(CTest)
