@@ -8,7 +8,7 @@ extern "C" {
 typedef struct RaftHandle RaftHandle;
 
 // Lifecycle functions
-RaftHandle* raft_create(char** peers, int peer_count, char* self_id, int me);
+RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister_id);
 void raft_destroy(RaftHandle* handle);
 void raft_kill(RaftHandle* handle);
 

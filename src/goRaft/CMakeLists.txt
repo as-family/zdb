@@ -22,6 +22,10 @@ add_library(zdb_raft SHARED
     ../common/RetryPolicy.cpp
     ../common/ExponentialBackoff.cpp
     ../common/Util.cpp
+    ../common/CircuitBreaker.cpp
+    ../common/Error.cpp
+    ../common/ErrorConverter.cpp
+    ../common/Repeater.cpp
 )
 
 # Set properties for the library

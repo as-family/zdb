@@ -1,8 +1,11 @@
 #include "raft_wrapper.h"
 #include "raft/RaftImpl.hpp"
 #include "raft/SyncChannel.hpp"
+#include "raft/RaftServiceImpl.hpp"
+#include "server/RPCServer.hpp"
 #include "common/RetryPolicy.hpp"
 #include "common/Types.hpp"
+#include "common/RPCService.hpp"
 #include "proto/raft.grpc.pb.h"
 #include <memory>
 #include <string>
@@ -22,47 +25,22 @@ namespace grpc {
     class ClientContext;
 }
 
-// Simple client mock for minimal implementation
-class SimpleClient {
-public:
-    SimpleClient(const std::string& addr, const zdb::RetryPolicy& policy) 
-        : address(addr), retryPolicy(policy) {}
-    
-    // Mock call method that RaftImpl expects - using auto for function pointer
-    template<typename Req, typename Rep, typename Func>
-    std::optional<std::monostate> call(
-        const std::string& /* op */, 
-        Func func,
-        const Req& /* request */, 
-        Rep& reply) {
-        
-        (void)func; // Suppress unused parameter warning
-        
-        // Default successful response for minimal implementation
-        if constexpr (std::is_same_v<Rep, raft::proto::RequestVoteReply>) {
-            reply.set_votegranted(true);
-            reply.set_term(1);
-        } else if constexpr (std::is_same_v<Rep, raft::proto::AppendEntriesReply>) {
-            reply.set_success(true);
-            reply.set_term(1);
-        }
-        return std::optional<std::monostate>{std::monostate{}};
-    }
-    
-    // Mock methods for basic functionality
-    std::string getAddress() const { return address; }
-    
-private:
-    std::string address;
-    zdb::RetryPolicy retryPolicy;
-};
+// Use the production RPC service for real Raft communication
+using RaftRPCService = zdb::RPCService<raft::proto::Raft>;
+using RaftServer = zdb::RPCServer<raft::RaftServiceImpl>;
 
 struct RaftHandle {
-    std::unique_ptr<raft::RaftImpl<SimpleClient>> raft_impl;
+    std::unique_ptr<raft::RaftImpl<RaftRPCService>> raft_impl;
     std::unique_ptr<raft::SyncChannel> service_channel;
     std::unique_ptr<raft::SyncChannel> follower_channel;
-    std::unordered_map<std::string, std::unique_ptr<SimpleClient>> clients;
+    std::unordered_map<std::string, std::unique_ptr<RaftRPCService>> clients;
+    
+    // Server components for receiving Raft RPCs
+    std::unique_ptr<raft::RaftServiceImpl> raft_service;
+    std::unique_ptr<RaftServer> rpc_server;
+    
     std::string self_id;
+    std::string listen_address;  // Address this server listens on
     int me;
     std::atomic<bool> killed{false};
     std::chrono::steady_clock::time_point creation_time;
@@ -75,59 +53,111 @@ struct RaftHandle {
 
 extern "C" {
 
-RaftHandle* raft_create(char** peers, int peer_count, char* self_id, int me) {
+RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister_id) {
     try {
         auto handle = std::make_unique<RaftHandle>();
-        
-        // Convert C strings to C++ strings
-        std::vector<std::string> peer_list;
-        for (int i = 0; i < peer_count; i++) {
-            peer_list.push_back(std::string(peers[i]));
-        }
-        
-        handle->self_id = std::string(self_id);
         handle->me = me;
+        handle->self_id = servers[me];
         handle->creation_time = std::chrono::steady_clock::now();
+        
+        // Set listen address based on server index
+        handle->listen_address = "localhost:" + std::to_string(9000 + me);
+        
+        // Create service and follower channels
         handle->service_channel = std::make_unique<raft::SyncChannel>();
         handle->follower_channel = std::make_unique<raft::SyncChannel>();
         
-        // Create retry policy with reasonable defaults
-        zdb::RetryPolicy policy{
-            std::chrono::microseconds(100),    // baseDelay
-            std::chrono::microseconds(5000),   // maxDelay
-            std::chrono::microseconds(10000),  // resetTimeout
-            3,                                 // failureThreshold
-            1,                                 // servicesToTry
-            std::chrono::milliseconds(1000),   // rpcTimeout
-            std::chrono::milliseconds(200)     // channelTimeout
-        };
+        // Create RPC clients for communicating with other servers
+        for (int i = 0; i < num_servers; i++) {
+            if (i != me) {
+                std::string peer_id = servers[i];
+                std::string peer_address = "localhost:" + std::to_string(9000 + i);
+                auto retry_policy = zdb::RetryPolicy(
+                    std::chrono::milliseconds(10),      // base delay
+                    std::chrono::milliseconds(50),      // max delay
+                    std::chrono::milliseconds(60),      // reset timeout
+                    10,                                  // failure threshold
+                    10,                                  // services to try
+                    std::chrono::milliseconds(4),       // rpc timeout
+                    std::chrono::milliseconds(4)        // channel timeout
+                );
+                auto client = std::make_unique<RaftRPCService>(peer_address, retry_policy);
+                handle->clients[peer_id] = std::move(client);
+            }
+        }
         
-        // Client factory for creating mock clients
-        auto client_factory = [&handle](const std::string& addr, zdb::RetryPolicy policy) -> SimpleClient& {
-            auto client = std::make_unique<SimpleClient>(addr, policy);
-            SimpleClient* clientPtr = client.get();
-            handle->clients[addr] = std::move(client);
-            return *clientPtr;
-        };
+        // Create RaftImpl with the RPC clients
+        std::vector<std::string> peer_ids;
+        for (int i = 0; i < num_servers; i++) {
+            peer_ids.push_back(servers[i]);
+        }
         
-        handle->raft_impl = std::make_unique<raft::RaftImpl<SimpleClient>>(
-            peer_list, handle->self_id, *handle->service_channel, 
-            *handle->follower_channel, policy, client_factory
+        auto retry_policy = zdb::RetryPolicy(
+            std::chrono::milliseconds(10),      // base delay
+            std::chrono::milliseconds(50),      // max delay
+            std::chrono::milliseconds(60),      // reset timeout
+            10,                                  // failure threshold
+            10,                                  // services to try
+            std::chrono::milliseconds(4),       // rpc timeout
+            std::chrono::milliseconds(4)        // channel timeout
+        );
+        
+        handle->raft_impl = std::make_unique<raft::RaftImpl<RaftRPCService>>(
+            peer_ids,
+            handle->self_id,
+            *handle->service_channel,
+            *handle->follower_channel,
+            retry_policy,
+            [clients = &handle->clients](const std::string& peer_id, zdb::RetryPolicy) -> RaftRPCService& {
+                auto it = clients->find(peer_id);
+                if (it != clients->end()) {
+                    return *it->second;
+                }
+                throw std::runtime_error("Client not found for peer: " + peer_id);
+            }
+        );
+        
+        // Create server-side RaftServiceImpl for receiving RPCs  
+        handle->raft_service = std::make_unique<raft::RaftServiceImpl>(*handle->raft_impl);
+        
+        // Start gRPC server to receive Raft RPCs from peers
+        handle->rpc_server = std::make_unique<RaftServer>(
+            handle->listen_address, 
+            *handle->raft_service
         );
         
         return handle.release();
     } catch (const std::exception& e) {
-        // Log error if needed
-        return nullptr;
-    } catch (...) {
+        std::cerr << "Error creating Raft: " << e.what() << std::endl;
         return nullptr;
     }
 }
 
 void raft_destroy(RaftHandle* handle) {
     if (handle) {
-        handle->killed = true;
-        handle->apply_cv.notify_all();
+        handle->killed.store(true);
+        
+        // Shutdown the gRPC server first
+        if (handle->rpc_server) {
+            handle->rpc_server->shutdown();
+        }
+        
+        // Clean up Raft implementation
+        if (handle->raft_impl) {
+            handle->raft_impl.reset();
+        }
+        
+        // Clean up clients
+        handle->clients.clear();
+        
+        // Clean up server components
+        handle->rpc_server.reset();
+        handle->raft_service.reset();
+        
+        // Clean up channels
+        handle->service_channel.reset();
+        handle->follower_channel.reset();
+        
         delete handle;
     }
 }
@@ -167,25 +197,14 @@ int raft_get_state(RaftHandle* handle, int* term, int* is_leader) {
     
     try {
         *term = static_cast<int>(handle->raft_impl->getCurrentTerm());
+        auto role = handle->raft_impl->getRole();
+        *is_leader = (role == raft::Role::Leader) ? 1 : 0;
         
-        // Simple leader election: server 0 becomes leader, others are followers
-        // For minimal test implementation
-        if (handle->me == 0) {
-            // Server 0 is always the leader after some initial time
-            auto now = std::chrono::steady_clock::now();
-            if (now - handle->creation_time > std::chrono::milliseconds(200)) {
-                *is_leader = 1;
-                // Ensure term is at least 1 for leader
-                if (*term == 0) {
-                    *term = 1;
-                }
-            } else {
-                *is_leader = 0;
-            }
-        } else {
-            // All other servers are followers
-            *is_leader = 0;
-        }
+        std::cerr << "raft_get_state: " << handle->self_id 
+                  << " term=" << *term 
+                  << " is_leader=" << *is_leader 
+                  << " role=" << static_cast<int>(role) << std::endl;
+        
         return 1;
     } catch (...) {
         return 0;
