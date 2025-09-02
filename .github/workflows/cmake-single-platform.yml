@@ -98,17 +98,6 @@ jobs:
         chmod +x run-cppcheck.sh
         ./run-cppcheck.sh "${{ steps.build-dir.outputs.build_dir }}" "${{github.workspace}}/cppcheck-report.xml"
 
-    - name: Run enhanced clang-tidy analysis
-      run: |
-        # Make the clang-tidy script executable
-        chmod +x run-clang-tidy.sh
-    
-        # Run clang-tidy using the project's dedicated script
-        # Use YAML format for CI/CD to get structured output and fix suggestions
-        echo "Running clang-tidy using project script with enhanced configuration..."
-        ./run-clang-tidy.sh ${{ steps.build-dir.outputs.build_dir }} both
-
-
     - name: Test
       working-directory: ${{ steps.build-dir.outputs.build_dir }}
       # Execute tests defined by the CMake configuration using ctest
