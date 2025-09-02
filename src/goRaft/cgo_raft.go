@@ -103,6 +103,14 @@ func (rf *CppRaft) Kill() {
 	}
 }
 
+// ConnectAllPeers establishes connections to all peer servers
+func (rf *CppRaft) ConnectAllPeers() {
+	if rf.killed || rf.handle == nil {
+		return
+	}
+	C.raft_connect_all_peers(rf.handle)
+}
+
 func (rf *CppRaft) PersistBytes() int {
 	if rf.killed || rf.handle == nil {
 		return 0
