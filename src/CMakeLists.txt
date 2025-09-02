@@ -3,7 +3,7 @@ add_executable(zdb)
 target_include_directories(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src
 )
-target_include_directories(zdb PRIVATE
+target_include_directories(zdb SYSTEM PRIVATE
   ${CMAKE_BINARY_DIR}
 )
 

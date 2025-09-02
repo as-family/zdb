@@ -54,7 +54,7 @@ target_link_libraries(protobuf_generated PUBLIC
   gRPC::grpc++
 )
 
-target_include_directories(protobuf_generated PUBLIC
+target_include_directories(protobuf_generated SYSTEM PUBLIC
   ${CMAKE_BINARY_DIR}
 )
 

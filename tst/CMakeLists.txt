@@ -14,7 +14,7 @@ if(${BUILD_TESTING})
     target_include_directories(tests PRIVATE
     ${CMAKE_SOURCE_DIR}/tst
   )
-  target_include_directories(tests PRIVATE
+  target_include_directories(tests SYSTEM PRIVATE
     ${CMAKE_BINARY_DIR}
   )
   target_compile_features(tests PRIVATE cxx_std_23)
