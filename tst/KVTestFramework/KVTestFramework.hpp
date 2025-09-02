@@ -20,6 +20,8 @@
 #include "storage/InMemoryKVStore.hpp"
 #include "common/KVStateMachine.hpp"
 #include "common/RetryPolicy.hpp"
+#include <random>
+#include <variant>
 
 class KVTestFramework {
 public:

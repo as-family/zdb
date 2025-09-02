@@ -20,6 +20,7 @@
 #include "common/KVStateMachine.hpp"
 #include "raft/Channel.hpp"
 #include "raft/SyncChannel.hpp"
+#include <vector>
 
 using zdb::Value;
 using zdb::InMemoryKVStore;

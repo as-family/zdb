@@ -33,20 +33,23 @@ protected:
     const std::string invalidServerAddr = "localhost:99999";
     
     InMemoryKVStore kvStore;
-    raft::SyncChannel leader{};
-    raft::SyncChannel follower{};
-    TestRaft raft{leader};
-    zdb::KVStateMachine kvState = zdb::KVStateMachine {kvStore, leader, follower, raft};
-    KVStoreServiceImpl serviceImpl{kvState};
+    raft::SyncChannel leader1{};
+    raft::SyncChannel follower1{};
+    TestRaft raft1{leader1};
+    zdb::KVStateMachine kvState1 = zdb::KVStateMachine {kvStore, leader1, follower1, raft1};
+    raft::SyncChannel leader2{};
+    raft::SyncChannel follower2{};
+    TestRaft raft2{leader2};
+    zdb::KVStateMachine kvState2 = zdb::KVStateMachine {kvStore, leader2, follower2, raft2};
+    KVStoreServiceImpl serviceImpl1{kvState1};
+    KVStoreServiceImpl serviceImpl2{kvState2};
     std::unique_ptr<KVStoreServer> server1;
     std::unique_ptr<KVStoreServer> server2;
-    std::thread serverThread1;
-    std::thread serverThread2;
     
     void SetUp() override {
         // Start test servers
-        server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
-        server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl);
+        server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl1);
+        server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl2);
         
         // Give servers time to start
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
@@ -59,12 +62,6 @@ protected:
         }
         if (server2) {
             server2->shutdown();
-        }
-        if (serverThread1.joinable()) {
-            serverThread1.join();
-        }
-        if (serverThread2.joinable()) {
-            serverThread2.join();
         }
     }
 };
@@ -294,10 +291,7 @@ TEST_F(ConfigTest, CurrentServiceFailsWhenCircuitBreakerOpen) {
     
     // Shutdown server to trigger circuit breaker opening
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
-    
+
     // Wait a bit for the circuit breaker to open after failed operations
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
@@ -320,16 +314,13 @@ TEST_F(ConfigTest, NextServiceWithCircuitBreakerRecovery) {
     
     // Temporarily shutdown first server to trigger circuit breaker
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
     
     // nextService should failover to second server
     auto result2 = config.nextService();
     EXPECT_TRUE(result2.has_value());
     
     // Restart first server
-    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
+    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl1);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // After circuit breaker reset timeout, should be able to use services again
@@ -369,12 +360,9 @@ TEST_F(ConfigTest, CurrentServiceTriggersReconnectionThroughAvailable) {
     
     // Briefly shutdown and restart server to simulate temporary disconnection
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
     
     // Restart server quickly
-    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
+    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl1);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // currentService should be able to recover (non-const allows state modification)
@@ -398,9 +386,7 @@ TEST_F(ConfigTest, ConnectedVsAvailableStates) {
     
     // After shutting down server, service should become neither connected nor available
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
+
     
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
@@ -421,16 +407,13 @@ TEST_F(ConfigTest, NextServiceWithMixedServiceStates) {
     
     // Temporarily shutdown one server
     server2->shutdown();
-    if (serverThread2.joinable()) {
-        serverThread2.join();
-    }
     
     // nextService should still work with the remaining available service
     auto result2 = config.nextService();
     EXPECT_TRUE(result2.has_value());
     
     // Restart the second server
-    server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl);
+    server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl1);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // Should be able to use services again
@@ -447,9 +430,6 @@ TEST_F(ConfigTest, CircuitBreakerErrorMessages) {
     
     // Shutdown server to trigger failures
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
     
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
@@ -473,12 +453,9 @@ TEST_F(ConfigTest, CircuitBreakerResetInNextService) {
     
     // Shutdown server to trigger circuit breaker
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
-    
+
     // Restart server immediately
-    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
+    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl1);
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Wait for circuit breaker reset
     
     // nextService should work after reset timeout

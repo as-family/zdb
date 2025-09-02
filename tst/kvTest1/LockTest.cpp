@@ -9,6 +9,9 @@
 #include <gtest/gtest.h>
 #include "raft/SyncChannel.hpp"
 #include "raft/TestRaft.hpp"
+#include <atomic>
+#include <thread>
+#include <chrono>
 
 const int nClient = 10;
 const int nSec = 2;

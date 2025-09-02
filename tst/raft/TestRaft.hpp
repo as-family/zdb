@@ -4,6 +4,7 @@
 #include "raft/Raft.hpp"
 #include "raft/Channel.hpp"
 #include "raft/Types.hpp"
+#include "raft/Log.hpp"
 
 struct TestRaft : raft::Raft {
     TestRaft(raft::Channel& c) : channel {c} {}

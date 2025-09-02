@@ -46,7 +46,7 @@ private:
     std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
     Log mainLog;
     std::atomic<bool> killed;
-    std::unordered_map<std::string, Client&> peers;
+    std::unordered_map<std::string, std::reference_wrapper<Client>> peers;
     AsyncTimer electionTimer;
     AsyncTimer heartbeatTimer;
 };
@@ -71,7 +71,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
     }
     p.erase(std::remove(p.begin(), p.end(), selfId), p.end());
     for (const auto& peer : p) {
-        peers.emplace(std::piecewise_construct, std::forward_as_tuple(peer), std::forward_as_tuple(g(peer, policy)));
+        peers.emplace(peer, std::ref(g(peer, policy)));
     }
     electionTimeout = std::chrono::milliseconds(150);
     heartbeatInterval = std::chrono::milliseconds(20);
@@ -112,16 +112,12 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
         role = Role::Follower;
         lastHeartbeat = std::chrono::steady_clock::now();
         votedFor = arg.candidateId;
-        termLock.unlock();
-        reply.voteGranted = true;
-        return reply;
     }
     if ((votedFor.has_value() && votedFor.value() == arg.candidateId) || !votedFor.has_value()) {
         if ((mainLog.lastTerm() == arg.lastLogTerm && mainLog.lastIndex() <= arg.lastLogIndex) || mainLog.lastTerm() < arg.lastLogTerm) {
             std::unique_lock voteLock {m};
             votedFor = arg.candidateId;
             lastHeartbeat = std::chrono::steady_clock::now();
-            voteLock.unlock();
             reply.voteGranted = true;
             return reply;
         }
@@ -147,7 +143,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         termLock.unlock();
     }
     auto e = mainLog.at(arg.prevLogIndex);
-    if (!e.has_value() || e.value().term == arg.prevLogTerm) {
+    if (arg.prevLogIndex == 0 || (e.has_value() && e.value().term == arg.prevLogTerm)) {
         mainLog.merge(arg.entries);
         std::unique_lock commitLock{commitIndexMutex};
         if (arg.leaderCommit > commitIndex) {
@@ -177,20 +173,20 @@ void RaftImpl<Client>::appendEntries(){
     for (auto& [peerId, _] : peers) {
         threads.emplace_back(
             [this, peerId, &threadsMutex, &successCount] {
-                auto& peer = peers.at(peerId);
+                auto& peer = peers.at(peerId).get();
                 auto n = nextIndex.at(peerId);
                 auto v = mainLog.at(n);
                 auto g = mainLog.suffix(v.has_value()? v.value().index : mainLog.lastIndex());
                 proto::AppendEntriesArg arg;
                 arg.set_term(currentTerm);
                 arg.set_leaderid(selfId);
-                auto prevLogIndex = g.firstIndex();
-                if (prevLogIndex <= 1) {
+                auto prevLogIndex = n == 0? 0 : n - 1;
+                if (prevLogIndex == 0) {
                     arg.set_prevlogindex(0);
                     arg.set_prevlogterm(0);
                 } else {
                     arg.set_prevlogindex(prevLogIndex);
-                    auto t = mainLog.at(prevLogIndex - 1);
+                    auto t = mainLog.at(prevLogIndex);
                     arg.set_prevlogterm(t.value().term);
                 }
                 arg.set_leadercommit(commitIndex);
@@ -249,6 +245,7 @@ void RaftImpl<Client>::appendEntries(){
                     }
                 }
                 if (matches + 1 > clusterSize / 2) {
+                    std::lock_guard<std::mutex> lk(commitIndexMutex);
                     commitIndex = n;
                     break;
                 }
@@ -260,7 +257,7 @@ void RaftImpl<Client>::appendEntries(){
 
 template <typename Client>
 void RaftImpl<Client>::applyCommittedEntries(Channel& channel) {
-    for (; lastApplied < commitIndex; ++lastApplied) {
+    while (lastApplied < commitIndex) {
         ++lastApplied;
         auto c = mainLog.at(lastApplied);
         channel.send(c.value().command);
@@ -281,14 +278,15 @@ void RaftImpl<Client>::requestVote(){
     ++currentTerm;
     votedFor = selfId;
     lastHeartbeat = std::chrono::steady_clock::now();
-    std::atomic<int> votesGranted = 1;
-    std::atomic<int> votesDeclined = 0;
-    std::atomic<int> peersDown = 0;
+    int votesGranted = 1;
+    int votesDeclined = 0;
+    int peersDown = 0;
     std::vector<std::thread> threads;
+    std::mutex threadsMutex{};
     for (auto& [peerId, _] : peers) {
         threads.emplace_back(
-            [this, peerId, &votesGranted, &votesDeclined, &peersDown] {
-                auto& peer = peers.at(peerId);
+            [this, peerId, &votesGranted, &votesDeclined, &peersDown, &threadsMutex] {
+                auto& peer = peers.at(peerId).get();
                 proto::RequestVoteArg arg;
                 arg.set_term(currentTerm);
                 arg.set_candidateid(selfId);
@@ -301,6 +299,10 @@ void RaftImpl<Client>::requestVote(){
                     arg,
                     reply
                 );
+                std::lock_guard l{threadsMutex};
+                if (role == Role::Follower) {
+                    return;
+                }
                 if (status.has_value()) {
                     if (reply.votegranted()) {
                         ++votesGranted;

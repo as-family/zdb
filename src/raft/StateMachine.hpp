@@ -2,7 +2,6 @@
 #define RAFT_STATE_MACHINE_H
 
 #include "raft/Log.hpp"
-#include "raft/Command.hpp"
 #include <unordered_map>
 #include <string>
 #include <memory>

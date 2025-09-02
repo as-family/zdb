@@ -16,6 +16,10 @@ public:
     void start(std::function<std::chrono::milliseconds()> intervalProvider, std::function<void()> callback);
     void stop();
     ~AsyncTimer();
+    AsyncTimer(const AsyncTimer&) = delete;
+    AsyncTimer& operator=(const AsyncTimer&) = delete;
+    AsyncTimer(AsyncTimer&&) = delete;
+    AsyncTimer& operator=(AsyncTimer&&) = delete;
 private:
     std::atomic<bool> running;
     std::thread worker;

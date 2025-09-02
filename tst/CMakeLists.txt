@@ -17,7 +17,7 @@ if(${BUILD_TESTING})
   target_include_directories(tests PRIVATE
     ${CMAKE_BINARY_DIR}
   )
-
+  target_compile_features(tests PRIVATE cxx_std_23)
   target_sources(tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/common/ExponentialBackoff.cpp
     ${CMAKE_SOURCE_DIR}/src/common/RetryPolicy.cpp

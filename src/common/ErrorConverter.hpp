@@ -6,6 +6,7 @@
 #include <grpcpp/support/status.h>
 #include <expected>
 #include <optional>
+#include <variant>
 
 namespace zdb {
 

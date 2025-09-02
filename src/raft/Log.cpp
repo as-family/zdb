@@ -34,11 +34,23 @@ void Log::append(const LogEntry& entry) {
 void Log::merge(const Log& other) {
     if (this == &other) return;
     std::scoped_lock lk(m, other.m);
-    auto e = std::find_first_of(entries.begin(), entries.end(), other.entries.begin(), other.entries.end());
-    if (e != entries.end()) {
-        entries.erase(e, entries.end());
+    if (other.entries.empty()) {
+        return;
     }
-    entries.insert(entries.end(), other.entries.begin(), other.entries.end());
+    const auto i = other.entries.front().index;
+    auto cut = std::find_if(entries.begin(), entries.end(), [i](const LogEntry& e) { return e.index >= i; });
+    if (cut == entries.end()) {
+        entries.insert(entries.end(), other.entries.begin(), other.entries.end());
+        return;
+    }
+    if (cut->index == i && cut->term == other.entries.front().term) {
+        ++cut;
+        entries.erase(cut, entries.end());
+        entries.insert(entries.end(), std::next(other.entries.begin()), other.entries.end());
+        return;
+    }
+    entries.erase(cut, entries.end());
+    entries.insert(entries.end(), other.entries.begin(), other.entries.end()); 
 }
 
 uint64_t Log::lastIndex() const {
@@ -77,7 +89,8 @@ std::optional<LogEntry> Log::at(uint64_t index) const {
     }
     return *i;
 }
-const std::vector<LogEntry> Log::data() const {
+
+std::vector<LogEntry> Log::data() const {
     std::lock_guard g{m};
     return entries;
 }

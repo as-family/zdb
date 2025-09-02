@@ -1,11 +1,9 @@
 #ifndef RAFT_CHANNEL_H
 #define RAFT_CHANNEL_H
 
-#include "raft/Command.hpp"
-#include <mutex>
-#include <queue>
-#include <condition_variable>
 #include <optional>
+#include <string>
+#include <chrono>
 
 namespace raft {
 

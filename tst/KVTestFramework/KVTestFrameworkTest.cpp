@@ -39,7 +39,7 @@ TEST(KVTestFrameworkTest, SpawnClientsAndWaitCoordinatesResults) {
             while(!done.load()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
-            return KVTestFramework::ClientResult{id, id % 2};
+            return KVTestFramework::ClientResult{id, id};
         });
     EXPECT_EQ(r.size(), 10);
     for (int i = 0; i < 10; ++i) {

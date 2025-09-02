@@ -3,7 +3,6 @@
 
 #include <string>
 #include "common/Util.hpp"
-#include "raft/StateMachine.hpp"
 #include <memory>
 
 namespace raft {

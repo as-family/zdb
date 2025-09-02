@@ -31,7 +31,7 @@ public:
     void merge(const Log& other);
     std::optional<LogEntry> at(uint64_t index) const;
     Log suffix(uint64_t start) const;
-    const std::vector<LogEntry> data() const;
+    std::vector<LogEntry> data() const;
 
  private:
     mutable std::mutex m{};
