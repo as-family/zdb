@@ -61,6 +61,7 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/tst/raftTest/RaftTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/RaftTestFramework/RaftTestFramework.cpp
     ${CMAKE_SOURCE_DIR}/tst/RaftTestFramework/ProxyRaftService.cpp
+    ${CMAKE_SOURCE_DIR}/tst/units/Raft.cpp
   )
 
   target_link_libraries(tests PRIVATE

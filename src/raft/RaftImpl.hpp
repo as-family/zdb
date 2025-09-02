@@ -118,6 +118,7 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
             std::unique_lock voteLock {m};
             votedFor = arg.candidateId;
             lastHeartbeat = std::chrono::steady_clock::now();
+            reply.term = currentTerm;
             reply.voteGranted = true;
             return reply;
         }
@@ -152,6 +153,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         commitLock.unlock();
         lastHeartbeat = std::chrono::steady_clock::now();
         applyCommittedEntries(followerChannel);
+        reply.term = currentTerm;
         reply.success = true;
         return reply;
     } else {
