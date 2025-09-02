@@ -133,11 +133,23 @@ if(${BUILD_TESTING})
   # Custom target to run just the Raft tests
   add_custom_target(raft_tests
     DEPENDS zdb_raft
-    COMMAND ${CMAKE_COMMAND} -E env
+    # Build goRaft module first
+    COMMAND ${CMAKE_COMMAND} -E echo "Building goRaft module..."
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/src/goRaft
+      ${CMAKE_COMMAND} -E env
+      "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
+      go build ./...
+    # Build main 6.5840 module
+    COMMAND ${CMAKE_COMMAND} -E echo "Building 6.5840 modules..."
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/6.5840/src
+      go build ./raft1/ ./raftapi/ ./tester1/ ./labrpc/ ./labgob/
+    # Run the tests
+    COMMAND ${CMAKE_COMMAND} -E echo "Running Go Raft tests..."
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
+      ${CMAKE_COMMAND} -E env
       "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
       go test -run "Test.*3A" -v
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
-    COMMENT "Running Go Raft tests"
+    COMMENT "Building Go modules and running Raft tests"
     VERBATIM
   )
   

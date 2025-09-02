@@ -61,16 +61,11 @@ void raft_connect_all_peers(RaftHandle* handle) {
         return;
     }
     
-    std::cerr << "raft_connect_all_peers: " << handle->self_id << " checking all peers..." << std::endl;
     
     for (auto& [peer_address, client] : handle->clients) {
-        std::cerr << "raft_connect_all_peers: " << handle->self_id << " checking availability of " << peer_address << std::endl;
-        bool is_available = client->available();
-        std::cerr << "raft_connect_all_peers: " << handle->self_id << " peer " << peer_address 
-                  << " available: " << (is_available ? "true" : "false") << std::endl;
+        client->available();
     }
     
-    std::cerr << "raft_connect_all_peers: " << handle->self_id << " completed peer availability check" << std::endl;
 }
 
 RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister_id) {
@@ -139,7 +134,6 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
         // Create server-side RaftServiceImpl for receiving RPCs  
         handle->raft_service = std::make_unique<raft::RaftServiceImpl>(*handle->raft_impl);
         
-        std::cerr << "raft_create: " << handle->self_id << " starting gRPC server on " << handle->listen_address << std::endl;
         
         try {
             // Start gRPC server to receive Raft RPCs from peers
@@ -147,7 +141,6 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
                 handle->listen_address, 
                 *handle->raft_service
             );
-            std::cerr << "raft_create: " << handle->self_id << " gRPC server started successfully on " << handle->listen_address << std::endl;
         } catch (const std::exception& server_e) {
             std::cerr << "raft_create: " << handle->self_id << " FAILED to start gRPC server: " << server_e.what() << std::endl;
             throw;
@@ -155,7 +148,6 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
         
         // Give the server a moment to start listening
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        
         return handle.release();
     } catch (const std::exception& e) {
         std::cerr << "Error creating Raft: " << e.what() << std::endl;
@@ -229,11 +221,6 @@ int raft_get_state(RaftHandle* handle, int* term, int* is_leader) {
         *term = static_cast<int>(handle->raft_impl->getCurrentTerm());
         auto role = handle->raft_impl->getRole();
         *is_leader = (role == raft::Role::Leader) ? 1 : 0;
-        
-        std::cerr << "raft_get_state: " << handle->self_id 
-                  << " term=" << *term 
-                  << " is_leader=" << *is_leader 
-                  << " role=" << static_cast<int>(role) << std::endl;
         
         return 1;
     } catch (...) {
