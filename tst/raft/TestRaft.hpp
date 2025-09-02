@@ -7,7 +7,7 @@
 #include "raft/Log.hpp"
 
 struct TestRaft : raft::Raft {
-    TestRaft(raft::Channel& c) : channel {c} {}
+    TestRaft(raft::Channel& c) : channel {c}, mainLog{} {}
     bool start(std::string cmd) override {
         channel.send(cmd);
         return true;
@@ -25,10 +25,13 @@ struct TestRaft : raft::Raft {
     void requestVote() override {
     }
     raft::Log& log() override {
+        return mainLog;
     }
     void kill() override {
     }
     raft::Channel& channel;
+private:
+    raft::Log mainLog;
 };
 
 #endif // RAFT_TEST_RAFT_H

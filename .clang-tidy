@@ -56,7 +56,7 @@ WarningsAsErrors: >
   bugprone-infinite-loop,
   performance-move-const-arg,
   performance-unnecessary-copy-initialization
-HeaderFilterRegex: '^(src|tst)/.*\.(h|hpp|hxx)$'
+HeaderFilterRegex: '(src|tst)/.*\.(h|hpp|hxx)$'
 FormatStyle: none
 CheckOptions:
   # Naming conventions

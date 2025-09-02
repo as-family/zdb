@@ -681,21 +681,21 @@ if [ -n "$RUN_CLANG_TIDY_CMD" ]; then
     case "$OUTPUT_FORMAT" in
         "yaml")
             echo "Exporting fixes to YAML format..."
-            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -export-fixes "$YAML_OUTPUT" src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee "$TEXT_OUTPUT"
+            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -export-fixes "$YAML_OUTPUT" src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee "$TEXT_OUTPUT"
             echo "YAML report saved to: $YAML_OUTPUT"
             ;;
         "html")
             echo "Generating text output for HTML conversion..."
-            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -quiet src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee "$TEXT_OUTPUT"
+            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -quiet src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee "$TEXT_OUTPUT"
             ;;
         "both")
             echo "Generating both YAML and HTML formats..."
-            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -export-fixes "$YAML_OUTPUT" src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee "$TEXT_OUTPUT"
+            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -export-fixes "$YAML_OUTPUT" src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee "$TEXT_OUTPUT"
             echo "YAML report saved to: $YAML_OUTPUT"
             ;;
         *)
             echo "Unknown output format: $OUTPUT_FORMAT. Using HTML format."
-            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -quiet src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee "$TEXT_OUTPUT"
+            "$RUN_CLANG_TIDY_CMD" -p "$BUILD_DIR" -quiet src/ tst/ -j "$(nproc)" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee "$TEXT_OUTPUT"
             ;;
     esac
 else
@@ -707,9 +707,9 @@ else
     for file in $CPP_FILES; do
         echo "Analyzing $file..."
         if [ "$OUTPUT_FORMAT" = "yaml" ] || [ "$OUTPUT_FORMAT" = "both" ]; then
-            clang-tidy-21 "$file" -p "$BUILD_DIR" --format-style=file --export-fixes="${YAML_OUTPUT}.$(basename "$file")" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee -a "$TEXT_OUTPUT"
+            clang-tidy-21 "$file" -p "$BUILD_DIR" --format-style=file --export-fixes="${YAML_OUTPUT}.$(basename "$file")" -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee -a "$TEXT_OUTPUT"
         else
-            clang-tidy-21 "$file" -p "$BUILD_DIR" --format-style=file --quiet -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='^(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee -a "$TEXT_OUTPUT"
+            clang-tidy-21 "$file" -p "$BUILD_DIR" --format-style=file --quiet -extra-arg=-std=c++23 -extra-arg=-stdlib=libc++ -header-filter='(src|tst)/.*\.(h|hpp)$' -exclude-header-filter='.*out.*' 2>&1 | tee -a "$TEXT_OUTPUT"
         fi
     done
     
