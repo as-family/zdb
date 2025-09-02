@@ -54,6 +54,7 @@ private:
 class MockChannel : public Channel {
 public:
     MOCK_METHOD(void, send, (std::string message), (override));
+    MOCK_METHOD(bool, sendUntil, (std::string message, std::chrono::system_clock::time_point t), (override));
     MOCK_METHOD(std::string, receive, (), (override));
     MOCK_METHOD(std::optional<std::string>, receiveUntil, (std::chrono::system_clock::time_point t), (override));
     MOCK_METHOD(void, close, (), (override));

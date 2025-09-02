@@ -15,6 +15,7 @@
 #include "common/Command.hpp"
 #include "proto/types.pb.h"
 #include <thread>
+#include <chrono>
 #include "proto/raft.grpc.pb.h"
 #include "common/Util.hpp"
 
@@ -181,4 +182,66 @@ std::pair<int, std::string> RAFTTestFramework::nCommitted(uint64_t index) {
         }
     }
     return {count, c};
+}
+
+int RAFTTestFramework::one(std::string c, int servers, bool retry) {
+    auto start_time = std::chrono::steady_clock::now();
+    size_t starts = 0;
+    
+    // Main timeout loop - try for up to 10 seconds
+    while (std::chrono::duration_cast<std::chrono::seconds>(
+               std::chrono::steady_clock::now() - start_time).count() < 10) {
+        
+        // Try all servers to find a leader that will accept the command
+        int index = -1;
+        for (size_t i = 0; i < rafts.size(); i++) {
+            starts = (starts + 1) % rafts.size();
+            
+            // Get the server ID at this position
+            auto it = rafts.begin();
+            std::advance(it, starts);
+            const std::string& server_id = it->first;
+            auto& raft = it->second;
+            
+            // Check if this server is connected
+            if (proxies.at(server_id).getNetworkConfig().isConnected()) {
+                // Try to submit the command
+                if (raft.start(c)) {
+                    // Command was accepted, get the index where it should be committed
+                    index = raft.log().lastIndex();
+                    break;
+                }
+            }
+        }
+        
+        if (index != -1) {
+            // Someone claimed to be the leader and submitted our command
+            // Wait up to 2 seconds for agreement
+            auto wait_start = std::chrono::steady_clock::now();
+            while (std::chrono::duration_cast<std::chrono::seconds>(
+                       std::chrono::steady_clock::now() - wait_start).count() < 2) {
+                
+                auto [nd, cmd1] = nCommitted(index);
+                if (nd > 0 && nd >= servers) {
+                    // Committed by enough servers
+                    if (cmd1 == c) {
+                        // And it was the command we submitted
+                        return index;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            }
+            
+            if (!retry) {
+                // Not retrying, so fail if we didn't get agreement
+                throw std::runtime_error{"Failed to reach agreement for command: " + c};
+            }
+        } else {
+            // No leader found, wait a bit before trying again
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+    }
+    
+    // Timeout reached
+    throw std::runtime_error{"Timeout: failed to reach agreement for command: " + c};
 }

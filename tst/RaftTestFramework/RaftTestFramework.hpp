@@ -45,6 +45,7 @@ public:
     void connect(std::string);
     void start();
     std::pair<int, std::string> nCommitted(uint64_t index);
+    int one(std::string c, int servers, bool retry);
 private:
     std::vector<EndPoints>& config;
     zdb::RetryPolicy policy;

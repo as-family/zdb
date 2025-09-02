@@ -14,6 +14,7 @@ namespace raft {
 class SyncChannel : public Channel {
 public:
     void send(std::string) override;
+    bool sendUntil(std::string, std::chrono::system_clock::time_point t) override;
     std::string receive() override;
     std::optional<std::string> receiveUntil(std::chrono::system_clock::time_point t) override;
     virtual void close() override;
