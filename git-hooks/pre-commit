@@ -18,7 +18,10 @@ fi
 # Redirect output to stderr.
 exec 1>&2
 
-../run-clang-tidy.sh
+# Change to repository root directory (one level up from git-hooks)
+cd "$(dirname "$0")/../.."
+
+./run-clang-tidy.sh
 
 if [ $? -ne 0 ]; then
     echo "cpp-check failed! Aborting commit."
