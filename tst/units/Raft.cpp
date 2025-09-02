@@ -10,6 +10,14 @@
 #include <thread>
 #include <chrono>
 #include <memory>
+#include <string>
+#include <vector>
+#include <optional>
+#include <functional>
+#include <unordered_map>
+#include <variant>
+#include <type_traits>
+#include <tuple>
 
 using namespace raft;
 using namespace testing;

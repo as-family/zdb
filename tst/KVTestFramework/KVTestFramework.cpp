@@ -15,7 +15,7 @@
 #include "raft/Raft.hpp"
 #include "raft/Channel.hpp"
 #include "raft/SyncChannel.hpp"
-
+#include "KVTestFramework/NetworkConfig.hpp"
 KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel& l, raft::Channel& f, raft::Raft& r, zdb::RetryPolicy p)
     : addr {a},
       targetServerAddr {t},

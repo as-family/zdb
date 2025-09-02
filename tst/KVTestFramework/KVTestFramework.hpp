@@ -23,6 +23,7 @@
 #include <random>
 #include <variant>
 #include "server/RPCServer.hpp"
+#include "KVTestFramework/NetworkConfig.hpp"
 
 class KVTestFramework {
 public:
