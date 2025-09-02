@@ -111,6 +111,45 @@ install(TARGETS zdb
   ARCHIVE DESTINATION lib
 )
 
+# --- Go Raft Tests ---
+# Add Go test targets for Raft implementation
+if(${BUILD_TESTING})
+  # Test target for TestInitialElection3A
+  add_test(NAME raft_test_initial_election_3a
+    COMMAND ${CMAKE_COMMAND} -E env
+      "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
+      go test -run TestInitialElection3A -v
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
+  )
+  
+  # Test target for all Raft 3A tests
+  add_test(NAME raft_test_3a_all
+    COMMAND ${CMAKE_COMMAND} -E env
+      "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
+      go test -run "Test.*3A" -v
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
+  )
+  
+  # Custom target to run just the Raft tests
+  add_custom_target(raft_tests
+    DEPENDS zdb_raft
+    COMMAND ${CMAKE_COMMAND} -E env
+      "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
+      go test -run "Test.*3A" -v
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
+    COMMENT "Running Go Raft tests"
+    VERBATIM
+  )
+  
+  # Make the tests depend on the zdb_raft library
+  set_tests_properties(raft_test_initial_election_3a PROPERTIES
+    DEPENDS zdb_raft
+  )
+  set_tests_properties(raft_test_3a_all PROPERTIES
+    DEPENDS zdb_raft
+  )
+endif()
+
 # --- Summary ---
 message(STATUS "")
 message(STATUS "Configuration Summary:")
@@ -119,4 +158,5 @@ message(STATUS "  Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C++ Standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "  Build Testing: ${BUILD_TESTING}")
 message(STATUS "  Target 'post-test-analysis': runs tests, then cppcheck and run-clang-tidy.sh")
+message(STATUS "  Target 'raft_tests': runs Go Raft integration tests")
 message(STATUS "")
