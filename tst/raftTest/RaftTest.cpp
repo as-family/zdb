@@ -49,6 +49,17 @@ std::vector<std::string> getKVProxies(std::vector<EndPoints>& config) {
     return proxies;
 }
 
+std::vector<std::string> getRaftTargets(std::vector<EndPoints>& config) {
+    std::vector<std::string> targets(config.size());
+    std::transform(
+        config.begin(),
+        config.end(),
+        targets.begin(),
+        [](const auto& e) { return e.raftTarget; }
+    );
+    return targets;
+}
+
 zdb::RetryPolicy makePolicy(int servers) {
     return zdb::RetryPolicy {
         std::chrono::milliseconds(10),
@@ -125,6 +136,7 @@ TEST(Raft, ManyElections) {
     auto servers = 7;
     auto config = makeConfig(7);
     auto p = makePolicy(config.size());
+    auto targets = getRaftTargets(config);
     RAFTTestFramework framework{config, p};
     framework.check1Leader();
     std::random_device rd;
@@ -134,13 +146,13 @@ TEST(Raft, ManyElections) {
         auto i1 = dst(gen);
         auto i2 = dst(gen);
         auto i3 = dst(gen);
-        config[i1].raftNetworkConfig.disconnect();
-        config[i2].raftNetworkConfig.disconnect();
-        config[i3].raftNetworkConfig.disconnect();
+        framework.disconnect(targets[i1]);
+        framework.disconnect(targets[i2]);
+        framework.disconnect(targets[i3]);
         framework.check1Leader();
-        config[i1].raftNetworkConfig.connect();
-        config[i2].raftNetworkConfig.connect();
-        config[i3].raftNetworkConfig.connect();
+        framework.connect(targets[i1]);
+        framework.connect(targets[i2]);
+        framework.connect(targets[i3]);
     }
     framework.check1Leader();
 }
