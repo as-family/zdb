@@ -8,6 +8,9 @@
 #include "common/RPCService.hpp"
 #include "proto/raft.grpc.pb.h"
 #include <memory>
+#include <iostream>
+#include <thread>
+#include <chrono>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -52,6 +55,23 @@ struct RaftHandle {
 };
 
 extern "C" {
+
+void raft_connect_all_peers(RaftHandle* handle) {
+    if (!handle) {
+        return;
+    }
+    
+    std::cerr << "raft_connect_all_peers: " << handle->self_id << " checking all peers..." << std::endl;
+    
+    for (auto& [peer_address, client] : handle->clients) {
+        std::cerr << "raft_connect_all_peers: " << handle->self_id << " checking availability of " << peer_address << std::endl;
+        bool is_available = client->available();
+        std::cerr << "raft_connect_all_peers: " << handle->self_id << " peer " << peer_address 
+                  << " available: " << (is_available ? "true" : "false") << std::endl;
+    }
+    
+    std::cerr << "raft_connect_all_peers: " << handle->self_id << " completed peer availability check" << std::endl;
+}
 
 RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister_id) {
     try {
@@ -119,11 +139,22 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
         // Create server-side RaftServiceImpl for receiving RPCs  
         handle->raft_service = std::make_unique<raft::RaftServiceImpl>(*handle->raft_impl);
         
-        // Start gRPC server to receive Raft RPCs from peers
-        handle->rpc_server = std::make_unique<RaftServer>(
-            handle->listen_address, 
-            *handle->raft_service
-        );
+        std::cerr << "raft_create: " << handle->self_id << " starting gRPC server on " << handle->listen_address << std::endl;
+        
+        try {
+            // Start gRPC server to receive Raft RPCs from peers
+            handle->rpc_server = std::make_unique<RaftServer>(
+                handle->listen_address, 
+                *handle->raft_service
+            );
+            std::cerr << "raft_create: " << handle->self_id << " gRPC server started successfully on " << handle->listen_address << std::endl;
+        } catch (const std::exception& server_e) {
+            std::cerr << "raft_create: " << handle->self_id << " FAILED to start gRPC server: " << server_e.what() << std::endl;
+            throw;
+        }
+        
+        // Give the server a moment to start listening
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         
         return handle.release();
     } catch (const std::exception& e) {

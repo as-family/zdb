@@ -9,6 +9,7 @@ typedef struct RaftHandle RaftHandle;
 
 // Lifecycle functions
 RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister_id);
+void raft_connect_all_peers(RaftHandle* handle);
 void raft_destroy(RaftHandle* handle);
 void raft_kill(RaftHandle* handle);
 
