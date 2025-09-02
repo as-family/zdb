@@ -24,7 +24,7 @@ template <typename Client>
 class RaftImpl : public Raft {
 public:
     RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Channel& f, zdb::RetryPolicy r, std::function<Client&(std::string, zdb::RetryPolicy)> g);
-    void appendEntries() override;
+    void appendEntries(bool heartBeat) override;
     void requestVote() override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
     RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) override;
@@ -93,7 +93,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
             return heartbeatInterval;
         },
         [this] {
-            appendEntries();
+            appendEntries(true);
         }
     );
 }
@@ -164,7 +164,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
 }
 
 template <typename Client>
-void RaftImpl<Client>::appendEntries(){
+void RaftImpl<Client>::appendEntries(bool heartBeat){
     std::unique_lock appendEntriesLock {appendEntriesMutex};
     if (role != Role::Leader) {
         return;
@@ -174,7 +174,7 @@ void RaftImpl<Client>::appendEntries(){
     int successCount = 1;
     for (auto& [peerId, _] : peers) {
         threads.emplace_back(
-            [this, peerId, &threadsMutex, &successCount] {
+        [this, peerId, &threadsMutex, &successCount, heartBeat] {
                 auto& peer = peers.at(peerId).get();
                 auto n = nextIndex.at(peerId);
                 auto v = mainLog.at(n);
@@ -205,6 +205,10 @@ void RaftImpl<Client>::appendEntries(){
                     arg,
                     reply
                 );
+                std::unique_lock<std::mutex> lock(m, std::defer_lock);
+                if (heartBeat) {
+                    lock.lock();
+                }
                 std::lock_guard l{threadsMutex};
                 if (role != Role::Leader) {
                     return;
@@ -224,6 +228,9 @@ void RaftImpl<Client>::appendEntries(){
                             }
                         }
                     }
+                }
+                if (heartBeat) {
+                    lock.unlock();
                 }
             }
         );
@@ -335,7 +342,7 @@ void RaftImpl<Client>::requestVote(){
             nextIndex[a] = mainLog.lastIndex() + 1;
             matchIndex[a] = 0;
         }
-        appendEntries();
+        appendEntries(false);
     }
 }
 
@@ -351,7 +358,7 @@ bool RaftImpl<Client>::start(std::string command) {
         command
     };
     mainLog.append(e);
-    appendEntries();
+    appendEntries(false);
     return true;
 }
 

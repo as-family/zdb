@@ -24,7 +24,7 @@ public:
     virtual ~Raft() = default;
     virtual AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) = 0;
     virtual RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) = 0;
-    virtual void appendEntries() = 0;
+    virtual void appendEntries(bool heartBeat) = 0;
     virtual void requestVote() = 0;
     virtual bool start(std::string command) = 0;
     virtual Log& log() = 0;

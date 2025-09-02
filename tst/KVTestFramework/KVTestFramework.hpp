@@ -22,6 +22,7 @@
 #include "common/RetryPolicy.hpp"
 #include <random>
 #include <variant>
+#include "server/RPCServer.hpp"
 
 class KVTestFramework {
 public:

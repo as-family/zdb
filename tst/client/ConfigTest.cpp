@@ -413,7 +413,7 @@ TEST_F(ConfigTest, NextServiceWithMixedServiceStates) {
     EXPECT_TRUE(result2.has_value());
     
     // Restart the second server
-    server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl1);
+    server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl2);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // Should be able to use services again
