@@ -37,7 +37,11 @@ func MakeCppRaft(peers []*labrpc.ClientEnd, me int, persister *tester.Persister,
 	selfId := C.CString(fmt.Sprintf("peer_%d", me))
 	defer C.free(unsafe.Pointer(selfId))
 
-	handle := C.raft_create((**C.char)(unsafe.Pointer(&cPeers[0])), C.int(len(cPeers)), C.int(me), selfId)
+	// For now, pass empty string as persister_id since we're not implementing persistence
+	persisterId := C.CString("")
+	defer C.free(unsafe.Pointer(persisterId))
+
+	handle := C.raft_create((**C.char)(unsafe.Pointer(&cPeers[0])), C.int(len(cPeers)), C.int(me), persisterId)
 	if handle == nil {
 		panic("Failed to create C++ Raft instance")
 	}

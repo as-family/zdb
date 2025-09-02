@@ -57,11 +57,11 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
     try {
         auto handle = std::make_unique<RaftHandle>();
         handle->me = me;
-        handle->self_id = servers[me];
-        handle->creation_time = std::chrono::steady_clock::now();
-        
-        // Set listen address based on server index
+        // Set listen address based on server index  
         handle->listen_address = "localhost:" + std::to_string(9000 + me);
+        // Use the listen address as the self_id for consistency
+        handle->self_id = handle->listen_address;
+        handle->creation_time = std::chrono::steady_clock::now();
         
         // Create service and follower channels
         handle->service_channel = std::make_unique<raft::SyncChannel>();
@@ -70,7 +70,6 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
         // Create RPC clients for communicating with other servers
         for (int i = 0; i < num_servers; i++) {
             if (i != me) {
-                std::string peer_id = servers[i];
                 std::string peer_address = "localhost:" + std::to_string(9000 + i);
                 auto retry_policy = zdb::RetryPolicy(
                     std::chrono::milliseconds(10),      // base delay
@@ -82,14 +81,14 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
                     std::chrono::milliseconds(4)        // channel timeout
                 );
                 auto client = std::make_unique<RaftRPCService>(peer_address, retry_policy);
-                handle->clients[peer_id] = std::move(client);
+                handle->clients[peer_address] = std::move(client);  // Use address as key
             }
         }
         
-        // Create RaftImpl with the RPC clients
+        // Create RaftImpl with the RPC clients using addresses as peer IDs
         std::vector<std::string> peer_ids;
         for (int i = 0; i < num_servers; i++) {
-            peer_ids.push_back(servers[i]);
+            peer_ids.push_back("localhost:" + std::to_string(9000 + i));  // Use addresses as peer IDs
         }
         
         auto retry_policy = zdb::RetryPolicy(
