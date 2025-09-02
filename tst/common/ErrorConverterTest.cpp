@@ -76,9 +76,9 @@ TEST(ErrorConverterTest, ToExpectedValueAndError) {
 TEST(ErrorConverterTest, ToExpectedVoid) {
     const grpc::Status ok(grpc::StatusCode::OK, "");
     const grpc::Status err(grpc::StatusCode::NOT_FOUND, "nf");
-    auto v = toExpected<std::monostate>(ok);
+    auto v = toExpected(ok);
     EXPECT_TRUE(v.has_value());
-    auto e = toExpected<std::monostate>(err);
+    auto e = toExpected(err);
     EXPECT_FALSE(e.has_value());
     EXPECT_EQ(e.error().code, ErrorCode::KeyNotFound);
     EXPECT_EQ(e.error().what, "nf");

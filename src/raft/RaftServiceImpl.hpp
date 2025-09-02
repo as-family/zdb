@@ -13,7 +13,12 @@ namespace raft {
 
 class RaftServiceImpl final : public proto::Raft::Service {
 public:
-    RaftServiceImpl(Raft* r);
+    RaftServiceImpl(Raft& r);
+    RaftServiceImpl(const RaftServiceImpl&) = delete;
+    RaftServiceImpl& operator=(const RaftServiceImpl&) = delete;
+    RaftServiceImpl(RaftServiceImpl&&) = delete;
+    RaftServiceImpl& operator=(RaftServiceImpl&&) = delete;
+    ~RaftServiceImpl() override = default;
     grpc::Status appendEntries(
         grpc::ServerContext* context,
         const proto::AppendEntriesArg* request,
@@ -22,9 +27,8 @@ public:
         grpc::ServerContext* context,
         const proto::RequestVoteArg* request,
         proto::RequestVoteReply* response) override;
-    ~RaftServiceImpl();
 private:
-    Raft* raft;
+    Raft& raft;
 };
 
 } // namespace raft

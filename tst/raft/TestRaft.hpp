@@ -2,33 +2,36 @@
 #define RAFT_TEST_RAFT_H
 
 #include "raft/Raft.hpp"
-#include "raft/Command.hpp"
 #include "raft/Channel.hpp"
 #include "raft/Types.hpp"
+#include "raft/Log.hpp"
 
 struct TestRaft : raft::Raft {
-    TestRaft(raft::Channel& c) : channel {c} {}
-    bool start(raft::Command* cmd) override {
+    TestRaft(raft::Channel& c) : channel {c}, mainLog{} {}
+    bool start(std::string cmd) override {
         channel.send(cmd);
         return true;
     }
     raft::AppendEntriesReply appendEntriesHandler(const raft::AppendEntriesArg& arg) override {
+        std::ignore = arg;
         return {};
     }
     raft::RequestVoteReply requestVoteHandler(const raft::RequestVoteArg& arg) override {
+        std::ignore = arg;
         return {};
     }
-    void appendEntries() override {
+    void appendEntries(bool heartBeat) override {
     }
     void requestVote() override {
     }
     raft::Log& log() override {
-    }
-    raft::Log* makeLog() override {
+        return mainLog;
     }
     void kill() override {
     }
     raft::Channel& channel;
+private:
+    raft::Log mainLog;
 };
 
 #endif // RAFT_TEST_RAFT_H

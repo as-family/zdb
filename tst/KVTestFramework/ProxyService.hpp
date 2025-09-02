@@ -4,23 +4,26 @@
 #include <memory>
 #include <grpcpp/grpcpp.h>
 #include "KVTestFramework/NetworkConfig.hpp"
-#include <string>
-#include <thread>
 #include <expected>
+#include <vector>
+#include "common/Error.hpp"
+#include <thread>
 #include <vector>
 #include <string>
 #include "common/Error.hpp"
 #include "common/ErrorConverter.hpp"
 #include <mutex>
 #include <condition_variable>
+#include "common/RetryPolicy.hpp"
 
 template<typename Service>
 class ProxyService {
     using Stub = typename Service::Stub;
 public:
-    ProxyService(const std::string original, NetworkConfig& c)
-    : originalAddress{original},
-      networkConfig{c} {}
+    ProxyService(const std::string& original, NetworkConfig& c, zdb::RetryPolicy p)
+    : originalAddress {original},
+      networkConfig {c},
+      policy {p} {}
 
     template<typename Req, typename Rep>
     std::expected<std::monostate, std::vector<zdb::Error>> call(
@@ -33,8 +36,12 @@ public:
         if (!networkConfig.isConnected()) {
             return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::UNAVAILABLE, "Disconnected"))});
         }
+        if (!stub || !channel) {
+            return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::UNAVAILABLE, "Not Connected"))});
+        }
         grpc::ClientContext c;
-        if (networkConfig.reliable()) {
+        c.set_deadline(std::chrono::system_clock::now() + policy.rpcTimeout);
+        if (networkConfig.isReliable()) {
             auto status = (stub.get()->*f)(&c, request, &reply);
             if (status.ok()) {
                 return {};
@@ -42,14 +49,14 @@ public:
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(status)});
             }
         } else {
-            if (networkConfig.drop()) {
+            if (networkConfig.shouldDrop()) {
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
             auto status = (stub.get()->*f)(&c, request, &reply);
-            if (networkConfig.drop()) {
+            if (networkConfig.shouldDrop()) {
                return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
-            if (networkConfig.delay()) {
+            if (networkConfig.shouldDelay()) {
                 std::this_thread::sleep_for(networkConfig.delayTime());
             }
             if (status.ok()) {
@@ -65,7 +72,7 @@ public:
     void connectTarget() {
         std::lock_guard l{m};
         channel = grpc::CreateChannel(originalAddress, grpc::InsecureChannelCredentials());
-        if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(100))) {
+        if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(500))) {
             throw std::runtime_error("Failed to connect to channel");
         }
         stub = Service::NewStub(channel);
@@ -81,6 +88,7 @@ private:
     std::shared_ptr<grpc::Channel> channel;
     std::unique_ptr<Stub> stub;
     NetworkConfig& networkConfig;
+    zdb::RetryPolicy policy;
     std::mutex m{};
 };
 

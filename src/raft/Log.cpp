@@ -7,31 +7,23 @@
 
 namespace raft {
 
-LogEntry::~LogEntry() {
-    delete command;
-}
-
 bool LogEntry::operator==(const LogEntry& other) const {
     return index == other.index && term == other.term;
 }
 
-Log::Log(Command* (* c)(const std::string&))
-    : entries{}, commandFactory {c} {}
+Log::Log()
+    : entries{} {}
 
-Log::Log(Command* (* c)(const std::string&), std::vector<LogEntry>& es)
-    : entries{es}, commandFactory {c} {
+Log::Log(std::vector<LogEntry> es)
+    : entries{es} {}
 
-}
-
-LogEntry* Log::append(const proto::LogEntry& entry) {
+void Log::append(const proto::LogEntry& entry) {
     std::lock_guard g{m};
-    Command* cmd = commandFactory(entry.command());
     entries.emplace_back(LogEntry {
         entry.index(),
         entry.term(),
-        cmd
+        entry.command()
     });
-    return &entries.back();
 }
 
 void Log::append(const LogEntry& entry) {
@@ -40,12 +32,25 @@ void Log::append(const LogEntry& entry) {
 }
 
 void Log::merge(const Log& other) {
-    std::lock_guard g{m};
-    auto e = std::find_first_of(entries.rbegin(), entries.rend(), other.entries.begin(), other.entries.end());
-    if (e != entries.rend()) {
-        entries.erase(e.base() - 1, entries.end());
+    if (this == &other) return;
+    std::scoped_lock lk(m, other.m);
+    if (other.entries.empty()) {
+        return;
     }
-    entries.insert(entries.end(), other.entries.begin(), other.entries.end());
+    const auto i = other.entries.front().index;
+    auto cut = std::find_if(entries.begin(), entries.end(), [i](const LogEntry& e) { return e.index >= i; });
+    if (cut == entries.end()) {
+        entries.insert(entries.end(), other.entries.begin(), other.entries.end());
+        return;
+    }
+    if (cut->index == i && cut->term == other.entries.front().term) {
+        ++cut;
+        entries.erase(cut, entries.end());
+        entries.insert(entries.end(), std::next(other.entries.begin()), other.entries.end());
+        return;
+    }
+    entries.erase(cut, entries.end());
+    entries.insert(entries.end(), other.entries.begin(), other.entries.end()); 
 }
 
 uint64_t Log::lastIndex() const {
@@ -70,19 +75,24 @@ Log Log::suffix(uint64_t start) const {
     std::lock_guard g{m};
     auto i = std::find_if(entries.begin(), entries.end(), [start](const LogEntry& e) { return e.index == start; });
     if (i == entries.end()) {
-        return Log {commandFactory};
+        return Log {};
     }
     auto es = std::vector<LogEntry>(i, entries.end());
-    return Log {commandFactory, es};
+    return Log {es};
 }
 
-std::optional<LogEntry> Log::at(uint64_t index) {
+std::optional<LogEntry> Log::at(uint64_t index) const {
     std::lock_guard g{m};
-    auto i = std::find_if(entries.rbegin(), entries.rend(), [index](const LogEntry& e) { return e.index == index; });
-    if (i == entries.rend()) {
+    auto i = std::find_if(entries.begin(), entries.end(), [index](const LogEntry& e) { return e.index == index; });
+    if (i == entries.end()) {
         return std::nullopt;
     }
     return *i;
+}
+
+std::vector<LogEntry> Log::data() const {
+    std::lock_guard g{m};
+    return entries;
 }
 
 } // namespace raft

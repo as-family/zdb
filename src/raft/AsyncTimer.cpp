@@ -10,7 +10,10 @@ AsyncTimer::AsyncTimer() : running(false), mtx{}, cv{} {}
 
 void AsyncTimer::start(std::function<std::chrono::milliseconds()> intervalProvider, std::function<void()> callback) {
     stop();
-    running = true;
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        running = true;
+    }
     worker = std::thread([this, intervalProvider, callback]() {
         while (running) {
             auto interval = intervalProvider();

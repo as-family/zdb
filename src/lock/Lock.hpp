@@ -14,6 +14,7 @@ public:
     void release();
 private:
     const Key lockKey;
+    Value lockValue;
     KVStoreClient& client;
 };
 

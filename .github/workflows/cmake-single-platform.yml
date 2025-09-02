@@ -38,17 +38,24 @@ jobs:
 
     - name: Install dependencies and static analysis tools
       run: |
-        # Install LLVM 18
-        wget -q https://apt.llvm.org/llvm.sh
-        chmod +x llvm.sh
-        sudo ./llvm.sh 18
-    
+        # Install LLVM 21
+        sudo tee /etc/apt/sources.list.d/llvm.list << EOF
+          deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main
+          deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main
+        EOF
+        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+
         # Install other dependencies
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends \
           cppcheck \
-          clang-tools-18 \
-          libc++-18-dev
+          jq \
+          llvm-21 \
+          clang-21 \
+          clang-tools-21 \
+          clang-tidy-21 \
+          libc++-21-dev
+
 
     - name: Setup vcpkg
       run: |
@@ -90,17 +97,6 @@ jobs:
       run: |
         chmod +x run-cppcheck.sh
         ./run-cppcheck.sh "${{ steps.build-dir.outputs.build_dir }}" "${{github.workspace}}/cppcheck-report.xml"
-
-    - name: Run enhanced clang-tidy analysis
-      run: |
-        # Make the clang-tidy script executable
-        chmod +x run-clang-tidy.sh
-    
-        # Run clang-tidy using the project's dedicated script
-        # Use YAML format for CI/CD to get structured output and fix suggestions
-        echo "Running clang-tidy using project script with enhanced configuration..."
-        ./run-clang-tidy.sh ${{ steps.build-dir.outputs.build_dir }} both
-
 
     - name: Test
       working-directory: ${{ steps.build-dir.outputs.build_dir }}

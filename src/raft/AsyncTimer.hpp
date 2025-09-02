@@ -1,7 +1,7 @@
 #ifndef ASYNC_TIMER_H
 #define ASYNC_TIMER_H
 
-#include <iostream>
+#include <mutex>
 #include <thread>
 #include <atomic>
 #include <chrono>
@@ -16,6 +16,10 @@ public:
     void start(std::function<std::chrono::milliseconds()> intervalProvider, std::function<void()> callback);
     void stop();
     ~AsyncTimer();
+    AsyncTimer(const AsyncTimer&) = delete;
+    AsyncTimer& operator=(const AsyncTimer&) = delete;
+    AsyncTimer(AsyncTimer&&) = delete;
+    AsyncTimer& operator=(AsyncTimer&&) = delete;
 private:
     std::atomic<bool> running;
     std::thread worker;

@@ -3,16 +3,16 @@
 NetworkConfig::NetworkConfig(bool r, double drop, double delay)
     : reliability(r), dropRate(drop), delayRate(delay), connected {true}, rng(std::random_device{}()), dist{0.0, 1.0} {}
 
-bool NetworkConfig::reliable() {
+bool NetworkConfig::isReliable() const {
     return reliability;
 }
 
-bool NetworkConfig::delay() {
-    return !reliable() && dist(rng) < delayRate;
+bool NetworkConfig::shouldDelay() const {
+    return !isReliable() && dist(rng) < delayRate;
 }
 
-bool NetworkConfig::drop() {
-    return !connected || !reliable() && dist(rng) < dropRate;
+bool NetworkConfig::shouldDrop() const {
+    return !connected || !isReliable() && dist(rng) < dropRate;
 }
 
 std::chrono::microseconds NetworkConfig::delayTime() {

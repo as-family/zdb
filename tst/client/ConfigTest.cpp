@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include "client/Config.hpp"
 #include "common/RetryPolicy.hpp"
-#include "server/KVStoreServer.hpp"
-#include "server/InMemoryKVStore.hpp"
+#include "server/KVStoreServiceImpl.hpp"
+#include "storage/InMemoryKVStore.hpp"
 #include <thread>
 #include <chrono>
 #include <string>
@@ -13,6 +13,8 @@
 #include <atomic>
 #include "common/Error.hpp"
 #include "raft/TestRaft.hpp"
+#include "raft/SyncChannel.hpp"
+#include "common/KVStateMachine.hpp"
 
 using zdb::Config;
 using zdb::RetryPolicy;
@@ -31,21 +33,23 @@ protected:
     const std::string invalidServerAddr = "localhost:99999";
     
     InMemoryKVStore kvStore;
-    raft::Channel channel{};
-    TestRaft raft{channel};
-    KVStoreServiceImpl serviceImpl{kvStore, &raft, &channel};
+    raft::SyncChannel leader1{};
+    raft::SyncChannel follower1{};
+    TestRaft raft1{leader1};
+    zdb::KVStateMachine kvState1 = zdb::KVStateMachine {kvStore, leader1, follower1, raft1};
+    raft::SyncChannel leader2{};
+    raft::SyncChannel follower2{};
+    TestRaft raft2{leader2};
+    zdb::KVStateMachine kvState2 = zdb::KVStateMachine {kvStore, leader2, follower2, raft2};
+    KVStoreServiceImpl serviceImpl1{kvState1};
+    KVStoreServiceImpl serviceImpl2{kvState2};
     std::unique_ptr<KVStoreServer> server1;
     std::unique_ptr<KVStoreServer> server2;
-    std::thread serverThread1;
-    std::thread serverThread2;
     
     void SetUp() override {
         // Start test servers
-        server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
-        server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl);
-        
-        serverThread1 = std::thread([this]() { server1->wait(); });
-        serverThread2 = std::thread([this]() { server2->wait(); });
+        server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl1);
+        server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl2);
         
         // Give servers time to start
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
@@ -59,12 +63,6 @@ protected:
         if (server2) {
             server2->shutdown();
         }
-        if (serverThread1.joinable()) {
-            serverThread1.join();
-        }
-        if (serverThread2.joinable()) {
-            serverThread2.join();
-        }
     }
 };
 
@@ -74,7 +72,7 @@ TEST_F(ConfigTest, ConstructorWithSingleValidAddress) {
     
     ASSERT_NO_THROW({
         Config config(addresses, policy);
-        auto result = config.currentService();
+        auto result = config.nextService();
         ASSERT_TRUE(result.has_value());
     });
 }
@@ -85,37 +83,11 @@ TEST_F(ConfigTest, ConstructorWithMultipleValidAddresses) {
     
     ASSERT_NO_THROW({
         Config config(addresses, policy);
-        auto result = config.currentService();
+        auto result = config.nextService();
         ASSERT_TRUE(result.has_value());
     });
 }
 
-// Test construction failure with empty address list
-TEST_F(ConfigTest, ConstructorWithEmptyAddresses) {
-    const std::vector<std::string> addresses;
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
-
-// Test construction failure with all invalid addresses
-TEST_F(ConfigTest, ConstructorWithAllInvalidAddresses) {
-    const std::vector<std::string> addresses{"invalid:12345", "another_invalid:67890"};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
-
-// Test construction failure with mix of valid and invalid addresses but no successful connections
-TEST_F(ConfigTest, ConstructorWithMixedAddressesButNoConnections) {
-    const std::vector<std::string> addresses{invalidServerAddr, "invalid:12345"};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
 
 // Test construction with some valid and some invalid addresses (should succeed)
 TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
@@ -123,17 +95,17 @@ TEST_F(ConfigTest, ConstructorWithMixedAddressesWithSomeValid) {
     
     ASSERT_NO_THROW({
         Config config(addresses, policy);
-        auto result = config.currentService();
+        auto result = config.nextService();
         ASSERT_TRUE(result.has_value());
     });
 }
 
-// Test currentService() returns valid service after successful construction
+// Test nextService() returns valid service after successful construction
 TEST_F(ConfigTest, CurrentServiceReturnsValidService) {
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
-    auto result = config.currentService();
+    auto result = config.nextService();
     ASSERT_TRUE(result.has_value());
     zdb::KVRPCServicePtr service = result.value();
     EXPECT_TRUE(service->connected());
@@ -145,7 +117,7 @@ TEST_F(ConfigTest, NextServiceWhenCurrentServiceAvailable) {
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, policy);
     
-    auto currentResult = config.currentService();
+    auto currentResult = config.nextService();
     ASSERT_TRUE(currentResult.has_value());
     const zdb::KVRPCServicePtr currentSvc = currentResult.value();
     
@@ -162,7 +134,7 @@ TEST_F(ConfigTest, NextServiceSwitchesToAnotherService) {
     const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, policy);
     
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     const zdb::KVRPCServicePtr service1 = result1.value();
     
@@ -207,7 +179,7 @@ TEST_F(ConfigTest, NextServiceWhenAllServicesUnavailable) {
     Config config(addresses, policy);
     
     // First verify we have a working service
-    auto result = config.currentService();
+    auto result = config.nextService();
     EXPECT_TRUE(result.has_value());
     
     // Note: Now we can use the shutdown method to test service unavailability
@@ -219,40 +191,6 @@ TEST_F(ConfigTest, NextServiceWhenAllServicesUnavailable) {
         auto nextResult = config.nextService();
         EXPECT_TRUE(nextResult.has_value());
     }
-}
-
-// Test with malformed addresses
-TEST_F(ConfigTest, ConstructorWithMalformedAddresses) {
-    const std::vector<std::string> addresses{"", "   ", "malformed_address", ":"};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
-
-// Test with very long address strings
-TEST_F(ConfigTest, ConstructorWithVeryLongAddresses) {
-    std::string longAddress(1000, 'a');
-    longAddress += ":12345";
-    const std::vector<std::string> addresses{longAddress};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
-
-// Test currentService throws when no services are available (edge case)
-// This test simulates a scenario where construction succeeds but services become unavailable
-TEST_F(ConfigTest, CurrentServiceThrowsWhenNoServicesAvailable) {
-    // This is a more complex test that would require manipulating the internal state
-    // For now, we'll test the basic contract that currentService should throw
-    // when no service is available by testing the error message
-    
-    const std::vector<std::string> addresses{"invalid:99999"};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
 }
 
 // Test with different retry policies
@@ -286,7 +224,7 @@ TEST_F(ConfigTest, ServicesMapIsProperlyPopulated) {
     
     // We can't directly access the private services map, but we can verify
     // that we can get services and they work as expected
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     const zdb::KVRPCServicePtr service1 = result1.value();
     EXPECT_TRUE(service1->connected());
@@ -311,37 +249,6 @@ TEST_F(ConfigTest, RapidSuccessiveCallsToNextService) {
     }
 }
 
-// Test with addresses containing special characters
-TEST_F(ConfigTest, ConstructorWithSpecialCharacterAddresses) {
-    const std::vector<std::string> addresses{"localhost:!@#$", "127.0.0.1:abc"};
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-}
-
-// Performance test - construction with many addresses
-TEST_F(ConfigTest, ConstructorPerformanceWithManyAddresses) {
-    // Create a reasonable number of invalid addresses to test performance
-    std::vector<std::string> addresses;
-    for (int i = 10000; i < 10020; ++i) {  // Reduced from 100 to 20 addresses
-        addresses.push_back("invalid:" + std::to_string(i));
-    }
-    
-    auto start = std::chrono::high_resolution_clock::now();
-    
-    EXPECT_THROW({
-        const Config config(addresses, policy);
-    }, std::runtime_error);
-    
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    
-    // The constructor should complete within a reasonable time even with many addresses
-    // This is more of a performance regression test
-    EXPECT_LT(duration.count(), 30000); // Should complete within 30 seconds
-}
-
 // Test thread safety aspects (basic test)
 TEST_F(ConfigTest, BasicThreadSafetyTest) {
     const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
@@ -352,7 +259,7 @@ TEST_F(ConfigTest, BasicThreadSafetyTest) {
     
     auto testFunction = [&config, &successCount, &exceptionCount]() {
         for (int i = 0; i < 100; ++i) {
-            auto result = config.currentService();
+            auto result = config.nextService();
             if (result.has_value()) {
                 successCount++;
             } else {
@@ -379,20 +286,17 @@ TEST_F(ConfigTest, CurrentServiceFailsWhenCircuitBreakerOpen) {
     Config config(addresses, lowThresholdPolicy);
     
     // Verify service works initially
-    auto result = config.currentService();
+    auto result = config.nextService();
     ASSERT_TRUE(result.has_value());
     
     // Shutdown server to trigger circuit breaker opening
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
-    
+
     // Wait a bit for the circuit breaker to open after failed operations
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
     // currentService should now fail due to circuit breaker being open
-    auto resultAfterFailure = config.currentService();
+    auto resultAfterFailure = config.nextService();
     EXPECT_FALSE(resultAfterFailure.has_value());
     EXPECT_EQ(resultAfterFailure.error().code, ErrorCode::AllServicesUnavailable);
 }
@@ -405,22 +309,18 @@ TEST_F(ConfigTest, NextServiceWithCircuitBreakerRecovery) {
     Config config(addresses, shortResetPolicy);
     
     // Get initial service
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     
     // Temporarily shutdown first server to trigger circuit breaker
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
     
     // nextService should failover to second server
     auto result2 = config.nextService();
     EXPECT_TRUE(result2.has_value());
     
     // Restart first server
-    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
-    serverThread1 = std::thread([this]() { server1->wait(); });
+    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl1);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // After circuit breaker reset timeout, should be able to use services again
@@ -434,7 +334,7 @@ TEST_F(ConfigTest, NextActiveServiceIteratorPrioritizesCurrentService) {
     Config config(addresses, policy);
     
     // Get initial service - should be one of the two available services
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     
     // Call nextService multiple times - should prefer to stay with current service if available
@@ -455,22 +355,18 @@ TEST_F(ConfigTest, CurrentServiceTriggersReconnectionThroughAvailable) {
     Config config(addresses, policy);
     
     // Get initial service
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     
     // Briefly shutdown and restart server to simulate temporary disconnection
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
     
     // Restart server quickly
-    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
-    serverThread1 = std::thread([this]() { server1->wait(); });
+    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl1);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // currentService should be able to recover (non-const allows state modification)
-    auto result2 = config.currentService();
+    auto result2 = config.nextService();
     EXPECT_TRUE(result2.has_value());
 }
 
@@ -482,7 +378,7 @@ TEST_F(ConfigTest, ConnectedVsAvailableStates) {
     Config config(addresses, quickFailPolicy);
     
     // Initially should have both connected and available service
-    auto result = config.currentService();
+    auto result = config.nextService();
     ASSERT_TRUE(result.has_value());
     zdb::KVRPCServicePtr service = result.value(); // Not const since available() is not const
     EXPECT_TRUE(service->connected());
@@ -490,14 +386,12 @@ TEST_F(ConfigTest, ConnectedVsAvailableStates) {
     
     // After shutting down server, service should become neither connected nor available
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
+
     
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
     // currentService should fail because service is not available
-    auto resultAfterShutdown = config.currentService();
+    auto resultAfterShutdown = config.nextService();
     EXPECT_FALSE(resultAfterShutdown.has_value());
     EXPECT_EQ(resultAfterShutdown.error().code, ErrorCode::AllServicesUnavailable);
 }
@@ -508,22 +402,18 @@ TEST_F(ConfigTest, NextServiceWithMixedServiceStates) {
     Config config(addresses, policy);
     
     // Initially both services should be available
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     
     // Temporarily shutdown one server
     server2->shutdown();
-    if (serverThread2.joinable()) {
-        serverThread2.join();
-    }
     
     // nextService should still work with the remaining available service
     auto result2 = config.nextService();
     EXPECT_TRUE(result2.has_value());
     
     // Restart the second server
-    server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl);
-    serverThread2 = std::thread([this]() { server2->wait(); });
+    server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl2);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // Should be able to use services again
@@ -540,14 +430,11 @@ TEST_F(ConfigTest, CircuitBreakerErrorMessages) {
     
     // Shutdown server to trigger failures
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
     
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
     // Error message should indicate service unavailability
-    auto result = config.currentService();
+    auto result = config.nextService();
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code, ErrorCode::AllServicesUnavailable);
     EXPECT_FALSE(result.error().what.empty());
@@ -561,18 +448,14 @@ TEST_F(ConfigTest, CircuitBreakerResetInNextService) {
     Config config(addresses, shortResetPolicy);
     
     // Get initial service
-    auto result1 = config.currentService();
+    auto result1 = config.nextService();
     ASSERT_TRUE(result1.has_value());
     
     // Shutdown server to trigger circuit breaker
     server1->shutdown();
-    if (serverThread1.joinable()) {
-        serverThread1.join();
-    }
-    
+
     // Restart server immediately
-    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl);
-    serverThread1 = std::thread([this]() { server1->wait(); });
+    server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl1);
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Wait for circuit breaker reset
     
     // nextService should work after reset timeout

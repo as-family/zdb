@@ -6,13 +6,16 @@
 #include <expected>
 #include <optional>
 #include <vector>
+#include <expected>
+#include <optional>
+#include <vector>
 #include <unordered_map>
 #include "common/Error.hpp"
 #include "common/RetryPolicy.hpp"
 #include "client/Config.hpp"
 #include <spdlog/spdlog.h>
 #include "common/Types.hpp"
-#include <vector>
+#include "common/Util.hpp"
 
 namespace zdb {
 
@@ -34,8 +37,9 @@ private:
     std::expected<std::monostate, std::vector<Error>> call(
         const std::string& op,
         grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
-        const Req& request,
+        Req& request,
         Rep& reply) const {
+        request.mutable_requestid()->set_uuid(uuid_v7_to_string(generate_uuid_v7()));
         for (int i = 0; i < config.policy.servicesToTry; ++i) {
             auto serviceResult = config.nextService();
             if (serviceResult.has_value()) {
@@ -43,7 +47,9 @@ private:
                 if (callResult.has_value()) {
                     return {};
                 } else {
-                    if (!isRetriable(op, callResult.error().back().code)) {
+                    if (callResult.error().back().code == ErrorCode::NotLeader) {
+                        serviceResult = config.randomService();
+                    } else if (!isRetriable(op, callResult.error().back().code)) {
                         return callResult;
                     }
                 }

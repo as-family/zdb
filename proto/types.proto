@@ -11,8 +11,13 @@ message Value {
     uint64 version = 2;
 }
 
+message RequestID {
+    bytes uuid = 1;  // 16-byte UUID v7 for request correlation
+}
+
 message Command {
     string op = 1;
     zdb.proto.Key key = 2;
     zdb.proto.Value value = 3;
+    zdb.proto.RequestID requestID = 4;
 }

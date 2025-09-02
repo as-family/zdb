@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <string>
 #include <thread>
+#include <mutex>
 
 namespace zdb {
 
@@ -20,7 +21,7 @@ template<typename Service>
 class RPCService {
 public:
     using Stub = typename Service::Stub;
-    RPCService(const std::string address, const RetryPolicy p);
+    RPCService(const std::string& address, const RetryPolicy p);
     RPCService(const RPCService&) = delete;
     RPCService& operator=(const RPCService&) = delete;
     std::expected<std::monostate, Error> connect();
@@ -30,12 +31,12 @@ public:
         grpc::Status (Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
         Rep& reply) {
-        std::unique_lock l {m};
+        std::lock_guard<std::mutex> lock {m};
         if (!connected()) {
             return std::unexpected {std::vector<Error>{Error{ErrorCode::ServiceTemporarilyUnavailable, "Not connected"}}};
         }
         auto bound = [this, f, &request, &reply] {
-            auto c = grpc::ClientContext();
+            grpc::ClientContext c {};
             c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(policy.rpcTimeout));
             return (stub.get()->*f)(&c, request, &reply);
         };
@@ -63,14 +64,14 @@ private:
 };
 
 template<typename Service>
-RPCService<Service>::RPCService(const std::string address, const RetryPolicy p) 
+RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p) 
     : addr {address},
       policy {p},
-      circuitBreaker {p},
-      m{} {}
+      circuitBreaker {p} {}
 
 template<typename Service>
 std::expected<std::monostate, Error> RPCService<Service>::connect() {
+    std::lock_guard<std::mutex> lock {m};
     if (channel) {
         auto state = channel->GetState(false);
         if (state == grpc_connectivity_state::GRPC_CHANNEL_READY || state == grpc_connectivity_state::GRPC_CHANNEL_IDLE || state == grpc_connectivity_state::GRPC_CHANNEL_CONNECTING) {
@@ -81,9 +82,6 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
                 return {};
             }
             if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(policy.channelTimeout))) {
-                 if (!stub) {
-                    stub = Service::NewStub(channel);
-                }
                 if (!stub) {
                     stub = Service::NewStub(channel);
                 }

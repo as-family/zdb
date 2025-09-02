@@ -1,8 +1,8 @@
 
 #include <gtest/gtest.h>
 #include <grpcpp/grpcpp.h>
-#include "server/KVStoreServer.hpp"
-#include "server/InMemoryKVStore.hpp"
+#include "server/KVStoreServiceImpl.hpp"
+#include "storage/InMemoryKVStore.hpp"
 #include "proto/kvStore.grpc.pb.h"
 #include <thread>
 #include <chrono>
@@ -13,6 +13,8 @@
 #include <grpcpp/security/credentials.h>
 #include "common/Types.hpp"
 #include "raft/TestRaft.hpp"
+#include "raft/SyncChannel.hpp"
+#include "common/KVStateMachine.hpp"
 
 using zdb::Key;
 using zdb::Value;
@@ -33,15 +35,15 @@ const std::string SERVER_ADDR = "localhost:50051";
 class KVStoreServerTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    raft::Channel channel{};
-    TestRaft raft{channel};
-    KVStoreServiceImpl serviceImpl {kvStore, &raft, &channel};
+    raft::SyncChannel leader{};
+    raft::SyncChannel follower{};
+    TestRaft raft{leader};
+    zdb::KVStateMachine kvState {kvStore, leader, follower, raft};
+    KVStoreServiceImpl serviceImpl{kvState};
     std::unique_ptr<KVStoreServer> server;
-    std::thread serverThread;
 
     void SetUp() override {
         server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-        serverThread = std::thread([this]() { server->wait(); });
         // Wait for server to start
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
@@ -50,9 +52,6 @@ protected:
         // Gracefully shutdown the server
         if (server) {
             server->shutdown();
-        }
-        if (serverThread.joinable()) {
-            serverThread.join();
         }
     }
 };
@@ -231,7 +230,6 @@ TEST_F(KVStoreServerTest, GetEmptyKey) {
     GetReply getRep;
     grpc::ClientContext ctx;
     auto status = stub->get(&ctx, getReq, &getRep);
-    // Should return NOT_FOUND for empty key
     ASSERT_FALSE(status.ok());
     ASSERT_EQ(status.error_code(), grpc::StatusCode::NOT_FOUND);
 }

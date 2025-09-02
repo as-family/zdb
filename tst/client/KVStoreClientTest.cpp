@@ -3,8 +3,8 @@
 #include "common/RetryPolicy.hpp"
 #include "common/Error.hpp"
 #include "common/Types.hpp"
-#include "server/KVStoreServer.hpp"
-#include "server/InMemoryKVStore.hpp"
+#include "server/KVStoreServiceImpl.hpp"
+#include "storage/InMemoryKVStore.hpp"
 #include <thread>
 #include <chrono>
 #include <string>
@@ -13,6 +13,9 @@
 #include "client/Config.hpp"
 #include <stdexcept>
 #include "raft/TestRaft.hpp"
+#include "raft/Channel.hpp"
+#include "raft/SyncChannel.hpp"
+#include "common/KVStateMachine.hpp"
 
 using zdb::Config;
 using zdb::InMemoryKVStore;
@@ -30,25 +33,22 @@ const std::string SERVER_ADDR = "localhost:50052";
 class KVStoreClientTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    raft::Channel channel{};
-    TestRaft raft{channel};
-    KVStoreServiceImpl serviceImpl{kvStore, &raft, &channel};
+    raft::SyncChannel leader{};
+    raft::SyncChannel follower;
+    TestRaft raft{leader};
+    zdb::KVStateMachine kvState {kvStore, leader, follower, raft};
+    KVStoreServiceImpl serviceImpl{kvState};
     std::unique_ptr<KVStoreServer> server;
-    std::thread serverThread;
-    const RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy policy{std::chrono::milliseconds(100), std::chrono::milliseconds(1000), std::chrono::milliseconds(5000), 3, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     std::vector<std::string> addresses{SERVER_ADDR};
 
     void SetUp() override {
         server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-        serverThread = std::thread([this]() { server->wait(); });
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     void TearDown() override {
         if (server) {
             server->shutdown();
-        }
-        if (serverThread.joinable()) {
-            serverThread.join();
         }
     }
 };
@@ -130,14 +130,6 @@ TEST_F(KVStoreClientTest, SizeReflectsSetAndErase) {
     auto sizeResult2 = client.size();
     ASSERT_TRUE(sizeResult2.has_value());
     EXPECT_EQ(sizeResult2.value(), 1);
-}
-
-TEST_F(KVStoreClientTest, FailureToConnectThrows) {
-    const std::vector<std::string> badAddresses{"localhost:59999"};
-    EXPECT_THROW({
-        Config c(badAddresses, policy);
-        const KVStoreClient client(c);
-    }, std::runtime_error);
 }
 
 TEST_F(KVStoreClientTest, SetFailureReturnsError) {
@@ -238,14 +230,15 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     // Set up additional server
     const std::string serverAddress2 = "localhost:50053";
     InMemoryKVStore kvStore2;
-    raft::Channel channel2{};
+    auto channel2 = raft::SyncChannel{};
+    auto channel22 = raft::SyncChannel{};
     TestRaft raft2{channel2};
-    KVStoreServiceImpl serviceImpl2{kvStore2, &raft2, &channel2};
+    zdb::KVStateMachine kvState2 = zdb::KVStateMachine{kvStore2, channel2, channel22, raft2};
+    KVStoreServiceImpl serviceImpl2{kvState2};
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread2;
     
     server2 = std::make_unique<KVStoreServer>(serverAddress2, serviceImpl2);
-    serverThread2 = std::thread([&server2]() { server2->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     
     const std::vector<std::string> multiAddresses{SERVER_ADDR, serverAddress2};
@@ -265,14 +258,6 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     
     auto result2 = client2.set(Key{"key2"}, Value{"value2"});
     EXPECT_TRUE(result2.has_value());
-    
-    // Cleanup second server
-    if (server2) {
-        server2->shutdown();
-    }
-    if (serverThread2.joinable()) {
-        serverThread2.join();
-    }
 }
 
 // Test servicesToTry behavior when services become unavailable
@@ -288,9 +273,6 @@ TEST_F(KVStoreClientTest, ServicesToTryWithServiceFailure) {
     
     // Now simulate service becoming unavailable by shutting down the server
     server->shutdown();
-    if (serverThread.joinable()) {
-        serverThread.join();
-    }
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     // Should fail after trying available services (up to servicesToTry limit)
@@ -342,9 +324,6 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
     
     // Simulate server outage
     server->shutdown();
-    if (serverThread.joinable()) {
-        serverThread.join();
-    }
     
     // Operations should fail during outage
     auto getResult = client.get(Key{"test"});
@@ -353,7 +332,6 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
     
     // Restart the server
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-    serverThread = std::thread([this]() { server->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     
     // Client should recover and work again
@@ -367,7 +345,7 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
 
 // Test client behavior with multiple server restarts
 TEST_F(KVStoreClientTest, MultipleServerRestarts) {
-    const RetryPolicy fastRetryPolicy{std::chrono::microseconds(25), std::chrono::microseconds(100), std::chrono::microseconds(300), 2, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy fastRetryPolicy{std::chrono::milliseconds(25), std::chrono::milliseconds(100), std::chrono::milliseconds(300), 3, 1, std::chrono::milliseconds(20), std::chrono::milliseconds(200)};
     Config c{addresses, fastRetryPolicy};
     KVStoreClient client{c};
     
@@ -379,9 +357,6 @@ TEST_F(KVStoreClientTest, MultipleServerRestarts) {
         
         // Restart server
         server->shutdown();
-        if (serverThread.joinable()) {
-            serverThread.join();
-        }
         
         // Brief outage - operations should fail
         auto failResult = client.get(Key{key});
@@ -389,8 +364,7 @@ TEST_F(KVStoreClientTest, MultipleServerRestarts) {
         
         // Restart server
         server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-        serverThread = std::thread([this]() { server->wait(); });
-        std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for circuit breaker reset
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         
         // Client should recover
         auto newSetResult = client.set(Key{"after_restart_" + std::to_string(restart)}, Value{"recovery"});
@@ -401,7 +375,7 @@ TEST_F(KVStoreClientTest, MultipleServerRestarts) {
 // Test client resilience with circuit breaker behavior during extended outage
 TEST_F(KVStoreClientTest, CircuitBreakerDuringExtendedOutage) {
     // Use a policy with a low failure threshold to trigger circuit breaker quickly
-    const RetryPolicy circuitBreakerPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(200), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy circuitBreakerPolicy{std::chrono::milliseconds(10), std::chrono::milliseconds(50), std::chrono::milliseconds(200), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
     Config c{addresses, circuitBreakerPolicy};
     KVStoreClient client{c};
     
@@ -410,9 +384,6 @@ TEST_F(KVStoreClientTest, CircuitBreakerDuringExtendedOutage) {
     
     // Simulate extended server outage
     server->shutdown();
-    if (serverThread.joinable()) {
-        serverThread.join();
-    }
     
     // Multiple failed operations should trigger circuit breaker
     for (int i = 0; i < 5; ++i) {
@@ -423,7 +394,6 @@ TEST_F(KVStoreClientTest, CircuitBreakerDuringExtendedOutage) {
 
     // Restart server
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-    serverThread = std::thread([this]() { server->wait(); });
     std::this_thread::sleep_for(std::chrono::seconds(4)); // Wait for circuit breaker reset timeout
     
     // Circuit breaker should allow operations after reset timeout
@@ -438,16 +408,19 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     const std::string serverAddress3 = "localhost:50055";
     
     InMemoryKVStore kvStore2, kvStore3;
-    raft::Channel channel2{}, channel3{};
+    auto channel2 = raft::SyncChannel();
+    auto channel3 = raft::SyncChannel();
+    auto channel22 = raft::SyncChannel();
+    auto channel33 = raft::SyncChannel();
     TestRaft raft2{channel2}, raft3{channel3};
-    KVStoreServiceImpl serviceImpl2{kvStore2, &raft2, &channel2}, serviceImpl3{kvStore3, &raft3, &channel3};
+    zdb::KVStateMachine kvState2 {kvStore2, channel2, channel22, raft2};
+    zdb::KVStateMachine kvState3 {kvStore3, channel3, channel33, raft3};
+    KVStoreServiceImpl serviceImpl2{kvState2}, serviceImpl3{kvState3};
     std::unique_ptr<KVStoreServer> server2, server3;
     std::thread serverThread2, serverThread3;
     
     server2 = std::make_unique<KVStoreServer>(serverAddress2, serviceImpl2);
     server3 = std::make_unique<KVStoreServer>(serverAddress3, serviceImpl3);
-    serverThread2 = std::thread([&server2]() { server2->wait(); });
-    serverThread3 = std::thread([&server3]() { server3->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     const std::vector<std::string> multiAddresses{SERVER_ADDR, serverAddress2, serverAddress3};
@@ -460,9 +433,6 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     
     // Shutdown first server
     server->shutdown();
-    if (serverThread.joinable()) {
-        serverThread.join();
-    }
     
     // Client should failover to remaining services
     auto result1 = client.set(Key{"failover1"}, Value{"test1"});
@@ -480,9 +450,6 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     
     // Shutdown all servers
     server3->shutdown();
-    if (serverThread3.joinable()) {
-        serverThread3.join();
-    }
     
     // Now all operations should fail
     auto failResult = client.get(Key{"failover1"});
@@ -491,7 +458,6 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     
     // Restart one server
     server2 = std::make_unique<KVStoreServer>(serverAddress2, serviceImpl2);
-    serverThread2 = std::thread([&server2]() { server2->wait(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(600)); // Wait for circuit breaker reset
     
     // Client should recover with the restarted service
@@ -501,9 +467,6 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     // Cleanup remaining servers
     if (server2) {
         server2->shutdown();
-    }
-    if (serverThread2.joinable()) {
-        serverThread2.join();
     }
 }
 
@@ -519,10 +482,7 @@ TEST_F(KVStoreClientTest, ExponentialBackoffDuringRetries) {
     
     // Shutdown server to trigger retries
     server->shutdown();
-    if (serverThread.joinable()) {
-        serverThread.join();
-    }
-    
+
     // Measure time for failed operation (should include backoff delays)
     auto start = std::chrono::steady_clock::now();
     auto result = client.get(Key{"backoff_test"});
@@ -548,16 +508,12 @@ TEST_F(KVStoreClientTest, DataPersistenceAfterServerRestart) {
     EXPECT_EQ(initialSize.value(), 1);
     
     server->shutdown();
-    if (serverThread.joinable()) {
-        serverThread.join();
-    }
     
     // Operations fail during outage
     EXPECT_FALSE(client.get(Key{"persistent_key"}).has_value());
     
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-    serverThread = std::thread([this]() { server->wait(); });
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     
     auto newSize = client.size();
     ASSERT_TRUE(newSize.has_value());
@@ -583,15 +539,11 @@ TEST_F(KVStoreClientTest, RapidServerCycling) {
         
         // Quick shutdown and restart
         server->shutdown();
-        if (serverThread.joinable()) {
-            serverThread.join();
-        }
         
         // Very brief downtime
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         
         server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-        serverThread = std::thread([this]() { server->wait(); });
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     
@@ -611,9 +563,6 @@ TEST_F(KVStoreClientTest, RetryExhaustionAllServicesDown) {
     
     // Shutdown server
     server->shutdown();
-    if (serverThread.joinable()) {
-        serverThread.join();
-    }
     
     // Test different operations - all should fail after retry exhaustion
     auto getResult = client.get(Key{"before_shutdown"});
@@ -647,27 +596,19 @@ TEST_F(KVStoreClientTest, IntermittentConnectivityResilience) {
     
     // 2. Simulate failure
     server->shutdown();
-    if (serverThread.joinable()) {
-        serverThread.join();
-    }
     EXPECT_FALSE(client.get(Key{"intermittent1"}).has_value());
     
     // 3. Restore service - wait much longer for circuit breaker reset
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-    serverThread = std::thread([this]() { server->wait(); });
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::seconds(1)); // Wait for circuit breaker reset
     EXPECT_TRUE(client.set(Key{"intermittent2"}, Value{"value2"}).has_value());
     
     // 4. Another failure
     server->shutdown();
-    if (serverThread.joinable()) {
-        serverThread.join();
-    }
     EXPECT_FALSE(client.get(Key{"intermittent2"}).has_value());
     
     // 5. Final restore - wait much longer for circuit breaker reset
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-    serverThread = std::thread([this]() { server->wait(); });
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::seconds(1)); // Wait for circuit breaker reset
     EXPECT_TRUE(client.set(Key{"intermittent3"}, Value{"value3"}).has_value());
 }

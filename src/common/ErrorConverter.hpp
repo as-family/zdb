@@ -6,6 +6,7 @@
 #include <grpcpp/support/status.h>
 #include <expected>
 #include <optional>
+#include <variant>
 
 namespace zdb {
 
@@ -31,13 +32,7 @@ std::expected<T, Error> toExpected(const grpc::Status& status, T v) {
     return std::unexpected {toError(status)};
 }
 
-template<typename T>
-std::expected<std::monostate, Error> toExpected(const grpc::Status& status) {
-    if (status.ok()) {
-        return {};
-    }
-    return std::unexpected {toError(status)};
-}
+std::expected<std::monostate, Error> toExpected(const grpc::Status& status);
 
 ErrorCode errorCode(const zdb::Error& err);
 ErrorCode errorCode(const std::expected<zdb::Value, zdb::Error>& result);

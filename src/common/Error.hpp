@@ -1,11 +1,13 @@
-#ifndef ERROR_H
-#define ERROR_H
+#ifndef SRC_COMMON_ERROR_HPP
+#define SRC_COMMON_ERROR_HPP
 
 #include <string>
 #include <ostream>
-#include <sstream>
+#include <cstdint>
 #include <unordered_set>
 #include <unordered_map>
+#include <functional>
+#include <type_traits>
 
 namespace zdb {
 
@@ -17,13 +19,20 @@ enum class ErrorCode {
     VersionMismatch,
     Maybe,
     KeyNotFound,
-    TimeOut,
+    Timeout,
     NotLeader,
     Internal,
     Unknown
 };
 
-extern const std::unordered_map<std::string, std::unordered_set<ErrorCode>> retriableErrorCodes;
+struct ErrorCodeHash {
+    std::size_t operator()(const ErrorCode& code) const noexcept {
+        return std::hash<std::underlying_type_t<ErrorCode>>{}(static_cast<std::underlying_type_t<ErrorCode>>(code));
+    }
+};
+
+
+extern const std::unordered_map<std::string, std::unordered_set<ErrorCode, ErrorCodeHash>> retriableErrorCodes;
 bool isRetriable(const std::string& op, const ErrorCode& code);
 
 std::ostream& operator<<(std::ostream& os, const ErrorCode& code);
@@ -44,4 +53,4 @@ struct Error {
 
 } // namespace zdb
 
-#endif // ERROR_H
+#endif // SRC_COMMON_ERROR_HPP

@@ -7,6 +7,11 @@
 #include "common/Error.hpp"
 #include "common/RPCService.hpp"
 #include <proto/kvStore.grpc.pb.h>
+#include <proto/kvStore.grpc.pb.h>
+#include <random>
+#include <vector>
+#include "common/RetryPolicy.hpp"
+#include <mutex>
 
 namespace zdb {
 
@@ -20,13 +25,17 @@ public:
     Config(const std::vector<std::string>& addresses, const RetryPolicy policy);
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
-    [[nodiscard]] std::expected<KVRPCServicePtr, Error> currentService();
     std::expected<KVRPCServicePtr, Error> nextService();
+    std::expected<KVRPCServicePtr, Error> randomService();
+    void resetUsed();
     const RetryPolicy policy;
 private:
     iterator nextActiveServiceIterator();
     map services;
     iterator cService;
+    std::default_random_engine rng;
+    std::uniform_int_distribution<std::size_t> dist;
+    std::mutex m;
 };
 } // namespace zdb
 

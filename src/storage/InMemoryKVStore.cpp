@@ -1,5 +1,5 @@
-#include "InMemoryKVStore.hpp"
-#include <optional>
+#include "storage/InMemoryKVStore.hpp"
+#include <expected>
 #include <string>
 #include <shared_mutex>
 #include <mutex>
@@ -8,6 +8,7 @@
 #include "common/Types.hpp"
 #include <expected>
 #include <optional>
+#include <variant>
 
 namespace zdb {
 

@@ -14,10 +14,10 @@ if(${BUILD_TESTING})
     target_include_directories(tests PRIVATE
     ${CMAKE_SOURCE_DIR}/tst
   )
-  target_include_directories(tests PRIVATE
+  target_include_directories(tests SYSTEM PRIVATE
     ${CMAKE_BINARY_DIR}
   )
-
+  target_compile_features(tests PRIVATE cxx_std_23)
   target_sources(tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/common/ExponentialBackoff.cpp
     ${CMAKE_SOURCE_DIR}/src/common/RetryPolicy.cpp
@@ -27,18 +27,19 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/common/Repeater.cpp
     ${CMAKE_SOURCE_DIR}/src/common/CircuitBreaker.cpp
     ${CMAKE_SOURCE_DIR}/src/client/KVStoreClient.cpp
-    ${CMAKE_SOURCE_DIR}/src/server/InMemoryKVStore.cpp
-    ${CMAKE_SOURCE_DIR}/src/server/KVStoreServer.cpp
+    ${CMAKE_SOURCE_DIR}/src/storage/InMemoryKVStore.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/KVStoreServiceImpl.cpp
     ${CMAKE_SOURCE_DIR}/src/client/Config.cpp
     ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
     ${CMAKE_SOURCE_DIR}/src/lock/Lock.cpp
-    ${CMAKE_SOURCE_DIR}/src/raft/RaftImpl.cpp
-    ${CMAKE_SOURCE_DIR}/src/raft/Channel.cpp
     ${CMAKE_SOURCE_DIR}/src/raft/RaftServiceImpl.cpp
     ${CMAKE_SOURCE_DIR}/src/raft/Log.cpp
     ${CMAKE_SOURCE_DIR}/src/raft/Types.cpp
     ${CMAKE_SOURCE_DIR}/src/raft/AsyncTimer.cpp
     ${CMAKE_SOURCE_DIR}/src/common/Util.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/Command.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/KVStateMachine.cpp
+    ${CMAKE_SOURCE_DIR}/src/raft/SyncChannel.cpp
     ${CMAKE_SOURCE_DIR}/tst/server/InMemoryKVStoreTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/ExponentialBackoffTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/RetryPolicyTest.cpp
@@ -60,10 +61,10 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/tst/raftTest/RaftTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/RaftTestFramework/RaftTestFramework.cpp
     ${CMAKE_SOURCE_DIR}/tst/RaftTestFramework/ProxyRaftService.cpp
+    ${CMAKE_SOURCE_DIR}/tst/units/Raft.cpp
   )
 
   target_link_libraries(tests PRIVATE
-    GTest::gtest_main
     GTest::gmock_main
     gRPC::grpc++
     protobuf::libprotobuf
@@ -77,7 +78,6 @@ if(${BUILD_TESTING})
     -Wextra
     -Wpedantic
     -g
-    -O0
     -Og
 
     -Wconversion

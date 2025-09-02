@@ -7,7 +7,6 @@
 #include <utility>
 #include "KVTestFramework/NetworkConfig.hpp"
 #include "KVTestFramework/KVTestFramework.hpp"
-#include "raft/RaftImpl.hpp"
 #include "raft/Channel.hpp"
 #include "RaftTestFramework/ProxyRaftService.hpp"
 #include "KVTestFramework/ProxyService.hpp"
@@ -15,6 +14,9 @@
 #include "server/RPCServer.hpp"
 #include "common/Util.hpp"
 #include <random>
+#include "raft/SyncChannel.hpp"
+#include "raft/RaftImpl.hpp"
+#include "common/LockedUnorderedMap.hpp"
 
 struct EndPoints {
     std::string raftTarget;
@@ -38,25 +40,25 @@ public:
     std::vector<uint64_t> terms();
     std::optional<uint64_t> checkTerms();
     std::unordered_map<std::string, raft::RaftImpl<Client>>& getRafts();
+    KVTestFramework& getKVFrameworks(std::string target);
     void disconnect(std::string);
     void connect(std::string);
     void start();
-    ~RAFTTestFramework();
+    std::pair<int, std::string> nCommitted(uint64_t index);
 private:
     std::vector<EndPoints>& config;
-    std::unordered_map<std::string, raft::Channel> channels;
-    std::unordered_map<std::string, std::vector<Client*>> clients;
-    std::unordered_map<std::string, raft::RaftImpl<Client>> rafts;
-    std::unordered_map<std::string, raft::RaftServiceImpl> raftServices;
-    std::unordered_map<std::string, Client> proxies;
-    std::unordered_map<std::string, ProxyRaftService> raftProxies;
-    std::unordered_map<std::string, zdb::RPCServer<ProxyRaftService>> raftProxyServers;
-    std::unordered_map<std::string, zdb::RPCServer<raft::RaftServiceImpl>> raftServers;
-    std::unordered_map<std::string, KVTestFramework> kvTests;
-    std::vector<std::thread> serverThreads;
-    std::mutex m1, m2, m3, m4, m5, m6, m7, m8;
     zdb::RetryPolicy policy;
     std::mt19937 gen;
+    zdb::LockedUnorderedMap<std::string, raft::SyncChannel> leaders;
+    zdb::LockedUnorderedMap<std::string, raft::SyncChannel> followers;
+    zdb::LockedUnorderedMap<std::string, raft::RaftImpl<Client>> rafts;
+    zdb::LockedUnorderedMap<std::string, zdb::LockedUnorderedMap<std::string, Client>> clients;
+    zdb::LockedUnorderedMap<std::string, raft::RaftServiceImpl> raftServices;
+    zdb::LockedUnorderedMap<std::string, Client> proxies;
+    zdb::LockedUnorderedMap<std::string, ProxyRaftService> raftProxies;
+    zdb::LockedUnorderedMap<std::string, zdb::RPCServer<ProxyRaftService>> raftProxyServers;
+    zdb::LockedUnorderedMap<std::string, zdb::RPCServer<raft::RaftServiceImpl>> raftServers;
+    zdb::LockedUnorderedMap<std::string, KVTestFramework> kvTests;
 };
 
 #endif // RAFT_TEST_FRAMEWORK_H

@@ -3,61 +3,73 @@
 
 #include "raft/Command.hpp"
 #include "raft/StateMachine.hpp"
-#include "server/KVStoreServer.hpp"
+#include "common/Types.hpp"
 #include "proto/types.pb.h"
+#include <string>
+#include <memory>
+#include "common/Util.hpp"
 
 namespace zdb {
 
 struct Get : public raft::Command {
     Key key;
 
-    Get(const Key& k)
-        : key(k) {}
-    Get(const proto::Command& cmd)
-        :key {cmd.key()} {
-    }
+    Get(UUIDV7& u, const Key& k);
+    Get(const proto::Command& cmd);
 
-    std::string serialize() const override {
-        auto c = proto::Command {};
-        c.set_op("get");
-        c.mutable_key()->set_data(key.data);
-        return c.SerializeAsString();
-    }
+    std::string serialize() const override;
 
-    raft::State* apply(raft::StateMachine* stateMachine) override {
-        auto* kvState = dynamic_cast<zdb::KVStoreServiceImpl*>(stateMachine);
-        if (kvState) {
-            return kvState->handleGet(key);
-        }
-        return nullptr;
-    }
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
+    bool operator==(const raft::Command& other) const override;
+    bool operator!=(const raft::Command& other) const override;
+
 };
 
 struct Set : public raft::Command {
     Key key;
     Value value;
 
-    Set(const Key& k, const Value& v)
-        : key(k), value(v) {}
-    Set(const proto::Command& cmd)
-        : key {cmd.key()}, value {cmd.value()} {}
+    Set(UUIDV7& u, const Key& k, const Value& v);
+    Set(const proto::Command& cmd);
 
-    std::string serialize() const override {
-        auto c = proto::Command {};
-        c.set_op("put");
-        c.mutable_key()->set_data(key.data);
-        c.mutable_value()->set_data(value.data);
-        return c.SerializeAsString();
-    }
+    std::string serialize() const override;
 
-    raft::State* apply(raft::StateMachine* stateMachine) override {
-        auto* kvState = dynamic_cast<zdb::KVStoreServiceImpl*>(stateMachine);
-        if (kvState) {
-            return kvState->handleSet(key, value);
-        }
-        return nullptr;
-    }
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
+
+    bool operator==(const raft::Command& other) const override;
+    bool operator!=(const raft::Command& other) const override;
+
 };
+
+struct Erase : public raft::Command {
+    Key key;
+
+    Erase(UUIDV7& u, const Key& k);
+    Erase(const proto::Command& cmd);
+
+    std::string serialize() const override;
+
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
+
+    bool operator==(const raft::Command& other) const override;
+    bool operator!=(const raft::Command& other) const override;
+
+};
+
+struct Size : public raft::Command {
+    Size(UUIDV7& u);
+    Size(const proto::Command&);
+
+    std::string serialize() const override;
+
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
+
+    bool operator==(const raft::Command& other) const override;
+    bool operator!=(const raft::Command& other) const override;
+
+};
+
+std::unique_ptr<raft::Command> commandFactory(const std::string& s);
 
 } // namespace zdb
 

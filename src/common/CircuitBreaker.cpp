@@ -13,12 +13,12 @@
 namespace zdb {
 
 CircuitBreaker::CircuitBreaker(const RetryPolicy p)
-    : policy{p}, repeater {p} {}
+    : state{State::Closed},
+      policy{p},
+      repeater{p},
+      lastFailureTime{} {}
 
 std::vector<grpc::Status> CircuitBreaker::call(const std::string& op, const std::function<grpc::Status()>& rpc) {
-    if (rpc == nullptr) {
-        throw std::bad_function_call {};
-    }
     switch (state) {
         case State::Open:
             if (std::chrono::steady_clock::now() - lastFailureTime < policy.resetTimeout) {
@@ -34,8 +34,8 @@ std::vector<grpc::Status> CircuitBreaker::call(const std::string& op, const std:
                 repeater.reset();
             } else {
                 if (isRetriable(op, toError(status).code)) {
-                    state = State::Open;
                     lastFailureTime = std::chrono::steady_clock::now();
+                    state = State::Open;
                 } else {
                     state = State::Closed;
                 }
@@ -47,8 +47,8 @@ std::vector<grpc::Status> CircuitBreaker::call(const std::string& op, const std:
             auto statuses = repeater.attempt(op, rpc);
             if (!statuses.back().ok()) {
                 if (isRetriable(op, toError(statuses.back()).code)) {
-                    state = State::Open;
                     lastFailureTime = std::chrono::steady_clock::now();
+                    state = State::Open;
                 }
             }
             return statuses;

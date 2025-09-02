@@ -1,21 +1,18 @@
-#ifndef KV_STORE_SERVER_H
-#define KV_STORE_SERVER_H
+#ifndef SRC_SERVER_KVSTORESERVICEIMPL_HPP
+#define SRC_SERVER_KVSTORESERVICEIMPL_HPP
 
 #include <memory>
 #include <grpcpp/grpcpp.h>
+#include <unordered_map>
 #include "proto/kvStore.grpc.pb.h"
-#include "InMemoryKVStore.hpp"
 #include "server/RPCServer.hpp"
-#include "raft/StateMachine.hpp"
-#include "raft/Raft.hpp"
-#include "raft/Channel.hpp"
-#include <thread>
+#include "common/KVStateMachine.hpp"
 
 namespace zdb {
 
-class KVStoreServiceImpl final : public kvStore::KVStoreService::Service, public raft::StateMachine {
+class KVStoreServiceImpl final : public kvStore::KVStoreService::Service {
 public:
-    KVStoreServiceImpl(InMemoryKVStore& kv, raft::Raft* r, raft::Channel* c);
+    KVStoreServiceImpl(KVStateMachine& kv);
     grpc::Status get(
         grpc::ServerContext* context,
         const kvStore::GetRequest* request,
@@ -32,23 +29,13 @@ public:
         grpc::ServerContext* context,
         const kvStore::SizeRequest* request,
         kvStore::SizeReply* reply) override;
-    raft::State* handleGet(Key key);
-    raft::State* handleSet(Key key, Value value);
-    void snapshot() override;
-    void restore(const std::string& snapshot) override;
-    raft::State* applyCommand(raft::Command* command) override;
-    void consumeChannel() override;
     ~KVStoreServiceImpl();
 private:
-    InMemoryKVStore& kvStore;
-    raft::Raft* raft;
-    raft::Channel* channel;
-    std::thread t;
-    std::unordered_map<raft::Command*, std::function<grpc::Status()>> pendingCommands;
+    KVStateMachine& kvStateMachine;
 };
 
 using KVStoreServer = RPCServer<KVStoreServiceImpl>;
 
 } // namespace zdb
 
-#endif // KV_STORE_SERVER_H
+#endif // SRC_SERVER_KVSTORESERVICEIMPL_HPP

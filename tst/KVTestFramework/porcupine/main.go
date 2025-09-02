@@ -21,7 +21,7 @@ const (
 	VersionMismatch
 	Maybe
 	KeyNotFound
-	TimeOut
+	Timeout
 	Unknown
 )
 

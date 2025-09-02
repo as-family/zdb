@@ -1,7 +1,7 @@
 #include "KVTestFramework.hpp"
 #include <string>
 #include <grpcpp/grpcpp.h>
-#include "server/InMemoryKVStore.hpp"
+#include "storage/InMemoryKVStore.hpp"
 #include "client/Config.hpp"
 #include "client/KVStoreClient.hpp"
 #include <vector>
@@ -14,28 +14,24 @@
 #include <sstream>
 #include "raft/Raft.hpp"
 #include "raft/Channel.hpp"
-
-KVTestFramework::KVTestFramework(std::string a, std::string t, NetworkConfig& c)
+#include "raft/SyncChannel.hpp"
+#include "KVTestFramework/NetworkConfig.hpp"
+KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel& l, raft::Channel& f, raft::Raft& r, zdb::RetryPolicy p)
     : addr {a},
       targetServerAddr {t},
       networkConfig(c),
-      service {ProxyKVStoreService {targetServerAddr, networkConfig}},
       mem {zdb::InMemoryKVStore {}},
-      channel{},
-      raft {channel},
-      targetService {zdb::KVStoreServiceImpl {mem, &raft, &channel}},
+      leader{l},
+      follower{f},
+      raft {r},
+      kvState {mem, leader, follower, raft},
+      targetService {kvState},
+      targetProxyService{targetServerAddr, networkConfig, p},
+      service {targetProxyService},
+      targetServer {targetServerAddr, targetService},
+      server {addr, service},
       rng(std::random_device{}()) {
-    grpc::ServerBuilder targetSB{};
-    targetSB.AddListeningPort(targetServerAddr, grpc::InsecureServerCredentials());
-    targetSB.RegisterService(&targetService);
-    targetServer = targetSB.BuildAndStart();
-    targetServerThread = std::thread([this]() { targetServer->Wait(); });
-
-    grpc::ServerBuilder sb{};
-    sb.AddListeningPort(addr, grpc::InsecureServerCredentials());
-    sb.RegisterService(&service);
-    server = sb.BuildAndStart();
-    serverThread = std::thread([this]() { server->Wait(); });
+    targetProxyService.connectTarget();
 }
 
 std::vector<KVTestFramework::ClientResult> KVTestFramework::spawnClientsAndWait(
@@ -111,7 +107,7 @@ std::pair<int, bool> KVTestFramework::oneSet(
             std::stringstream ss(getValue.data);
             int getClientId;
             ss >> getClientId;
-            if (clientId != getClientId && getValue.data != data) {
+            if (clientId != getClientId || getValue.data != data) {
                 throw std::runtime_error("oneSet: wrong value " + getValue.data);
             }
         }
@@ -194,7 +190,7 @@ bool KVTestFramework::checkSetConcurrent(
         totalOK += result.nOK;
         totalMaybe += result.nMaybe;
     }
-    if (networkConfig.reliable()) {
+    if (networkConfig.isReliable()) {
         return value.version == totalOK;
     } else {
         return value.version <= totalOK + totalMaybe;
@@ -202,8 +198,4 @@ bool KVTestFramework::checkSetConcurrent(
 }
 
 KVTestFramework::~KVTestFramework() {
-    server->Shutdown();
-    targetServer->Shutdown();
-    serverThread.join();
-    targetServerThread.join();
 }

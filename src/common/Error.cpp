@@ -16,7 +16,7 @@ std::string toString(const ErrorCode& code) {
     switch (code)
     {
         case ErrorCode::OK: return "OK";
-        case ErrorCode::TimeOut: return "TimeOut";
+        case ErrorCode::Timeout: return "Timeout";
         case ErrorCode::Unknown: return "Unknown";
         case ErrorCode::InvalidArg: return "InvalidArgument";
         case ErrorCode::ServiceTemporarilyUnavailable: return "ServiceTemporarilyUnavailable";
@@ -30,22 +30,22 @@ std::string toString(const ErrorCode& code) {
     std::unreachable();
 }
 
-const std::unordered_map<std::string, std::unordered_set<ErrorCode>> retriableErrorCodes = {
+const std::unordered_map<std::string, std::unordered_set<ErrorCode, ErrorCodeHash>> retriableErrorCodes = {
     {"erase", {
         ErrorCode::ServiceTemporarilyUnavailable,
         ErrorCode::AllServicesUnavailable,
     }},
     {"requestVote", {
-        ErrorCode::TimeOut,
+        ErrorCode::Timeout,
     }},
     {"appendEntries", {
-        ErrorCode::TimeOut,
+        ErrorCode::Timeout,
     }},
     {"default", {
         ErrorCode::Unknown,
         ErrorCode::ServiceTemporarilyUnavailable,
         ErrorCode::AllServicesUnavailable,
-        ErrorCode::TimeOut,
+        ErrorCode::Timeout,
     }}
 };
 
