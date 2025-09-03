@@ -13,6 +13,6 @@ require (
 
 replace 6.5840 => ../../6.5840/src
 
-require raft/proto v0.0.0
+require proto v0.0.0-00010101000000-000000000000
 
-replace raft/proto => ./
+replace proto => ../../out/build/gcc-14/go-proto

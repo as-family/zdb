@@ -17,7 +17,7 @@ import (
 	"time"
 	"unsafe"
 
-	proto "goRaft/proto"
+	proto "proto"
 
 	pb "google.golang.org/protobuf/proto"
 
