@@ -5,10 +5,12 @@ package raft
 #cgo LDFLAGS: -L${SRCDIR}/../../out/build/gcc-14/lib -lzdb_raft
 #include "cgo/raft_wrapper.h"
 #include <stdlib.h>
+#include <string.h>
 */
 import "C"
 import (
 	"fmt"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -17,27 +19,88 @@ import (
 	tester "6.5840/tester1"
 )
 
+// Global registry for CppRaft instances
+var (
+	raftInstances = make(map[int]*CppRaft)
+	raftMutex     sync.RWMutex
+)
+
 type CppRaft struct {
 	handle  *C.RaftHandle
 	me      int
+	peers   []*labrpc.ClientEnd
 	applyCh chan raftapi.ApplyMsg
 	killed  bool
 }
 
+// Global callback function for C++ to call Go labrpc
+//
+//export goLabrpcCall
+func goLabrpcCall(peerID C.int, serviceMethod *C.char, argsData unsafe.Pointer, argsSize C.int, replyData unsafe.Pointer, replySize C.int) C.int {
+	// Get the service method name
+	method := C.GoString(serviceMethod)
+
+	// Get args data
+	args := C.GoBytes(argsData, argsSize)
+
+	// Find the CppRaft instance
+	raftMutex.RLock()
+	rf := raftInstances[int(peerID)]
+	raftMutex.RUnlock()
+
+	if rf == nil {
+		fmt.Printf("ERROR: No CppRaft instance found for peer %d\n", int(peerID))
+		return 0
+	}
+
+	if int(peerID) >= len(rf.peers) {
+		fmt.Printf("ERROR: Invalid peer ID %d, only have %d peers\n", int(peerID), len(rf.peers))
+		return 0
+	}
+
+	// Make the labrpc call
+	var reply []byte
+	success := rf.peers[int(peerID)].Call(method, args, &reply)
+
+	if success && len(reply) <= int(replySize) {
+		// Copy reply data back
+		C.memmove(replyData, unsafe.Pointer(&reply[0]), C.size_t(len(reply)))
+		return C.int(len(reply))
+	}
+
+	if !success {
+		fmt.Printf("ERROR: labrpc call failed for peer %d, method %s\n", int(peerID), method)
+	} else {
+		fmt.Printf("ERROR: Reply too large: %d > %d\n", len(reply), int(replySize))
+	}
+
+	return 0
+}
+
+func registerCppRaftInstance(me int, rf *CppRaft) {
+	raftMutex.Lock()
+	defer raftMutex.Unlock()
+	raftInstances[me] = rf
+}
+
+func unregisterCppRaftInstance(me int) {
+	raftMutex.Lock()
+	defer raftMutex.Unlock()
+	delete(raftInstances, me)
+}
+
 func MakeCppRaft(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyCh chan raftapi.ApplyMsg) *CppRaft {
-	// Convert peers to C strings
+	// Set up the labrpc callback (only once)
+	C.raft_set_labrpc_callback(C.labrpc_call_func(C.goLabrpcCall))
+
+	// Create peer IDs array
 	cPeers := make([]*C.char, len(peers))
 	for i := range peers {
-		// Create simple peer ID based on index
 		peerStr := C.CString(fmt.Sprintf("peer_%d", i))
 		cPeers[i] = peerStr
 		defer C.free(unsafe.Pointer(peerStr))
 	}
 
-	selfId := C.CString(fmt.Sprintf("peer_%d", me))
-	defer C.free(unsafe.Pointer(selfId))
-
-	// For now, pass empty string as persister_id since we're not implementing persistence
 	persisterId := C.CString("")
 	defer C.free(unsafe.Pointer(persisterId))
 
@@ -49,9 +112,13 @@ func MakeCppRaft(peers []*labrpc.ClientEnd, me int, persister *tester.Persister,
 	rf := &CppRaft{
 		handle:  handle,
 		me:      me,
+		peers:   peers,
 		applyCh: applyCh,
 		killed:  false,
 	}
+
+	// Register this instance for the callback
+	registerCppRaftInstance(me, rf)
 
 	// Start apply message goroutine
 	go rf.applyMessageLoop()
@@ -59,107 +126,122 @@ func MakeCppRaft(peers []*labrpc.ClientEnd, me int, persister *tester.Persister,
 	return rf
 }
 
-func (rf *CppRaft) GetState() (int, bool) {
-	if rf.killed {
-		return 0, false
-	}
+// Implement labrpc service interface methods (called by labrpc framework)
+func (rf *CppRaft) RequestVote(args []byte, reply *[]byte) {
+	replyBuf := make([]byte, 1024)
+	replyLen := C.raft_request_vote_handler(rf.handle,
+		(*C.char)(unsafe.Pointer(&args[0])), C.int(len(args)),
+		(*C.char)(unsafe.Pointer(&replyBuf[0])), C.int(len(replyBuf)))
 
-	var term C.int
-	var isLeader C.int
-
-	success := C.raft_get_state(rf.handle, &term, &isLeader)
-	if success == 0 {
-		return 0, false
-	}
-
-	return int(term), isLeader != 0
-}
-
-func (rf *CppRaft) Start(command interface{}) (int, int, bool) {
-	if rf.killed {
-		return -1, -1, false
-	}
-
-	// Convert command to string (simple serialization for testing)
-	cmdStr := fmt.Sprintf("%v", command)
-	cCmd := C.CString(cmdStr)
-	defer C.free(unsafe.Pointer(cCmd))
-
-	var index C.int
-	var term C.int
-	var isLeader C.int
-
-	success := C.raft_start(rf.handle, cCmd, &index, &term, &isLeader)
-
-	return int(index), int(term), success != 0 && isLeader != 0
-}
-
-func (rf *CppRaft) Kill() {
-	rf.killed = true
-	if rf.handle != nil {
-		C.raft_kill(rf.handle)
-		C.raft_destroy(rf.handle)
-		rf.handle = nil
+	if replyLen > 0 {
+		*reply = replyBuf[:int(replyLen)]
 	}
 }
 
-// ConnectAllPeers establishes connections to all peer servers
+func (rf *CppRaft) AppendEntries(args []byte, reply *[]byte) {
+	replyBuf := make([]byte, 1024)
+	replyLen := C.raft_append_entries_handler(rf.handle,
+		(*C.char)(unsafe.Pointer(&args[0])), C.int(len(args)),
+		(*C.char)(unsafe.Pointer(&replyBuf[0])), C.int(len(replyBuf)))
+
+	if replyLen > 0 {
+		*reply = replyBuf[:int(replyLen)]
+	}
+}
+
+// ConnectAllPeers establishes connections to all peer servers (no-op for labrpc)
 func (rf *CppRaft) ConnectAllPeers() {
-	if rf.killed || rf.handle == nil {
-		return
-	}
 	C.raft_connect_all_peers(rf.handle)
 }
 
-func (rf *CppRaft) PersistBytes() int {
-	if rf.killed || rf.handle == nil {
-		return 0
+// GetState returns the current term and whether this server believes it is the leader
+func (rf *CppRaft) GetState() (int, bool) {
+	var term C.int
+	var isLeader C.int
+
+	result := C.raft_get_state(rf.handle, &term, &isLeader)
+	if result == 0 {
+		return 0, false
 	}
-	return int(C.raft_persist_bytes(rf.handle))
+
+	return int(term), isLeader == 1
 }
 
-func (rf *CppRaft) Snapshot(index int, snapshot []byte) {
-	if rf.killed || rf.handle == nil {
-		return
+// Start begins agreement on a new log entry
+func (rf *CppRaft) Start(command interface{}) (int, int, bool) {
+	cmdStr := fmt.Sprintf("%v", command)
+	cCommand := C.CString(cmdStr)
+	defer C.free(unsafe.Pointer(cCommand))
+
+	var index, term, isLeader C.int
+
+	result := C.raft_start(rf.handle, cCommand, &index, &term, &isLeader)
+	if result == 0 {
+		return 0, 0, false
 	}
 
-	var cSnapshot *C.char
-	if len(snapshot) > 0 {
-		cSnapshot = (*C.char)(C.CBytes(snapshot))
-		defer C.free(unsafe.Pointer(cSnapshot))
-	}
-
-	C.raft_snapshot(rf.handle, C.int(index), cSnapshot, C.int(len(snapshot)))
+	return int(index), int(term), isLeader == 1
 }
 
+// Kill shuts down the Raft instance
+func (rf *CppRaft) Kill() {
+	if !rf.killed {
+		rf.killed = true
+		C.raft_kill(rf.handle)
+		unregisterCppRaftInstance(rf.me)
+	}
+}
+
+// Killed returns whether Kill() has been called
+func (rf *CppRaft) Killed() bool {
+	return rf.killed
+}
+
+// Apply message processing loop
 func (rf *CppRaft) applyMessageLoop() {
 	for !rf.killed {
 		var msg C.ApplyMsg
-		timeout := C.int(100) // 100ms timeout
+		result := C.raft_receive_apply_msg(rf.handle, &msg, 100) // 100ms timeout
 
-		if C.raft_receive_apply_msg(rf.handle, &msg, timeout) == 1 {
+		if result == 1 {
+			// Convert C message to Go message
 			applyMsg := raftapi.ApplyMsg{
-				CommandValid:  msg.command_valid != 0,
+				CommandValid:  msg.command_valid == 1,
 				CommandIndex:  int(msg.command_index),
-				SnapshotValid: msg.snapshot_valid != 0,
+				SnapshotValid: msg.snapshot_valid == 1,
 				SnapshotTerm:  int(msg.snapshot_term),
 				SnapshotIndex: int(msg.snapshot_index),
 			}
 
-			if msg.command_valid != 0 && msg.command != nil {
+			if msg.command != nil {
 				applyMsg.Command = C.GoString(msg.command)
 			}
 
-			if msg.snapshot_valid != 0 && msg.snapshot != nil {
-				// For minimal implementation, just handle the basic case
-				applyMsg.Snapshot = []byte{}
+			if msg.snapshot != nil {
+				applyMsg.Snapshot = C.GoBytes(unsafe.Pointer(msg.snapshot), C.int(1024)) // Adjust size as needed
 			}
 
+			// Send to application
 			select {
 			case rf.applyCh <- applyMsg:
 			case <-time.After(time.Millisecond * 100):
-				// Timeout, continue loop
+				// Timeout sending to application
 			}
 		}
+
+		time.Sleep(time.Millisecond * 10)
 	}
+}
+
+// GetPersistSize returns the size of the persistent state
+func (rf *CppRaft) GetPersistSize() int {
+	return int(C.raft_persist_bytes(rf.handle))
+}
+
+// Snapshot takes a snapshot at the given index
+func (rf *CppRaft) Snapshot(index int, snapshot []byte) {
+	cSnapshot := C.CString(string(snapshot))
+	defer C.free(unsafe.Pointer(cSnapshot))
+
+	C.raft_snapshot(rf.handle, C.int(index), cSnapshot, C.int(len(snapshot)))
 }

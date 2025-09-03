@@ -1,11 +1,9 @@
 #include "raft_wrapper.h"
 #include "raft/RaftImpl.hpp"
 #include "raft/SyncChannel.hpp"
-#include "raft/RaftServiceImpl.hpp"
-#include "server/RPCServer.hpp"
+#include "labrpc_client.hpp"  // Replace RPCService include
 #include "common/RetryPolicy.hpp"
 #include "common/Types.hpp"
-#include "common/RPCService.hpp"
 #include "proto/raft.grpc.pb.h"
 #include <memory>
 #include <iostream>
@@ -21,16 +19,13 @@
 #include <condition_variable>
 #include <optional>
 #include <type_traits>
+#include <cstring>
 
-// Forward declarations
-namespace grpc {
-    class Status;
-    class ClientContext;
-}
+// Use labrpc client instead of gRPC
+using RaftRPCService = LabrpcRaftClient;
 
-// Use the production RPC service for real Raft communication
-using RaftRPCService = zdb::RPCService<raft::proto::Raft>;
-using RaftServer = zdb::RPCServer<raft::RaftServiceImpl>;
+// Global callback function set by Go
+static labrpc_call_func g_labrpc_call_func = nullptr;
 
 struct RaftHandle {
     std::unique_ptr<raft::RaftImpl<RaftRPCService>> raft_impl;
@@ -38,12 +33,11 @@ struct RaftHandle {
     std::unique_ptr<raft::SyncChannel> follower_channel;
     std::unordered_map<std::string, std::unique_ptr<RaftRPCService>> clients;
     
-    // Server components for receiving Raft RPCs
-    std::unique_ptr<raft::RaftServiceImpl> raft_service;
-    std::unique_ptr<RaftServer> rpc_server;
+    // Remove gRPC server components - labrpc handles this
+    // std::unique_ptr<raft::RaftServiceImpl> raft_service;
+    // std::unique_ptr<RaftServer> rpc_server;
     
     std::string self_id;
-    std::string listen_address;  // Address this server listens on
     int me;
     std::atomic<bool> killed{false};
     std::chrono::steady_clock::time_point creation_time;
@@ -56,66 +50,173 @@ struct RaftHandle {
 
 extern "C" {
 
+// Set the labrpc callback function from Go
+void raft_set_labrpc_callback(labrpc_call_func func) {
+    g_labrpc_call_func = func;
+    std::cout << "labrpc callback function set" << std::endl;
+}
+
+// RPC handlers called by Go labrpc framework
+int raft_request_vote_handler(RaftHandle* handle, const char* args_data, int args_size,
+                             char* reply_data, int reply_size) {
+    if (!handle || !handle->raft_impl || handle->killed) {
+        std::cerr << "Invalid handle in request_vote_handler" << std::endl;
+        return 0;
+    }
+    
+    try {
+        std::cout << "SERVER received vote request, size: " << args_size << std::endl;
+        
+        // Deserialize request
+        raft::proto::RequestVoteArg args;
+        std::string args_str(args_data, args_size);
+        if (!args.ParseFromString(args_str)) {
+            std::cerr << "Failed to parse RequestVoteArg" << std::endl;
+            return 0;
+        }
+        
+        std::cout << "SERVER processing vote request from term " << args.term() << std::endl;
+        
+        // Call C++ Raft implementation
+        auto reply_proto = handle->raft_impl->requestVoteHandler(args);
+        
+        // Serialize reply
+        std::string reply_str;
+        if (!reply_proto.SerializeToString(&reply_str)) {
+            std::cerr << "Failed to serialize RequestVoteReply" << std::endl;
+            return 0;
+        }
+        
+        // Copy to output buffer
+        if (reply_str.size() <= static_cast<size_t>(reply_size)) {
+            memcpy(reply_data, reply_str.data(), reply_str.size());
+            std::cout << "SERVER processed vote request, reply size: " << reply_str.size() << std::endl;
+            return reply_str.size();
+        } else {
+            std::cerr << "Reply buffer too small: " << reply_str.size() << " > " << reply_size << std::endl;
+        }
+        
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "Exception in request_vote_handler: " << e.what() << std::endl;
+        return 0;
+    }
+}
+
+int raft_append_entries_handler(RaftHandle* handle, const char* args_data, int args_size,
+                               char* reply_data, int reply_size) {
+    if (!handle || !handle->raft_impl || handle->killed) {
+        std::cerr << "Invalid handle in append_entries_handler" << std::endl;
+        return 0;
+    }
+    
+    try {
+        std::cout << "SERVER received append entries, size: " << args_size << std::endl;
+        
+        // Deserialize request
+        raft::proto::AppendEntriesArg args_proto;
+        std::string args_str(args_data, args_size);
+        if (!args_proto.ParseFromString(args_str)) {
+            std::cerr << "Failed to parse AppendEntriesArg" << std::endl;
+            return 0;
+        }
+        
+        // Convert to internal format (if needed)
+        raft::Log log{};
+        raft::AppendEntriesArg args{args_proto, log};
+        
+        // Call C++ Raft implementation
+        auto reply = handle->raft_impl->appendEntriesHandler(args);
+        
+        // Convert reply to protobuf
+        raft::proto::AppendEntriesReply reply_proto;
+        reply_proto.set_success(reply.success);
+        reply_proto.set_term(reply.term);
+        
+        // Serialize reply
+        std::string reply_str;
+        if (!reply_proto.SerializeToString(&reply_str)) {
+            std::cerr << "Failed to serialize AppendEntriesReply" << std::endl;
+            return 0;
+        }
+        
+        // Copy to output buffer
+        if (reply_str.size() <= static_cast<size_t>(reply_size)) {
+            memcpy(reply_data, reply_str.data(), reply_str.size());
+            std::cout << "SERVER processed append entries, reply size: " << reply_str.size() << std::endl;
+            return reply_str.size();
+        } else {
+            std::cerr << "Reply buffer too small: " << reply_str.size() << " > " << reply_size << std::endl;
+        }
+        
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "Exception in append_entries_handler: " << e.what() << std::endl;
+        return 0;
+    }
+}
+
 void raft_connect_all_peers(RaftHandle* handle) {
     if (!handle) {
         return;
     }
     
-    
+    // With labrpc, connections are managed by the Go framework
+    // This function can be a no-op or just mark peers as available
+    std::cout << "Connecting peers via labrpc (no-op)" << std::endl;
     for (auto& [peer_address, client] : handle->clients) {
         client->available();
     }
-    
 }
 
 RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister_id) {
     try {
+        std::cout << "Creating Raft instance " << me << " with " << num_servers << " servers" << std::endl;
+        
         auto handle = std::make_unique<RaftHandle>();
         handle->me = me;
-        // Set listen address based on server index  
-        handle->listen_address = "localhost:" + std::to_string(9000 + me);
-        // Use the listen address as the self_id for consistency
-        handle->self_id = handle->listen_address;
+        handle->self_id = "peer_" + std::to_string(me);
         handle->creation_time = std::chrono::steady_clock::now();
         
         // Create service and follower channels
         handle->service_channel = std::make_unique<raft::SyncChannel>();
         handle->follower_channel = std::make_unique<raft::SyncChannel>();
         
-        // Create RPC clients for communicating with other servers
+        // Create labrpc clients for communicating with other servers
+        std::cout << "Creating labrpc clients for " << num_servers << " servers" << std::endl;
         for (int i = 0; i < num_servers; i++) {
             if (i != me) {
-                std::string peer_address = "localhost:" + std::to_string(9000 + i);
+                std::string peer_id = "peer_" + std::to_string(i);
                 auto retry_policy = zdb::RetryPolicy(
-                    std::chrono::milliseconds(10),      // base delay
-                    std::chrono::milliseconds(50),      // max delay
-                    std::chrono::milliseconds(60),      // reset timeout
-                    10,                                  // failure threshold
-                    10,                                  // services to try
-                    std::chrono::milliseconds(4),       // rpc timeout
-                    std::chrono::milliseconds(4)        // channel timeout
+                    std::chrono::milliseconds(10),
+                    std::chrono::milliseconds(50),
+                    std::chrono::milliseconds(60),
+                    10, 10,
+                    std::chrono::milliseconds(4),
+                    std::chrono::milliseconds(4)
                 );
-                auto client = std::make_unique<RaftRPCService>(peer_address, retry_policy);
-                handle->clients[peer_address] = std::move(client);  // Use address as key
+                auto client = std::make_unique<LabrpcRaftClient>(i, retry_policy, g_labrpc_call_func);
+                handle->clients[peer_id] = std::move(client);
+                std::cout << "Created labrpc client for peer " << i << std::endl;
             }
         }
         
-        // Create RaftImpl with the RPC clients using addresses as peer IDs
+        // Create peer IDs for RaftImpl
         std::vector<std::string> peer_ids;
         for (int i = 0; i < num_servers; i++) {
-            peer_ids.push_back("localhost:" + std::to_string(9000 + i));  // Use addresses as peer IDs
+            peer_ids.push_back("peer_" + std::to_string(i));
         }
         
         auto retry_policy = zdb::RetryPolicy(
-            std::chrono::milliseconds(10),      // base delay
-            std::chrono::milliseconds(50),      // max delay
-            std::chrono::milliseconds(60),      // reset timeout
-            10,                                  // failure threshold
-            10,                                  // services to try
-            std::chrono::milliseconds(4),       // rpc timeout
-            std::chrono::milliseconds(4)        // channel timeout
+            std::chrono::milliseconds(10),
+            std::chrono::milliseconds(50),
+            std::chrono::milliseconds(60),
+            10, 10,
+            std::chrono::milliseconds(4),
+            std::chrono::milliseconds(4)
         );
         
+        std::cout << "Creating RaftImpl with self_id: " << handle->self_id << std::endl;
         handle->raft_impl = std::make_unique<raft::RaftImpl<RaftRPCService>>(
             peer_ids,
             handle->self_id,
@@ -131,23 +232,10 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
             }
         );
         
-        // Create server-side RaftServiceImpl for receiving RPCs  
-        handle->raft_service = std::make_unique<raft::RaftServiceImpl>(*handle->raft_impl);
+        std::cout << "RaftImpl created successfully" << std::endl;
         
+        // No gRPC server needed - labrpc handles this
         
-        try {
-            // Start gRPC server to receive Raft RPCs from peers
-            handle->rpc_server = std::make_unique<RaftServer>(
-                handle->listen_address, 
-                *handle->raft_service
-            );
-        } catch (const std::exception& server_e) {
-            std::cerr << "raft_create: " << handle->self_id << " FAILED to start gRPC server: " << server_e.what() << std::endl;
-            throw;
-        }
-        
-        // Give the server a moment to start listening
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         return handle.release();
     } catch (const std::exception& e) {
         std::cerr << "Error creating Raft: " << e.what() << std::endl;
@@ -157,58 +245,16 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
 
 void raft_destroy(RaftHandle* handle) {
     if (handle) {
-        handle->killed.store(true);
-        
-        // Shutdown the gRPC server first
-        if (handle->rpc_server) {
-            handle->rpc_server->shutdown();
-        }
-        
-        // Clean up Raft implementation
-        if (handle->raft_impl) {
-            handle->raft_impl.reset();
-        }
-        
-        // Clean up clients
-        handle->clients.clear();
-        
-        // Clean up server components
-        handle->rpc_server.reset();
-        handle->raft_service.reset();
-        
-        // Clean up channels
-        handle->service_channel.reset();
-        handle->follower_channel.reset();
-        
+        std::cout << "Destroying Raft instance " << handle->me << std::endl;
+        handle->killed = true;
         delete handle;
     }
 }
 
 void raft_kill(RaftHandle* handle) {
-    if (handle && handle->raft_impl) {
+    if (handle) {
+        std::cout << "Killing Raft instance " << handle->me << std::endl;
         handle->killed = true;
-        handle->raft_impl->kill();
-        handle->apply_cv.notify_all();
-    }
-}
-
-int raft_start(RaftHandle* handle, char* command, int* index, int* term, int* is_leader) {
-    if (!handle || !handle->raft_impl || handle->killed) {
-        return 0;
-    }
-    
-    try {
-        std::string cmd(command);
-        bool success = handle->raft_impl->start(cmd);
-        
-        // Get current state
-        *term = static_cast<int>(handle->raft_impl->getCurrentTerm());
-        *is_leader = (handle->raft_impl->getRole() == raft::Role::Leader) ? 1 : 0;
-        *index = success ? static_cast<int>(handle->raft_impl->log().lastIndex()) : -1;
-        
-        return success ? 1 : 0;
-    } catch (...) {
-        return 0;
     }
 }
 
@@ -218,12 +264,35 @@ int raft_get_state(RaftHandle* handle, int* term, int* is_leader) {
     }
     
     try {
-        *term = static_cast<int>(handle->raft_impl->getCurrentTerm());
+        auto current_term = handle->raft_impl->getCurrentTerm();
         auto role = handle->raft_impl->getRole();
+        
+        *term = current_term;
         *is_leader = (role == raft::Role::Leader) ? 1 : 0;
         
         return 1;
-    } catch (...) {
+    } catch (const std::exception& e) {
+        std::cerr << "Error getting state: " << e.what() << std::endl;
+        return 0;
+    }
+}
+
+int raft_start(RaftHandle* handle, char* command, int* index, int* term, int* is_leader) {
+    if (!handle || !handle->raft_impl || handle->killed) {
+        return 0;
+    }
+    
+    try {
+        std::string cmd_str(command);
+        auto result = handle->raft_impl->start(cmd_str);
+        
+        *index = result.first;
+        *term = result.second;
+        *is_leader = (handle->raft_impl->getRole() == raft::Role::Leader) ? 1 : 0;
+        
+        return 1;
+    } catch (const std::exception& e) {
+        std::cerr << "Error starting command: " << e.what() << std::endl;
         return 0;
     }
 }
@@ -233,13 +302,8 @@ int raft_persist_bytes(RaftHandle* handle) {
         return 0;
     }
     
-    try {
-        // For minimal implementation, return 0
-        // In full implementation, this would return actual persisted bytes
-        return 0;
-    } catch (...) {
-        return 0;
-    }
+    // TODO: Implement persistence
+    return 0;
 }
 
 void raft_snapshot(RaftHandle* handle, int index, char* snapshot, int snapshot_len) {
@@ -247,15 +311,7 @@ void raft_snapshot(RaftHandle* handle, int index, char* snapshot, int snapshot_l
         return;
     }
     
-    try {
-        // For minimal implementation, do nothing
-        // In full implementation, this would handle snapshots
-        (void)index;
-        (void)snapshot;
-        (void)snapshot_len;
-    } catch (...) {
-        // Ignore errors for minimal implementation
-    }
+    // TODO: Implement snapshotting
 }
 
 int raft_receive_apply_msg(RaftHandle* handle, ApplyMsg* msg, int timeout_ms) {
@@ -263,31 +319,24 @@ int raft_receive_apply_msg(RaftHandle* handle, ApplyMsg* msg, int timeout_ms) {
         return 0;
     }
     
-    try {
-        std::unique_lock<std::mutex> lock(handle->apply_mutex);
-        
-        // Wait for message or timeout
-        if (handle->apply_queue.empty()) {
-            auto timeout = std::chrono::milliseconds(timeout_ms);
-            if (!handle->apply_cv.wait_for(lock, timeout, [handle] { 
-                return !handle->apply_queue.empty() || handle->killed; 
-            })) {
-                return 0; // Timeout
-            }
+    std::unique_lock<std::mutex> lock(handle->apply_mutex);
+    
+    if (timeout_ms > 0) {
+        auto timeout = std::chrono::milliseconds(timeout_ms);
+        if (!handle->apply_cv.wait_for(lock, timeout, [handle] { return !handle->apply_queue.empty(); })) {
+            return 0; // Timeout
         }
-        
-        if (handle->killed || handle->apply_queue.empty()) {
-            return 0;
-        }
-        
-        // Get message from queue
+    } else {
+        handle->apply_cv.wait(lock, [handle] { return !handle->apply_queue.empty(); });
+    }
+    
+    if (!handle->apply_queue.empty()) {
         *msg = handle->apply_queue.front();
         handle->apply_queue.pop();
-        
         return 1;
-    } catch (...) {
-        return 0;
     }
+    
+    return 0;
 }
 
 } // extern "C"

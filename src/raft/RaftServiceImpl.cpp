@@ -20,8 +20,7 @@ grpc::Status RaftServiceImpl::appendEntries(
     grpc::ServerContext* context,
     const proto::AppendEntriesArg* request,
     proto::AppendEntriesReply* reply) {
-    Log log{};
-    AppendEntriesArg arg {*request, log};
+    AppendEntriesArg arg {*request};
     auto r = raft.appendEntriesHandler(arg);
     reply->set_success(r.success);
     reply->set_term(r.term);

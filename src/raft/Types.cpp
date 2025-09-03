@@ -3,13 +3,13 @@
 
 namespace raft {
 
-AppendEntriesArg::AppendEntriesArg(const proto::AppendEntriesArg& arg, Log& log)
+AppendEntriesArg::AppendEntriesArg(const proto::AppendEntriesArg& arg)
     : leaderId(arg.leaderid()),
       term(arg.term()),
       prevLogIndex(arg.prevlogindex()),
       prevLogTerm(arg.prevlogterm()),
       leaderCommit(arg.leadercommit()), 
-      entries(log) {
+      entries{} {
     for (const auto& entry : arg.entries()) {
         entries.append(entry);
     }
@@ -21,7 +21,7 @@ AppendEntriesArg::AppendEntriesArg(std::string l, uint64_t t, uint64_t pi, uint6
       prevLogIndex{pi},
       prevLogTerm{pt},
       leaderCommit {c},
-      entries{g} {}
+      entries{g.data()} {}
 
 RequestVoteArg::RequestVoteArg(const proto::RequestVoteArg& arg)
     : candidateId(arg.candidateid()),

@@ -232,7 +232,7 @@ TEST_F(RaftImplTest, AppendEntriesHandlerWithHigherTerm) {
     AppendEntriesArg arg{"leader1", 5, 0, 0, 0, emptyLog};
     
     // Expect followerChannel to receive applied entries
-    EXPECT_CALL(*followerChannel, send(_)).Times(0); // No entries to apply
+    EXPECT_CALL(*followerChannel, sendUntil(_, _)).Times(0); // No entries to apply
     
     AppendEntriesReply reply = raft->appendEntriesHandler(arg);
     
@@ -320,7 +320,7 @@ TEST_F(RaftImplTest, AppendEntriesWithValidEntries) {
     entriesLog.append(entry);
     
     // Expect the command to be sent to followerChannel when applied
-    EXPECT_CALL(*followerChannel, send("test-command")).Times(1);
+    EXPECT_CALL(*followerChannel, sendUntil("test-command", _)).Times(1);
     
     AppendEntriesArg arg{"leader1", 1, 0, 0, 1, entriesLog}; // leaderCommit = 1
     AppendEntriesReply reply = raft->appendEntriesHandler(arg);
@@ -343,7 +343,7 @@ TEST_F(RaftImplTest, MultipleAppendEntriesOperations) {
     LogEntry entry1{1, 1, "command1"};
     entriesLog1.append(entry1);
     
-    EXPECT_CALL(*followerChannel, send("command1")).Times(1);
+    EXPECT_CALL(*followerChannel, sendUntil("command1", _)).Times(1);
     
     AppendEntriesArg arg1{"leader1", 1, 0, 0, 1, entriesLog1};
     AppendEntriesReply reply1 = raft->appendEntriesHandler(arg1);
@@ -354,7 +354,7 @@ TEST_F(RaftImplTest, MultipleAppendEntriesOperations) {
     LogEntry entry2{2, 1, "command2"};
     entriesLog2.append(entry2);
     
-    EXPECT_CALL(*followerChannel, send("command2")).Times(1);
+    EXPECT_CALL(*followerChannel, sendUntil("command2", _)).Times(1);
     
     AppendEntriesArg arg2{"leader1", 1, 1, 1, 2, entriesLog2}; // prevLogIndex=1, prevLogTerm=1
     AppendEntriesReply reply2 = raft->appendEntriesHandler(arg2);
@@ -490,9 +490,10 @@ TEST_F(RaftImplTest, StateMachineSafetyProperty) {
     
     // Expect commands to be applied in order
     InSequence seq;
-    EXPECT_CALL(*followerChannel, send("command1")).Times(1);
-    EXPECT_CALL(*followerChannel, send("command2")).Times(1);
-    
+    EXPECT_CALL(*followerChannel, sendUntil(_, _)).WillRepeatedly(Return(true));
+    EXPECT_CALL(*followerChannel, sendUntil("command1", _)).Times(1);
+    EXPECT_CALL(*followerChannel, sendUntil("command2", _)).Times(1);
+
     // Leader commits both entries (leaderCommit = 2)
     AppendEntriesArg arg{"leader1", 1, 0, 0, 2, entriesLog};
     AppendEntriesReply reply = raft->appendEntriesHandler(arg);

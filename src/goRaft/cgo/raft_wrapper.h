@@ -7,11 +7,23 @@ extern "C" {
 
 typedef struct RaftHandle RaftHandle;
 
+// Callback function type for labrpc calls
+typedef int (*labrpc_call_func)(int peer_id, const char* service_method, 
+                               const void* args, int args_size,
+                               void* reply, int reply_size);
+
 // Lifecycle functions
 RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister_id);
+void raft_set_labrpc_callback(labrpc_call_func func);
 void raft_connect_all_peers(RaftHandle* handle);
 void raft_destroy(RaftHandle* handle);
 void raft_kill(RaftHandle* handle);
+
+// RPC handlers (called by Go labrpc framework)
+int raft_request_vote_handler(RaftHandle* handle, const char* args_data, int args_size,
+                             char* reply_data, int reply_size);
+int raft_append_entries_handler(RaftHandle* handle, const char* args_data, int args_size,
+                               char* reply_data, int reply_size);
 
 // Core Raft interface functions
 int raft_start(RaftHandle* handle, char* command, int* index, int* term, int* is_leader);
