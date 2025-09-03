@@ -8,7 +8,7 @@
 
 // Forward declare the Go callback function type
 extern "C" {
-    typedef int (*labrpc_call_func)(int peer_id, const char* service_method, 
+    typedef int (*labrpc_call_func)(int caller_id, int peer_id, const char* service_method, 
                                    const void* args, int args_size,
                                    void* reply, int reply_size);
 }
@@ -16,7 +16,7 @@ extern "C" {
 // Adapter that implements the same interface as RPCService but uses labrpc
 class LabrpcRaftClient {
 public:
-    LabrpcRaftClient(int peer_id, const zdb::RetryPolicy& policy, labrpc_call_func call_func);
+    LabrpcRaftClient(int caller_id, int peer_id, const zdb::RetryPolicy& policy, labrpc_call_func call_func);
     
     // Same interface as RPCService::call
     template<typename Req, typename Rep>
@@ -28,6 +28,7 @@ public:
     bool available() const { return true; } // labrpc handles availability
     
 private:
+    int caller_id_;
     int peer_id_;
     zdb::RetryPolicy policy_;
     labrpc_call_func call_func_;

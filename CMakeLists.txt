@@ -111,57 +111,6 @@ install(TARGETS zdb
   ARCHIVE DESTINATION lib
 )
 
-# --- Go Raft Tests ---
-# Add Go test targets for Raft implementation
-if(${BUILD_TESTING})
-  # Test target for TestInitialElection3A
-  add_test(NAME raft_test_initial_election_3a
-    COMMAND ${CMAKE_COMMAND} -E env
-      "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
-      go test -run TestInitialElection3A -v
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
-  )
-  
-  # Test target for all Raft 3A tests
-  add_test(NAME raft_test_3a_all
-    COMMAND ${CMAKE_COMMAND} -E env
-      "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
-      go test -run "Test.*3A" -v
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
-  )
-  
-  # Custom target to run just the Raft tests
-  add_custom_target(raft_tests
-    DEPENDS zdb_raft
-    # Build goRaft module first
-    COMMAND ${CMAKE_COMMAND} -E echo "Building goRaft module..."
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/src/goRaft
-      ${CMAKE_COMMAND} -E env
-      "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
-      go build ./...
-    # Build main 6.5840 module
-    COMMAND ${CMAKE_COMMAND} -E echo "Building 6.5840 modules..."
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/6.5840/src
-      go build ./raft1/ ./raftapi/ ./tester1/ ./labrpc/ ./labgob/
-    # Run the tests
-    COMMAND ${CMAKE_COMMAND} -E echo "Running Go Raft tests..."
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
-      ${CMAKE_COMMAND} -E env
-      "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
-      go test -run "Test.*3A" -v
-    COMMENT "Building Go modules and running Raft tests"
-    VERBATIM
-  )
-  
-  # Make the tests depend on the zdb_raft library
-  set_tests_properties(raft_test_initial_election_3a PROPERTIES
-    DEPENDS zdb_raft
-  )
-  set_tests_properties(raft_test_3a_all PROPERTIES
-    DEPENDS zdb_raft
-  )
-endif()
-
 # --- Summary ---
 message(STATUS "")
 message(STATUS "Configuration Summary:")

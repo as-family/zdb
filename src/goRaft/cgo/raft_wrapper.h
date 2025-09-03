@@ -8,7 +8,7 @@ extern "C" {
 typedef struct RaftHandle RaftHandle;
 
 // Callback function type for labrpc calls
-typedef int (*labrpc_call_func)(int peer_id, const char* service_method, 
+typedef int (*labrpc_call_func)(int caller_id, int peer_id, const char* service_method, 
                                const void* args, int args_size,
                                void* reply, int reply_size);
 

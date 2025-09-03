@@ -8,7 +8,7 @@ package raft
 #include <string.h>
 
 // Forward declaration for the export function
-extern int goLabrpcCall(int peer_id, char* service_method, void* args_data, int args_size, void* reply_data, int reply_size);
+extern int goLabrpcCall(int caller_id, int peer_id, char* service_method, void* args_data, int args_size, void* reply_data, int reply_size);
 */
 import "C"
 import (
@@ -39,40 +39,43 @@ type CppRaft struct {
 // Global callback function for C++ to call Go labrpc
 //
 //export goLabrpcCall
-func goLabrpcCall(peerID C.int, serviceMethod *C.char, argsData unsafe.Pointer, argsSize C.int, replyData unsafe.Pointer, replySize C.int) C.int {
+func goLabrpcCall(callerID C.int, peerID C.int, serviceMethod *C.char, argsData unsafe.Pointer, argsSize C.int, replyData unsafe.Pointer, replySize C.int) C.int {
 	// Get the service method name
 	method := C.GoString(serviceMethod)
 
 	// Get args data
 	args := C.GoBytes(argsData, argsSize)
 
-	// Find the CppRaft instance
+	// Find the CppRaft instance that is making the call
 	raftMutex.RLock()
-	rf := raftInstances[int(peerID)]
+	rf := raftInstances[int(callerID)]
 	raftMutex.RUnlock()
 
 	if rf == nil {
-		fmt.Printf("ERROR: No CppRaft instance found for peer %d\n", int(peerID))
+		fmt.Printf("ERROR: No CppRaft instance found for caller %d\n", int(callerID))
 		return 0
 	}
 
-	if int(peerID) >= len(rf.peers) {
-		fmt.Printf("ERROR: Invalid peer ID %d, only have %d peers\n", int(peerID), len(rf.peers))
+	targetPeer := int(peerID)
+	if targetPeer >= len(rf.peers) {
+		fmt.Printf("ERROR: Invalid peer ID %d, only have %d peers\n", targetPeer, len(rf.peers))
 		return 0
 	}
 
 	// Make the labrpc call
 	var reply []byte
-	success := rf.peers[int(peerID)].Call(method, args, &reply)
+	success := rf.peers[targetPeer].Call(method, args, &reply)
 
 	if success && len(reply) <= int(replySize) {
 		// Copy reply data back
-		C.memmove(replyData, unsafe.Pointer(&reply[0]), C.size_t(len(reply)))
+		if len(reply) > 0 {
+			C.memmove(replyData, unsafe.Pointer(&reply[0]), C.size_t(len(reply)))
+		}
 		return C.int(len(reply))
 	}
 
 	if !success {
-		fmt.Printf("ERROR: labrpc call failed for peer %d, method %s\n", int(peerID), method)
+		fmt.Printf("ERROR: labrpc call failed for peer %d, method %s\n", targetPeer, method)
 	} else {
 		fmt.Printf("ERROR: Reply too large: %d > %d\n", len(reply), int(replySize))
 	}

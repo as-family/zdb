@@ -2,8 +2,8 @@
 #include <iostream>
 #include <cstring>
 
-LabrpcRaftClient::LabrpcRaftClient(int peer_id, const zdb::RetryPolicy& policy, labrpc_call_func call_func)
-    : peer_id_(peer_id), policy_(policy), call_func_(call_func) {}
+LabrpcRaftClient::LabrpcRaftClient(int caller_id, int peer_id, const zdb::RetryPolicy& policy, labrpc_call_func call_func)
+    : caller_id_(caller_id), peer_id_(peer_id), policy_(policy), call_func_(call_func) {}
 
 template<typename Req, typename Rep>
 std::optional<std::monostate> LabrpcRaftClient::call(const std::string& method_name,
@@ -38,7 +38,7 @@ std::optional<std::monostate> LabrpcRaftClient::call(const std::string& method_n
     }
     
     // Call through labrpc
-    int result = call_func_(peer_id_, service_method.c_str(),
+    int result = call_func_(caller_id_, peer_id_, service_method.c_str(),
                            serialized_request.data(), serialized_request.size(),
                            &serialized_reply[0], serialized_reply.size());
     

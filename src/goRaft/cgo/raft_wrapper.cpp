@@ -176,7 +176,7 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
                     std::chrono::milliseconds(4),
                     std::chrono::milliseconds(4)
                 );
-                auto client = std::make_unique<LabrpcRaftClient>(i, retry_policy, g_labrpc_call_func);
+                auto client = std::make_unique<LabrpcRaftClient>(me, i, retry_policy, g_labrpc_call_func);
                 handle->clients[peer_id] = std::move(client);
             }
         }
@@ -230,6 +230,8 @@ void raft_destroy(RaftHandle* handle) {
 void raft_kill(RaftHandle* handle) {
     if (handle) {
         handle->killed = true;
+        // Properly destruct the RaftImpl to stop timers and cleanup
+        handle->raft_impl.reset();
     }
 }
 
