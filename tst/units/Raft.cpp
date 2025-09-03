@@ -343,7 +343,7 @@ TEST_F(RaftImplTest, MultipleAppendEntriesOperations) {
     LogEntry entry1{1, 1, "command1"};
     entriesLog1.append(entry1);
     
-    EXPECT_CALL(*followerChannel, sendUntil("command1", _)).Times(1);
+    EXPECT_CALL(*followerChannel, sendUntil("command1", _)).Times(1).WillOnce(Return(true));
     
     AppendEntriesArg arg1{"leader1", 1, 0, 0, 1, entriesLog1};
     AppendEntriesReply reply1 = raft->appendEntriesHandler(arg1);
@@ -354,7 +354,8 @@ TEST_F(RaftImplTest, MultipleAppendEntriesOperations) {
     LogEntry entry2{2, 1, "command2"};
     entriesLog2.append(entry2);
     
-    EXPECT_CALL(*followerChannel, sendUntil("command2", _)).Times(1);
+    // On second append, only command2 should be applied since command1 is already applied
+    EXPECT_CALL(*followerChannel, sendUntil("command2", _)).Times(1).WillOnce(Return(true));
     
     AppendEntriesArg arg2{"leader1", 1, 1, 1, 2, entriesLog2}; // prevLogIndex=1, prevLogTerm=1
     AppendEntriesReply reply2 = raft->appendEntriesHandler(arg2);
@@ -488,11 +489,10 @@ TEST_F(RaftImplTest, StateMachineSafetyProperty) {
     entriesLog.append(entry1);
     entriesLog.append(entry2);
     
-    // Expect commands to be applied in order
+    // Expect commands to be applied in order when both are committed
     InSequence seq;
-    EXPECT_CALL(*followerChannel, sendUntil(_, _)).WillRepeatedly(Return(true));
-    EXPECT_CALL(*followerChannel, sendUntil("command1", _)).Times(1);
-    EXPECT_CALL(*followerChannel, sendUntil("command2", _)).Times(1);
+    EXPECT_CALL(*followerChannel, sendUntil("command1", _)).Times(1).WillOnce(Return(true));
+    EXPECT_CALL(*followerChannel, sendUntil("command2", _)).Times(1).WillOnce(Return(true));
 
     // Leader commits both entries (leaderCommit = 2)
     AppendEntriesArg arg{"leader1", 1, 0, 0, 2, entriesLog};
