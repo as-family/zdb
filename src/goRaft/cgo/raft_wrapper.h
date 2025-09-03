@@ -15,7 +15,6 @@ typedef int (*labrpc_call_func)(int caller_id, int peer_id, const char* service_
 // Lifecycle functions
 RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister_id);
 void raft_set_labrpc_callback(labrpc_call_func func);
-void raft_connect_all_peers(RaftHandle* handle);
 void raft_destroy(RaftHandle* handle);
 void raft_kill(RaftHandle* handle);
 

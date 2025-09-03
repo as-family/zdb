@@ -141,18 +141,6 @@ int raft_append_entries_handler(RaftHandle* handle, const char* args_data, int a
     }
 }
 
-void raft_connect_all_peers(RaftHandle* handle) {
-    if (!handle) {
-        return;
-    }
-    
-    // With labrpc, connections are managed by the Go framework
-    // This function can be a no-op or just mark peers as available
-    for (auto& [peer_address, client] : handle->clients) {
-        client->available();
-    }
-}
-
 RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister_id) {
     try {        
         auto handle = std::make_unique<RaftHandle>();
@@ -173,8 +161,8 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
                     std::chrono::milliseconds(50),
                     std::chrono::milliseconds(60),
                     10, 10,
-                    std::chrono::milliseconds(4),
-                    std::chrono::milliseconds(4)
+                    std::chrono::milliseconds(10),
+                    std::chrono::milliseconds(10)
                 );
                 auto client = std::make_unique<LabrpcRaftClient>(me, i, retry_policy, g_labrpc_call_func);
                 handle->clients[peer_id] = std::move(client);
@@ -192,8 +180,8 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
             std::chrono::milliseconds(50),
             std::chrono::milliseconds(60),
             10, 10,
-            std::chrono::milliseconds(4),
-            std::chrono::milliseconds(4)
+            std::chrono::milliseconds(10),
+            std::chrono::milliseconds(10)
         );
         
         handle->raft_impl = std::make_unique<raft::RaftImpl<RaftRPCService>>(

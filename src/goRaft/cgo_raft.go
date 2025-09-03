@@ -17,6 +17,10 @@ import (
 	"time"
 	"unsafe"
 
+	proto "goRaft/proto"
+
+	pb "google.golang.org/protobuf/proto"
+
 	"6.5840/labrpc"
 	"6.5840/raftapi"
 	tester "6.5840/tester1"
@@ -75,7 +79,7 @@ func goLabrpcCall(callerID C.int, peerID C.int, serviceMethod *C.char, argsData 
 	}
 
 	if !success {
-		fmt.Printf("ERROR: labrpc call failed for peer %d, method %s\n", targetPeer, method)
+		fmt.Printf("ERROR: labrpc call failed from %d to %d, method %s\n", int(callerID), targetPeer, method)
 	} else {
 		fmt.Printf("ERROR: Reply too large: %d > %d\n", len(reply), int(replySize))
 	}
@@ -133,31 +137,30 @@ func MakeCppRaft(peers []*labrpc.ClientEnd, me int, persister *tester.Persister,
 }
 
 // Implement labrpc service interface methods (called by labrpc framework)
-func (rf *CppRaft) RequestVote(args []byte, reply *[]byte) {
+func (rf *CppRaft) RequestVote(args []byte, reply *proto.RequestVoteReply) {
 	replyBuf := make([]byte, 1024)
 	replyLen := C.raft_request_vote_handler(rf.handle,
 		(*C.char)(unsafe.Pointer(&args[0])), C.int(len(args)),
 		(*C.char)(unsafe.Pointer(&replyBuf[0])), C.int(len(replyBuf)))
 
 	if replyLen > 0 {
-		*reply = replyBuf[:int(replyLen)]
+		if err := pb.Unmarshal(replyBuf[:replyLen], reply); err != nil {
+			fmt.Printf("ERROR: Failed to unmarshal RequestVoteReply: %v\n", err)
+		}
 	}
 }
 
-func (rf *CppRaft) AppendEntries(args []byte, reply *[]byte) {
+func (rf *CppRaft) AppendEntries(args []byte, reply *proto.AppendEntriesReply) {
 	replyBuf := make([]byte, 1024)
 	replyLen := C.raft_append_entries_handler(rf.handle,
 		(*C.char)(unsafe.Pointer(&args[0])), C.int(len(args)),
 		(*C.char)(unsafe.Pointer(&replyBuf[0])), C.int(len(replyBuf)))
 
 	if replyLen > 0 {
-		*reply = replyBuf[:int(replyLen)]
+		if err := pb.Unmarshal(replyBuf[:replyLen], reply); err != nil {
+			fmt.Printf("ERROR: Failed to unmarshal AppendEntriesReply: %v\n", err)
+		}
 	}
-}
-
-// ConnectAllPeers establishes connections to all peer servers (no-op for labrpc)
-func (rf *CppRaft) ConnectAllPeers() {
-	C.raft_connect_all_peers(rf.handle)
 }
 
 // GetState returns the current term and whether this server believes it is the leader

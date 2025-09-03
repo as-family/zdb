@@ -23,10 +23,7 @@ public:
     std::optional<std::monostate> call(const std::string& method_name, 
                        grpc::Status (raft::proto::Raft::Stub::*)(grpc::ClientContext*, const Req&, Rep*),
                        const Req& request, 
-                       Rep& reply);
-                       
-    bool available() const { return true; } // labrpc handles availability
-    
+                       Rep& reply);    
 private:
     int caller_id_;
     int peer_id_;
