@@ -69,7 +69,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
     for (const auto& peer : p) {
         peers.emplace(peer, std::ref(g(peer, policy)));
     }
-    electionTimeout = std::chrono::milliseconds(150);
+    electionTimeout = std::chrono::milliseconds(300);
     heartbeatInterval = std::chrono::milliseconds(20);
 
     electionTimer.start(

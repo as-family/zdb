@@ -12,14 +12,12 @@ std::optional<std::monostate> LabrpcRaftClient::call(const std::string& method_n
                                    Rep& reply) {
     
     if (!call_func_) {
-        std::cerr << "labrpc callback function not set" << std::endl;
         return std::nullopt;
     }
     
     // Serialize protobuf request
     std::string serialized_request;
     if (!request.SerializeToString(&serialized_request)) {
-        std::cerr << "Failed to serialize request" << std::endl;
         return std::nullopt;
     }
     
@@ -36,7 +34,6 @@ std::optional<std::monostate> LabrpcRaftClient::call(const std::string& method_n
                std::is_same_v<Req, raft::proto::AppendEntriesArg>) {
         service_method = "CppRaft.AppendEntries";
     } else {
-        std::cerr << "Unknown method: " << method_name << std::endl;
         return std::nullopt;
     }
     
@@ -50,11 +47,7 @@ std::optional<std::monostate> LabrpcRaftClient::call(const std::string& method_n
         serialized_reply.resize(result);
         if (reply.ParseFromString(serialized_reply)) {
             return std::optional<std::monostate>{std::monostate{}};
-        } else {
-            std::cerr << "Failed to parse reply" << std::endl;
         }
-    } else {
-        std::cerr << "labrpc call failed, result: " << result << std::endl;
     }
     
     return std::nullopt;

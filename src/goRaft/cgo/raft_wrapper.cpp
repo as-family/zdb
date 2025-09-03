@@ -53,29 +53,23 @@ extern "C" {
 // Set the labrpc callback function from Go
 void raft_set_labrpc_callback(labrpc_call_func func) {
     g_labrpc_call_func = func;
-    std::cout << "labrpc callback function set" << std::endl;
 }
 
 // RPC handlers called by Go labrpc framework
 int raft_request_vote_handler(RaftHandle* handle, const char* args_data, int args_size,
                              char* reply_data, int reply_size) {
     if (!handle || !handle->raft_impl || handle->killed) {
-        std::cerr << "Invalid handle in request_vote_handler" << std::endl;
         return 0;
     }
     
     try {
-        std::cout << "SERVER received vote request, size: " << args_size << std::endl;
         
         // Deserialize request
         raft::proto::RequestVoteArg args;
         std::string args_str(args_data, args_size);
         if (!args.ParseFromString(args_str)) {
-            std::cerr << "Failed to parse RequestVoteArg" << std::endl;
             return 0;
         }
-        
-        std::cout << "SERVER processing vote request from term " << args.term() << std::endl;
         
         // Call C++ Raft implementation
         auto reply = handle->raft_impl->requestVoteHandler(args);
@@ -88,19 +82,14 @@ int raft_request_vote_handler(RaftHandle* handle, const char* args_data, int arg
         // Serialize reply
         std::string reply_str;
         if (!reply_proto.SerializeToString(&reply_str)) {
-            std::cerr << "Failed to serialize RequestVoteReply" << std::endl;
             return 0;
         }
         
         // Copy to output buffer
         if (reply_str.size() <= static_cast<size_t>(reply_size)) {
             memcpy(reply_data, reply_str.data(), reply_str.size());
-            std::cout << "SERVER processed vote request, reply size: " << reply_str.size() << std::endl;
             return reply_str.size();
-        } else {
-            std::cerr << "Reply buffer too small: " << reply_str.size() << " > " << reply_size << std::endl;
         }
-        
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "Exception in request_vote_handler: " << e.what() << std::endl;
@@ -111,18 +100,14 @@ int raft_request_vote_handler(RaftHandle* handle, const char* args_data, int arg
 int raft_append_entries_handler(RaftHandle* handle, const char* args_data, int args_size,
                                char* reply_data, int reply_size) {
     if (!handle || !handle->raft_impl || handle->killed) {
-        std::cerr << "Invalid handle in append_entries_handler" << std::endl;
         return 0;
     }
     
-    try {
-        std::cout << "SERVER received append entries, size: " << args_size << std::endl;
-        
+    try {        
         // Deserialize request
         raft::proto::AppendEntriesArg args_proto;
         std::string args_str(args_data, args_size);
         if (!args_proto.ParseFromString(args_str)) {
-            std::cerr << "Failed to parse AppendEntriesArg" << std::endl;
             return 0;
         }
         
@@ -140,19 +125,15 @@ int raft_append_entries_handler(RaftHandle* handle, const char* args_data, int a
         // Serialize reply
         std::string reply_str;
         if (!reply_proto.SerializeToString(&reply_str)) {
-            std::cerr << "Failed to serialize AppendEntriesReply" << std::endl;
             return 0;
         }
         
         // Copy to output buffer
         if (reply_str.size() <= static_cast<size_t>(reply_size)) {
             memcpy(reply_data, reply_str.data(), reply_str.size());
-            std::cout << "SERVER processed append entries, reply size: " << reply_str.size() << std::endl;
             return reply_str.size();
-        } else {
-            std::cerr << "Reply buffer too small: " << reply_str.size() << " > " << reply_size << std::endl;
         }
-        
+
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "Exception in append_entries_handler: " << e.what() << std::endl;
@@ -167,16 +148,13 @@ void raft_connect_all_peers(RaftHandle* handle) {
     
     // With labrpc, connections are managed by the Go framework
     // This function can be a no-op or just mark peers as available
-    std::cout << "Connecting peers via labrpc (no-op)" << std::endl;
     for (auto& [peer_address, client] : handle->clients) {
         client->available();
     }
 }
 
 RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister_id) {
-    try {
-        std::cout << "Creating Raft instance " << me << " with " << num_servers << " servers" << std::endl;
-        
+    try {        
         auto handle = std::make_unique<RaftHandle>();
         handle->me = me;
         handle->self_id = "peer_" + std::to_string(me);
@@ -187,7 +165,6 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
         handle->follower_channel = std::make_unique<raft::SyncChannel>();
         
         // Create labrpc clients for communicating with other servers
-        std::cout << "Creating labrpc clients for " << num_servers << " servers" << std::endl;
         for (int i = 0; i < num_servers; i++) {
             if (i != me) {
                 std::string peer_id = "peer_" + std::to_string(i);
@@ -201,7 +178,6 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
                 );
                 auto client = std::make_unique<LabrpcRaftClient>(i, retry_policy, g_labrpc_call_func);
                 handle->clients[peer_id] = std::move(client);
-                std::cout << "Created labrpc client for peer " << i << std::endl;
             }
         }
         
@@ -220,7 +196,6 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
             std::chrono::milliseconds(4)
         );
         
-        std::cout << "Creating RaftImpl with self_id: " << handle->self_id << std::endl;
         handle->raft_impl = std::make_unique<raft::RaftImpl<RaftRPCService>>(
             peer_ids,
             handle->self_id,
@@ -236,10 +211,8 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
             }
         );
         
-        std::cout << "RaftImpl created successfully" << std::endl;
-        
         // No gRPC server needed - labrpc handles this
-        
+
         return handle.release();
     } catch (const std::exception& e) {
         std::cerr << "Error creating Raft: " << e.what() << std::endl;
@@ -249,7 +222,6 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
 
 void raft_destroy(RaftHandle* handle) {
     if (handle) {
-        std::cout << "Destroying Raft instance " << handle->me << std::endl;
         handle->killed = true;
         delete handle;
     }
@@ -257,7 +229,6 @@ void raft_destroy(RaftHandle* handle) {
 
 void raft_kill(RaftHandle* handle) {
     if (handle) {
-        std::cout << "Killing Raft instance " << handle->me << std::endl;
         handle->killed = true;
     }
 }
