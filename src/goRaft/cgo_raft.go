@@ -6,6 +6,9 @@ package raft
 #include "cgo/raft_wrapper.h"
 #include <stdlib.h>
 #include <string.h>
+
+// Forward declaration for the export function
+extern int goLabrpcCall(int peer_id, char* service_method, void* args_data, int args_size, void* reply_data, int reply_size);
 */
 import "C"
 import (
@@ -235,6 +238,11 @@ func (rf *CppRaft) applyMessageLoop() {
 
 // GetPersistSize returns the size of the persistent state
 func (rf *CppRaft) GetPersistSize() int {
+	return int(C.raft_persist_bytes(rf.handle))
+}
+
+// PersistBytes returns the size of the persistent state (interface requirement)
+func (rf *CppRaft) PersistBytes() int {
 	return int(C.raft_persist_bytes(rf.handle))
 }
 

@@ -78,7 +78,12 @@ int raft_request_vote_handler(RaftHandle* handle, const char* args_data, int arg
         std::cout << "SERVER processing vote request from term " << args.term() << std::endl;
         
         // Call C++ Raft implementation
-        auto reply_proto = handle->raft_impl->requestVoteHandler(args);
+        auto reply = handle->raft_impl->requestVoteHandler(args);
+        
+        // Convert to protobuf reply
+        raft::proto::RequestVoteReply reply_proto;
+        reply_proto.set_votegranted(reply.voteGranted);
+        reply_proto.set_term(reply.term);
         
         // Serialize reply
         std::string reply_str;
@@ -121,9 +126,8 @@ int raft_append_entries_handler(RaftHandle* handle, const char* args_data, int a
             return 0;
         }
         
-        // Convert to internal format (if needed)
-        raft::Log log{};
-        raft::AppendEntriesArg args{args_proto, log};
+        // Convert to internal format
+        raft::AppendEntriesArg args{args_proto};
         
         // Call C++ Raft implementation
         auto reply = handle->raft_impl->appendEntriesHandler(args);
@@ -284,13 +288,30 @@ int raft_start(RaftHandle* handle, char* command, int* index, int* term, int* is
     
     try {
         std::string cmd_str(command);
-        auto result = handle->raft_impl->start(cmd_str);
         
-        *index = result.first;
-        *term = result.second;
-        *is_leader = (handle->raft_impl->getRole() == raft::Role::Leader) ? 1 : 0;
+        // Get current term and role before starting
+        auto current_term = handle->raft_impl->getCurrentTerm();
+        auto role = handle->raft_impl->getRole();
+        bool isLeader = (role == raft::Role::Leader);
         
-        return 1;
+        if (isLeader) {
+            // If we're the leader, try to start the command
+            bool success = handle->raft_impl->start(cmd_str);
+            if (success) {
+                // For now, we'll use the log's last index + 1 as the index
+                // This is a simplification - in a real implementation, you'd get the actual index
+                auto& log = handle->raft_impl->log();
+                *index = log.lastIndex() + 1; // Next index where command will be placed
+                *term = current_term;
+                *is_leader = 1;
+                return 1;
+            }
+        }
+        
+        *index = -1;
+        *term = current_term;
+        *is_leader = isLeader ? 1 : 0;
+        return 0;
     } catch (const std::exception& e) {
         std::cerr << "Error starting command: " << e.what() << std::endl;
         return 0;

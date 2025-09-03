@@ -31,10 +31,10 @@ std::optional<std::monostate> LabrpcRaftClient::call(const std::string& method_n
     std::string service_method;
     if (method_name == "requestVote" || 
         std::is_same_v<Req, raft::proto::RequestVoteArg>) {
-        service_method = "Raft.RequestVote";
+        service_method = "CppRaft.RequestVote";
     } else if (method_name == "appendEntries" || 
                std::is_same_v<Req, raft::proto::AppendEntriesArg>) {
-        service_method = "Raft.AppendEntries";
+        service_method = "CppRaft.AppendEntries";
     } else {
         std::cerr << "Unknown method: " << method_name << std::endl;
         return std::nullopt;
