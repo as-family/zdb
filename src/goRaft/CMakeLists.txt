@@ -47,6 +47,7 @@ set_target_properties(zdb_raft PROPERTIES
 
 # Copy to lib directory for easier linking
 add_custom_command(TARGET zdb_raft POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib/
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:zdb_raft>
     ${CMAKE_BINARY_DIR}/lib/

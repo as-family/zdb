@@ -107,7 +107,7 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
         currentTerm = arg.term;
         role = Role::Follower;
         lastHeartbeat = std::chrono::steady_clock::now();
-        votedFor = arg.candidateId;
+        votedFor.reset();
     }
     if ((votedFor.has_value() && votedFor.value() == arg.candidateId) || !votedFor.has_value()) {
         if ((mainLog.lastTerm() == arg.lastLogTerm && mainLog.lastIndex() <= arg.lastLogIndex) || mainLog.lastTerm() < arg.lastLogTerm) {
@@ -278,13 +278,12 @@ void RaftImpl<Client>::requestVote(){
     votedFor = selfId;
     lastHeartbeat = std::chrono::steady_clock::now();
     int votesGranted = 1;
-    int votesDeclined = 0;
     int peersDown = 0;
     std::vector<std::thread> threads;
     std::mutex threadsMutex{};
     for (auto& [peerId, _] : peers) {
         threads.emplace_back(
-            [this, peerId, &votesGranted, &votesDeclined, &peersDown, &threadsMutex] {
+            [this, peerId, &votesGranted, &peersDown, &threadsMutex] {
                 auto& peer = peers.at(peerId).get();
                 proto::RequestVoteArg arg;
                 arg.set_term(currentTerm);
@@ -305,14 +304,12 @@ void RaftImpl<Client>::requestVote(){
                 if (status.has_value()) {
                     if (reply.votegranted()) {
                         ++votesGranted;
-                    } else {
-                        ++votesDeclined;
-                        if (reply.term() > currentTerm){
-                            role = Role::Follower;
-                            votedFor.reset();
-                            lastHeartbeat = std::chrono::steady_clock::now();
-                            return;
-                        }
+                    } else if (reply.term() > currentTerm) {
+                        currentTerm = reply.term();
+                        role = Role::Follower;
+                        votedFor.reset();
+                        lastHeartbeat = std::chrono::steady_clock::now();
+                        return;
                     }
                 }
             }
