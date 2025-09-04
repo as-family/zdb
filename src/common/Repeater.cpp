@@ -17,7 +17,7 @@ Repeater::Repeater(const RetryPolicy p)
 
 std::vector<grpc::Status> Repeater::attempt(const std::string& op, const std::function<grpc::Status()>& rpc) {
     std::vector<grpc::Status> statuses;
-    while (true) {
+    while (!stopped) {
         auto status = rpc();
         statuses.push_back(status);
         if (status.ok()) {
@@ -40,10 +40,15 @@ std::vector<grpc::Status> Repeater::attempt(const std::string& op, const std::fu
             }
         }
     }
+    return std::vector<grpc::Status> {grpc::Status{grpc::StatusCode::CANCELLED, "Repeater stopped"}};
 }
 
 void Repeater::reset() {
     backoff.reset();
+}
+
+void Repeater::stop() {
+    stopped = true;
 }
 
 } // namespace zdb

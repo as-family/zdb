@@ -99,7 +99,7 @@ func go_invoke_request_vote(handle C.ulonglong, p C.int, s string, args unsafe.P
 	rep := &RequestVoteReply{}
 	result := GoInvokeCallback(C.uintptr_t(handle), int(p), s, arg, rep)
 	if result == 0 {
-		return 0
+		return C.int(0)
 	}
 	protoReply := &proto_raft.RequestVoteReply{
 		VoteGranted: rep.VoteGranted,
@@ -108,6 +108,7 @@ func go_invoke_request_vote(handle C.ulonglong, p C.int, s string, args unsafe.P
 	replyBytes, err := protobuf.Marshal(protoReply)
 	if err != nil || len(replyBytes) <= 0 {
 		fmt.Println("Error: failed to marshal")
+		return C.int(0)
 	}
 	C.memmove(reply, unsafe.Pointer(&replyBytes[0]), C.size_t(len(replyBytes)))
 	return C.int(len(replyBytes))
@@ -139,7 +140,7 @@ func go_invoke_append_entries(handle C.ulonglong, p C.int, s string, args unsafe
 	rep := &AppendEntriesReply{}
 	result := GoInvokeCallback(C.uintptr_t(handle), int(p), s, arg, rep)
 	if result == 0 {
-		return 0
+		return C.int(0)
 	}
 	protoReply := &proto_raft.AppendEntriesReply{
 		Success: rep.Success,
@@ -148,6 +149,7 @@ func go_invoke_append_entries(handle C.ulonglong, p C.int, s string, args unsafe
 	replyBytes, err := protobuf.Marshal(protoReply)
 	if err != nil || len(replyBytes) <= 0 {
 		fmt.Println("Error: failed to marshal")
+		return C.int(0)
 	}
 	C.memmove(reply, unsafe.Pointer(&replyBytes[0]), C.size_t(len(replyBytes)))
 	return C.int(len(replyBytes))

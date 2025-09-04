@@ -64,4 +64,8 @@ bool CircuitBreaker::open() {
     return state == CircuitBreaker::State::Open;
 }
 
+void CircuitBreaker::stop() {
+    repeater.stop();
+}
+
 } // namespace zdb

@@ -44,10 +44,10 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb) {
         new raft::SyncChannel(),
         new raft::SyncChannel(),
         zdb::RetryPolicy(
-            std::chrono::milliseconds(5),
-            std::chrono::milliseconds(20),
-            std::chrono::milliseconds(25),
-            5,
+            std::chrono::milliseconds(2),
+            std::chrono::milliseconds(10),
+            std::chrono::milliseconds(12),
+            10000,
             servers - 1,
             std::chrono::milliseconds(4),
             std::chrono::milliseconds(4)

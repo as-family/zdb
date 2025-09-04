@@ -21,6 +21,7 @@ public:
     explicit CircuitBreaker(const RetryPolicy p);
     std::vector<grpc::Status> call(const std::string& op, const std::function<grpc::Status()>& rpc);
     [[nodiscard]] bool open();
+    void stop();
 private:
     State state;
     RetryPolicy policy;

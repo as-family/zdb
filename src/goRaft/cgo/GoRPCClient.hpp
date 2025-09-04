@@ -16,6 +16,7 @@ extern "C" int go_invoke_callback(uintptr_t handle, int p, char* f, void* args, 
 class GoRPCClient {
 public:
     GoRPCClient(int ii, std::string a, const zdb::RetryPolicy p, uintptr_t h);
+    ~GoRPCClient();
     template<typename Req, typename Rep>
     std::optional<std::monostate> call(std::string name, Req& request, Rep& reply) {
         if (name == "requestVote") {
@@ -23,7 +24,7 @@ public:
         } else if (name == "appendEntries") {
             name = "Raft.AppendEntries";
         } else {
-            throw std::invalid_argument{"Unknown function"};
+            throw std::invalid_argument{"Unknown function " + name};
         }
         std::string r;
         if (!request.SerializeToString(&r)) {
@@ -32,16 +33,20 @@ public:
         auto p = std::string{};
         p.resize(1024);
         auto len = 0;
-        len = go_invoke_callback(handle, i, name.data(), r.data(), r.size(), p.data(), p.size());
-        // auto f = [&]() -> grpc::Status {
-        //     len = go_invoke_callback(handle, i, name.data(), r.data(), r.size(), p.data(), p.size());
-        //     if (len <= 0) {
-        //         return grpc::Status::OK;
-        //     } else {
-        //         return grpc::Status{grpc::StatusCode::DEADLINE_EXCEEDED, "labrpc failed"};
-        //     }
-        // };
-        // auto status = circuitBreaker.call(name, f);
+        auto f = [&]() -> grpc::Status {
+            len = go_invoke_callback(handle, i, name.data(), r.data(), r.size(), p.data(), p.size());
+            if (len <= 0) {
+                return grpc::Status{grpc::StatusCode::DEADLINE_EXCEEDED, "labrpc failed"};
+            } else {
+                return grpc::Status::OK;
+            }
+        };
+        zdb::CircuitBreaker circuitBreaker{policy};
+        breakers.push_back(std::ref(circuitBreaker));
+        auto status = circuitBreaker.call(name, f);
+        if (!status.back().ok()) {
+            return std::nullopt;
+        }
         if (len <= 0) {
             return std::nullopt;
         }
@@ -54,8 +59,9 @@ public:
 private:
     int i;
     std::string address;
-    zdb::CircuitBreaker circuitBreaker;
+    zdb::RetryPolicy policy;
     uintptr_t handle;
+    std::vector<std::reference_wrapper<zdb::CircuitBreaker>> breakers;
 };
 
 #endif // GO_RPC_CLIENT_HPP
