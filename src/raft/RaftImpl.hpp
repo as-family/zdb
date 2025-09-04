@@ -46,6 +46,8 @@ private:
     std::unordered_map<std::string, std::reference_wrapper<Client>> peers;
     AsyncTimer electionTimer;
     AsyncTimer heartbeatTimer;
+    std::mutex threadsMutex{};
+    int successCount;
 };
 
 template <typename Client>
@@ -209,11 +211,10 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
         peer.get().stop();
     }
     std::vector<std::thread> threads;
-    std::mutex threadsMutex{};
-    int successCount = 1;
+    successCount = 1;
     for (auto& [peerId, _] : peers) {
         threads.emplace_back(
-        [this, peerId, &threadsMutex, &successCount] {
+        [this, peerId] {
                 auto& peer = peers.at(peerId).get();
                 auto n = nextIndex.at(peerId);
                 auto v = mainLog.at(n);
