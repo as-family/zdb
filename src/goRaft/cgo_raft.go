@@ -229,6 +229,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 }
 
 func (rf *Raft) Kill() {
+	fmt.Println("Go: Raft is being killed")
 	C.kill_raft(rf.handle)
 	GoFreeCallback(rf.cb)
 }

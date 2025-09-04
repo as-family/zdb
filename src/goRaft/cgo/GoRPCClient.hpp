@@ -16,6 +16,7 @@ extern "C" int go_invoke_callback(uintptr_t handle, int p, char* f, void* args, 
 class GoRPCClient {
 public:
     GoRPCClient(int ii, std::string a, const zdb::RetryPolicy p, uintptr_t h);
+    void stop();
     ~GoRPCClient();
     template<typename Req, typename Rep>
     std::optional<std::monostate> call(std::string name, Req& request, Rep& reply) {
