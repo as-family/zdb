@@ -31,9 +31,6 @@ public:
     bool start(std::string command) override;
     void kill() override;
     Log& log() override;
-    ~RaftImpl() {
-        std::cerr << "*****************Destroying RaftImpl for " << selfId << "\n";
-    }
 private:
     void applyCommittedEntries(Channel& channel);
     std::mutex m{};
@@ -72,8 +69,8 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
     for (const auto& peer : p) {
         peers.emplace(peer, std::ref(g(peer, policy)));
     }
-    electionTimeout = std::chrono::milliseconds(150);
-    heartbeatInterval = std::chrono::milliseconds(10);
+    electionTimeout = std::chrono::milliseconds(400);
+    heartbeatInterval = std::chrono::milliseconds(100);
 
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
@@ -100,7 +97,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
 template <typename Client>
 RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg) {
     std::unique_lock lock{m};
-    std::cerr << selfId << " received RequestVote from " << arg.candidateId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
+    // std::cerr << selfId << " received RequestVote from " << arg.candidateId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
     RequestVoteReply reply;
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -130,7 +127,7 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
 template <typename Client>
 AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg& arg) {
     std::unique_lock lock{m};
-    std::cerr << selfId << " received AppendEntries from " << arg.leaderId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
+    // std::cerr << selfId << " received AppendEntries from " << arg.leaderId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
     AppendEntriesReply reply;
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -181,7 +178,7 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
     if (role != Role::Leader) {
         return;
     }
-    std::cerr << selfId << " sending AppendEntries for term " << currentTerm << "\n";
+    // std::cerr << selfId << " sending AppendEntries for term " << currentTerm << "\n";
     std::vector<std::thread> threads;
     std::mutex threadsMutex{};
     int successCount = 1;
@@ -214,7 +211,6 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
                 proto::AppendEntriesReply reply;
                 auto status = peer.call(
                     "appendEntries",
-                    &proto::Raft::Stub::appendEntries,
                     arg,
                     reply
                 );
@@ -275,7 +271,7 @@ void RaftImpl<Client>::requestVote(){
     if (role == Role::Leader) {
         return;
     }
-    std::cerr << selfId << " starting election for term " << currentTerm + 1 << "\n";
+    // std::cerr << selfId << " starting election for term " << currentTerm + 1 << "\n";
     role = Role::Candidate;
     ++currentTerm;
     votedFor = selfId;
@@ -295,7 +291,6 @@ void RaftImpl<Client>::requestVote(){
                 proto::RequestVoteReply reply;
                 auto status = peer.call(
                     "requestVote",
-                    &proto::Raft::Stub::requestVote,
                     arg,
                     reply
                 );

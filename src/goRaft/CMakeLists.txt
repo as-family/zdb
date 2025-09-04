@@ -2,24 +2,48 @@
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_package(Protobuf REQUIRED)
+find_package(gRPC REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
-find_package(protobuf REQUIRED)
 
 find_program(GO_BIN go REQUIRED)
+find_program(PROTOC_GEN_GO protoc-gen-go REQUIRED)
+
+add_custom_command(
+  OUTPUT ${CMAKE_BINARY_DIR}/go-proto/raft.pb.go ${CMAKE_BINARY_DIR}/go-proto/go.mod
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/go-proto
+  COMMAND /home/ahmed/go/bin/protoc-gen-go --version > /dev/null 2>&1 || echo "protoc-gen-go not found"
+  COMMAND ${Protobuf_PROTOC_EXECUTABLE}
+      --go_out=${CMAKE_BINARY_DIR}/go-proto
+      --go_opt=paths=source_relative
+      --proto_path=${CMAKE_SOURCE_DIR}/proto
+      --plugin=protoc-gen-go=/home/ahmed/go/bin/protoc-gen-go
+      ${CMAKE_SOURCE_DIR}/proto/raft.proto
+  COMMAND ${CMAKE_COMMAND} -E echo "module proto" > ${CMAKE_BINARY_DIR}/go-proto/go.mod
+  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${CMAKE_BINARY_DIR}/go-proto/go.mod
+  COMMAND ${CMAKE_COMMAND} -E echo "go 1.23" >> ${CMAKE_BINARY_DIR}/go-proto/go.mod
+  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${CMAKE_BINARY_DIR}/go-proto/go.mod
+  COMMAND ${CMAKE_COMMAND} -E echo "require google.golang.org/protobuf v1.36.8" >> ${CMAKE_BINARY_DIR}/go-proto/go.mod
+  DEPENDS ${CMAKE_SOURCE_DIR}/proto/raft.proto
+  COMMENT "Generating Go Protobuf code and module from raft.proto"
+)
 
 add_library(zdb_raft SHARED
-    ${CMAKE_SOURCE_DIR}/src/raft/Log.cpp
-    ${CMAKE_SOURCE_DIR}/src/raft/SyncChannel.cpp
-    ${CMAKE_SOURCE_DIR}/src/raft/AsyncTimer.cpp
-    ${CMAKE_SOURCE_DIR}/src/raft/Types.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/FullJitter.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/RetryPolicy.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/ExponentialBackoff.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/Util.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/CircuitBreaker.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/Error.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/ErrorConverter.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/Repeater.cpp
+  ${CMAKE_BINARY_DIR}/go-proto/raft.pb.go
+  ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoRPCClient.cpp
+  ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/raft_wrapper.cpp
+  ${CMAKE_SOURCE_DIR}/src/raft/Log.cpp
+  ${CMAKE_SOURCE_DIR}/src/raft/SyncChannel.cpp
+  ${CMAKE_SOURCE_DIR}/src/raft/AsyncTimer.cpp
+  ${CMAKE_SOURCE_DIR}/src/raft/Types.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/FullJitter.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/RetryPolicy.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/ExponentialBackoff.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/Util.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/CircuitBreaker.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/Error.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/ErrorConverter.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/Repeater.cpp
 )
 
 target_include_directories(zdb_raft PRIVATE
@@ -29,7 +53,7 @@ target_include_directories(zdb_raft PRIVATE
 
 target_link_libraries(zdb_raft PRIVATE
     spdlog::spdlog
-    protobuf::libprotobuf
+    protobuf_generated
 )
 
 # Ensure position-independent code for shared library
