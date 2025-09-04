@@ -30,6 +30,7 @@ extern "C" {
 void kill_raft(RaftHandle* h) {
     std::cerr << "C++: Killing Raft instance\n";
     if (!h) {
+        std::cerr << "C++: Handle is null, nothing to kill\n";
         return;
     }
     if (h->raft) {
@@ -53,7 +54,7 @@ void kill_raft(RaftHandle* h) {
         h->followerChannel = nullptr;
     }
     std::cerr << "C++: Follower channel closed\n";
-    delete h;
+    // Don't delete h here - let Go manage the handle lifecycle
 }
 
 RaftHandle* create_raft(int id, int servers, uintptr_t cb) {

@@ -26,6 +26,7 @@ std::string toString(const ErrorCode& code) {
         case ErrorCode::KeyNotFound: return "KeyNotFound";
         case ErrorCode::NotLeader: return "NotLeader";
         case ErrorCode::Internal: return "Internal";
+        case ErrorCode::Cancelled: return "Cancelled";
     }
     std::unreachable();
 }

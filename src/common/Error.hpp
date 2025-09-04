@@ -22,6 +22,7 @@ enum class ErrorCode {
     Timeout,
     NotLeader,
     Internal,
+    Cancelled,
     Unknown
 };
 
