@@ -17,13 +17,11 @@ import (
 	"time"
 	"unsafe"
 
-	proto "proto"
-
-	pb "google.golang.org/protobuf/proto"
-
 	"6.5840/labrpc"
 	"6.5840/raftapi"
 	tester "6.5840/tester1"
+	"github.com/zdb/proto"
+	protobuf "google.golang.org/protobuf/proto"
 )
 
 // Global registry for CppRaft instances
@@ -33,22 +31,66 @@ var (
 )
 
 type CppRaft struct {
-	handle  *C.RaftHandle
-	me      int
-	peers   []*labrpc.ClientEnd
-	applyCh chan raftapi.ApplyMsg
-	killed  bool
+	handle   *C.RaftHandle
+	me       int
+	peers    []*labrpc.ClientEnd
+	applyCh  chan raftapi.ApplyMsg
+	killed   bool
+	mu       sync.RWMutex  // Protect access to handle and killed state
+	stopCh   chan struct{} // Signal to stop goroutines
+	killOnce sync.Once     // Ensure Kill() is only called once
+}
+type LogEntry struct {
+	Index   uint64
+	Term    uint64
+	Command string
+}
+
+type Log []LogEntry
+
+type AppendEntriesArg struct {
+	LeaderId     string
+	Term         uint64
+	PrevLogIndex uint64
+	PrevLogTerm  uint64
+	LeaderCommit uint64
+	Entries      Log
+}
+
+type AppendEntriesReply struct {
+	Success bool
+	Term    uint64
+}
+
+type RequestVoteArg struct {
+	CandidateId  string
+	Term         uint64
+	LastLogIndex uint64
+	LastLogTerm  uint64
+}
+
+type RequestVoteReply struct {
+	VoteGranted bool
+	Term        uint64
 }
 
 // Global callback function for C++ to call Go labrpc
 //
 //export goLabrpcCall
 func goLabrpcCall(callerID C.int, peerID C.int, serviceMethod *C.char, argsData unsafe.Pointer, argsSize C.int, replyData unsafe.Pointer, replySize C.int) C.int {
+	// Defensive checks
+	if serviceMethod == nil || argsData == nil || replyData == nil {
+		fmt.Printf("ERROR: Invalid parameters in goLabrpcCall\n")
+		return 0
+	}
+
 	// Get the service method name
 	method := C.GoString(serviceMethod)
 
 	// Get args data
 	args := C.GoBytes(argsData, argsSize)
+
+	// fmt.Printf("goLabrpcCall: caller %d -> peer %d, method %s, args size %d, reply size %d\n", int(callerID), int(peerID), method, int(argsSize), int(replySize))
 
 	// Find the CppRaft instance that is making the call
 	raftMutex.RLock()
@@ -60,28 +102,111 @@ func goLabrpcCall(callerID C.int, peerID C.int, serviceMethod *C.char, argsData 
 		return 0
 	}
 
+	// Check if the instance is being killed with read lock
+	rf.mu.RLock()
+	isKilled := rf.killed
+	rf.mu.RUnlock()
+
+	if isKilled {
+		fmt.Printf("ERROR: CppRaft instance %d is being killed\n", int(callerID))
+		return 0
+	}
+
 	targetPeer := int(peerID)
 	if targetPeer >= len(rf.peers) {
 		fmt.Printf("ERROR: Invalid peer ID %d, only have %d peers\n", targetPeer, len(rf.peers))
 		return 0
 	}
 
-	// Make the labrpc call
-	var reply []byte
-	success := rf.peers[targetPeer].Call(method, args, &reply)
+	// Convert protobuf args to Go structs for labrpc
+	var goArgs interface{}
+	var goReply interface{}
 
-	if success && len(reply) <= int(replySize) {
-		// Copy reply data back
-		if len(reply) > 0 {
-			C.memmove(replyData, unsafe.Pointer(&reply[0]), C.size_t(len(reply)))
+	if method == "CppRaft.RequestVote" {
+		protoArgs := &proto.RequestVoteArg{}
+		if err := protobuf.Unmarshal(args, protoArgs); err != nil {
+			fmt.Printf("ERROR: Failed to unmarshal RequestVoteArg: %v\n", err)
+			return 0
 		}
-		return C.int(len(reply))
+		goArgs = &RequestVoteArg{
+			CandidateId:  protoArgs.CandidateId,
+			Term:         protoArgs.Term,
+			LastLogIndex: protoArgs.LastLogIndex,
+			LastLogTerm:  protoArgs.LastLogTerm,
+		}
+		goReply = &RequestVoteReply{}
+	} else if method == "CppRaft.AppendEntries" {
+		protoArgs := &proto.AppendEntriesArg{}
+		if err := protobuf.Unmarshal(args, protoArgs); err != nil {
+			fmt.Printf("ERROR: Failed to unmarshal AppendEntriesArg: %v\n", err)
+			return 0
+		}
+		entries := make(Log, len(protoArgs.Entries))
+		for i, entry := range protoArgs.Entries {
+			entries[i] = LogEntry{
+				Index:   entry.Index,
+				Term:    entry.Term,
+				Command: string(entry.Command),
+			}
+		}
+		goArgs = &AppendEntriesArg{
+			LeaderId:     protoArgs.LeaderId,
+			Term:         protoArgs.Term,
+			PrevLogIndex: protoArgs.PrevLogIndex,
+			PrevLogTerm:  protoArgs.PrevLogTerm,
+			LeaderCommit: protoArgs.LeaderCommit,
+			Entries:      entries,
+		}
+		goReply = &AppendEntriesReply{}
+	} else {
+		fmt.Printf("ERROR: Unknown method %s\n", method)
+		return 0
 	}
 
-	if !success {
-		fmt.Printf("ERROR: labrpc call failed from %d to %d, method %s\n", int(callerID), targetPeer, method)
+	// Make the labrpc call with Go structs
+	if rf.peers[targetPeer] == nil {
+		fmt.Printf("ERROR: labrpc peer %d is nil\n", targetPeer)
+		return 0
+	}
+	success := rf.peers[targetPeer].Call(method, goArgs, goReply)
+
+	if success {
+		// Convert Go reply back to protobuf and serialize
+		var replyBytes []byte
+		var err error
+
+		if method == "CppRaft.RequestVote" {
+			voteReply := goReply.(*RequestVoteReply)
+			protoReply := &proto.RequestVoteReply{
+				VoteGranted: voteReply.VoteGranted,
+				Term:        voteReply.Term,
+			}
+			replyBytes, err = protobuf.Marshal(protoReply)
+		} else if method == "CppRaft.AppendEntries" {
+			appendReply := goReply.(*AppendEntriesReply)
+			protoReply := &proto.AppendEntriesReply{
+				Success: appendReply.Success,
+				Term:    appendReply.Term,
+			}
+			replyBytes, err = protobuf.Marshal(protoReply)
+		}
+
+		if err != nil {
+			fmt.Printf("ERROR: Failed to marshal reply: %v\n", err)
+			return 0
+		}
+
+		if len(replyBytes) <= int(replySize) {
+			// Copy reply data back
+			if len(replyBytes) > 0 {
+				C.memmove(replyData, unsafe.Pointer(&replyBytes[0]), C.size_t(len(replyBytes)))
+			}
+			return C.int(len(replyBytes))
+		} else {
+			fmt.Printf("ERROR: Reply too large: %d > %d\n", len(replyBytes), int(replySize))
+		}
 	} else {
-		fmt.Printf("ERROR: Reply too large: %d > %d\n", len(reply), int(replySize))
+		fmt.Printf("ERROR: labrpc call failed from %d to %d, method %s\n", int(callerID), targetPeer, method)
 	}
 
 	return 0
@@ -125,6 +250,7 @@ func MakeCppRaft(peers []*labrpc.ClientEnd, me int, persister *tester.Persister,
 		peers:   peers,
 		applyCh: applyCh,
 		killed:  false,
+		stopCh:  make(chan struct{}),
 	}
 
 	// Register this instance for the callback
@@ -137,34 +263,96 @@ func MakeCppRaft(peers []*labrpc.ClientEnd, me int, persister *tester.Persister,
 }
 
 // Implement labrpc service interface methods (called by labrpc framework)
-func (rf *CppRaft) RequestVote(args []byte, reply *proto.RequestVoteReply) {
+func (rf *CppRaft) RequestVote(args *RequestVoteArg, reply *RequestVoteReply) {
+	rf.mu.RLock()
+	defer rf.mu.RUnlock()
+
+	if rf.killed || rf.handle == nil {
+		return
+	}
+
+	protoArgs := &proto.RequestVoteArg{
+		CandidateId:  args.CandidateId,
+		Term:         args.Term,
+		LastLogIndex: args.LastLogIndex,
+		LastLogTerm:  args.LastLogTerm,
+	}
+	argsData, err := protobuf.Marshal(protoArgs)
+	if err != nil {
+		fmt.Printf("ERROR: Failed to marshal RequestVoteArg: %v\n", err)
+		return
+	}
 	replyBuf := make([]byte, 1024)
 	replyLen := C.raft_request_vote_handler(rf.handle,
-		(*C.char)(unsafe.Pointer(&args[0])), C.int(len(args)),
+		(*C.char)(unsafe.Pointer(&argsData[0])), C.int(len(argsData)),
 		(*C.char)(unsafe.Pointer(&replyBuf[0])), C.int(len(replyBuf)))
-
+	protoReply := &proto.RequestVoteReply{}
 	if replyLen > 0 {
-		if err := pb.Unmarshal(replyBuf[:replyLen], reply); err != nil {
+		err := protobuf.Unmarshal(replyBuf[:replyLen], protoReply)
+		if err != nil {
 			fmt.Printf("ERROR: Failed to unmarshal RequestVoteReply: %v\n", err)
+			return
 		}
+		reply.VoteGranted = protoReply.VoteGranted
+		reply.Term = protoReply.Term
 	}
 }
 
-func (rf *CppRaft) AppendEntries(args []byte, reply *proto.AppendEntriesReply) {
+func (rf *CppRaft) AppendEntries(args *AppendEntriesArg, reply *AppendEntriesReply) {
+	rf.mu.RLock()
+	defer rf.mu.RUnlock()
+
+	if rf.killed || rf.handle == nil {
+		return
+	}
+
+	protoEntries := make([]*proto.LogEntry, len(args.Entries))
+	for i, entry := range args.Entries {
+		protoEntries[i] = &proto.LogEntry{
+			Index:   entry.Index,
+			Term:    entry.Term,
+			Command: []byte(entry.Command),
+		}
+	}
+	protoArgs := &proto.AppendEntriesArg{
+		LeaderId:     args.LeaderId,
+		Term:         args.Term,
+		PrevLogIndex: args.PrevLogIndex,
+		PrevLogTerm:  args.PrevLogTerm,
+		LeaderCommit: args.LeaderCommit,
+		Entries:      protoEntries,
+	}
+	argsData, err := protobuf.Marshal(protoArgs)
+	if err != nil {
+		fmt.Printf("ERROR: Failed to marshal AppendEntriesArg: %v\n", err)
+		return
+	}
 	replyBuf := make([]byte, 1024)
 	replyLen := C.raft_append_entries_handler(rf.handle,
-		(*C.char)(unsafe.Pointer(&args[0])), C.int(len(args)),
+		(*C.char)(unsafe.Pointer(&argsData[0])), C.int(len(argsData)),
 		(*C.char)(unsafe.Pointer(&replyBuf[0])), C.int(len(replyBuf)))
 
+	protoReply := &proto.AppendEntriesReply{}
 	if replyLen > 0 {
-		if err := pb.Unmarshal(replyBuf[:replyLen], reply); err != nil {
+		err := protobuf.Unmarshal(replyBuf[:replyLen], protoReply)
+		if err != nil {
 			fmt.Printf("ERROR: Failed to unmarshal AppendEntriesReply: %v\n", err)
+			return
 		}
+		reply.Success = protoReply.Success
+		reply.Term = protoReply.Term
 	}
 }
 
 // GetState returns the current term and whether this server believes it is the leader
 func (rf *CppRaft) GetState() (int, bool) {
+	rf.mu.RLock()
+	defer rf.mu.RUnlock()
+
+	if rf.killed || rf.handle == nil {
+		return 0, false
+	}
+
 	var term C.int
 	var isLeader C.int
 
@@ -178,6 +366,13 @@ func (rf *CppRaft) GetState() (int, bool) {
 
 // Start begins agreement on a new log entry
 func (rf *CppRaft) Start(command interface{}) (int, int, bool) {
+	rf.mu.RLock()
+	defer rf.mu.RUnlock()
+
+	if rf.killed || rf.handle == nil {
+		return 0, 0, false
+	}
+
 	cmdStr := fmt.Sprintf("%v", command)
 	cCommand := C.CString(cmdStr)
 	defer C.free(unsafe.Pointer(cCommand))
@@ -194,23 +389,59 @@ func (rf *CppRaft) Start(command interface{}) (int, int, bool) {
 
 // Kill shuts down the Raft instance
 func (rf *CppRaft) Kill() {
-	if !rf.killed {
+	rf.killOnce.Do(func() {
+		fmt.Printf("Killing RaftHandle for peer_%d\n", rf.me)
+
+		rf.mu.Lock()
 		rf.killed = true
-		C.raft_kill(rf.handle)
+		handle := rf.handle
+		rf.handle = nil
+		rf.mu.Unlock()
+
+		// First unregister to stop new RPCs
 		unregisterCppRaftInstance(rf.me)
-	}
+
+		// Signal goroutines to stop
+		close(rf.stopCh)
+
+		// Give time for in-flight RPCs and goroutines to complete
+		time.Sleep(time.Millisecond * 200)
+
+		// Kill and destroy the C++ object
+		if handle != nil {
+			C.raft_kill(handle)
+			fmt.Printf("*****************Destroying RaftImpl for peer_%d\n", rf.me)
+			C.raft_destroy(handle)
+		}
+	})
 }
 
 // Killed returns whether Kill() has been called
 func (rf *CppRaft) Killed() bool {
+	rf.mu.RLock()
+	defer rf.mu.RUnlock()
 	return rf.killed
 }
 
 // Apply message processing loop
 func (rf *CppRaft) applyMessageLoop() {
-	for !rf.killed {
+	for {
+		select {
+		case <-rf.stopCh:
+			return
+		default:
+		}
+
+		rf.mu.RLock()
+		if rf.killed || rf.handle == nil {
+			rf.mu.RUnlock()
+			return
+		}
+		handle := rf.handle
+		rf.mu.RUnlock()
+
 		var msg C.ApplyMsg
-		result := C.raft_receive_apply_msg(rf.handle, &msg, 100) // 100ms timeout
+		result := C.raft_receive_apply_msg(handle, &msg, 100) // 100ms timeout
 
 		if result == 1 {
 			// Convert C message to Go message
@@ -230,30 +461,51 @@ func (rf *CppRaft) applyMessageLoop() {
 				applyMsg.Snapshot = C.GoBytes(unsafe.Pointer(msg.snapshot), C.int(1024)) // Adjust size as needed
 			}
 
-			// Send to application
+			// Send to application with proper cancellation
 			select {
 			case rf.applyCh <- applyMsg:
 			case <-time.After(time.Millisecond * 100):
 				// Timeout sending to application
+			case <-rf.stopCh:
+				return
 			}
 		}
 
-		time.Sleep(time.Millisecond * 10)
+		// Check again if we should stop before sleeping
+		select {
+		case <-rf.stopCh:
+			return
+		case <-time.After(time.Millisecond * 10):
+		}
 	}
 }
 
 // GetPersistSize returns the size of the persistent state
 func (rf *CppRaft) GetPersistSize() int {
+	rf.mu.RLock()
+	defer rf.mu.RUnlock()
+
+	if rf.killed || rf.handle == nil {
+		return 0
+	}
+
 	return int(C.raft_persist_bytes(rf.handle))
 }
 
 // PersistBytes returns the size of the persistent state (interface requirement)
 func (rf *CppRaft) PersistBytes() int {
-	return int(C.raft_persist_bytes(rf.handle))
+	return rf.GetPersistSize()
 }
 
 // Snapshot takes a snapshot at the given index
 func (rf *CppRaft) Snapshot(index int, snapshot []byte) {
+	rf.mu.RLock()
+	defer rf.mu.RUnlock()
+
+	if rf.killed || rf.handle == nil {
+		return
+	}
+
 	cSnapshot := C.CString(string(snapshot))
 	defer C.free(unsafe.Pointer(cSnapshot))
 

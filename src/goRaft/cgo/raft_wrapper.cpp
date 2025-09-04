@@ -157,12 +157,12 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
             if (i != me) {
                 std::string peer_id = "peer_" + std::to_string(i);
                 auto retry_policy = zdb::RetryPolicy(
-                    std::chrono::milliseconds(10),
-                    std::chrono::milliseconds(50),
-                    std::chrono::milliseconds(60),
+                    std::chrono::milliseconds(1),
+                    std::chrono::milliseconds(20),
+                    std::chrono::milliseconds(25),
                     10, 10,
-                    std::chrono::milliseconds(10),
-                    std::chrono::milliseconds(10)
+                    std::chrono::milliseconds(4),
+                    std::chrono::milliseconds(4)
                 );
                 auto client = std::make_unique<LabrpcRaftClient>(me, i, retry_policy, g_labrpc_call_func);
                 handle->clients[peer_id] = std::move(client);
@@ -176,12 +176,12 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
         }
         
         auto retry_policy = zdb::RetryPolicy(
-            std::chrono::milliseconds(10),
-            std::chrono::milliseconds(50),
-            std::chrono::milliseconds(60),
+            std::chrono::milliseconds(1),
+            std::chrono::milliseconds(20),
+            std::chrono::milliseconds(25),
             10, 10,
-            std::chrono::milliseconds(10),
-            std::chrono::milliseconds(10)
+            std::chrono::milliseconds(4),
+            std::chrono::milliseconds(4)
         );
         
         handle->raft_impl = std::make_unique<raft::RaftImpl<RaftRPCService>>(
@@ -211,6 +211,7 @@ RaftHandle* raft_create(char** servers, int num_servers, int me, char* persister
 void raft_destroy(RaftHandle* handle) {
     if (handle) {
         handle->killed = true;
+        std::cerr << "Destroying RaftHandle for " << handle->self_id << "\n";
         delete handle;
     }
 }
@@ -218,6 +219,7 @@ void raft_destroy(RaftHandle* handle) {
 void raft_kill(RaftHandle* handle) {
     if (handle) {
         handle->killed = true;
+        std::cerr << "Killing RaftHandle for " << handle->self_id << "\n";
         // Properly destruct the RaftImpl to stop timers and cleanup
         handle->raft_impl.reset();
     }

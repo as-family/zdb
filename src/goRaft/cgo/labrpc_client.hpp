@@ -5,6 +5,7 @@
 #include "common/RetryPolicy.hpp"
 #include <optional>
 #include <string>
+#include "common/CircuitBreaker.hpp"
 
 // Forward declare the Go callback function type
 extern "C" {
@@ -29,6 +30,7 @@ private:
     int peer_id_;
     zdb::RetryPolicy policy_;
     labrpc_call_func call_func_;
+    zdb::CircuitBreaker circuitBreaker;
 };
 
 #endif // LABRPC_CLIENT_HPP

@@ -31,6 +31,9 @@ public:
     bool start(std::string command) override;
     void kill() override;
     Log& log() override;
+    ~RaftImpl() {
+        std::cerr << "*****************Destroying RaftImpl for " << selfId << "\n";
+    }
 private:
     void applyCommittedEntries(Channel& channel);
     std::mutex m{};
@@ -69,8 +72,8 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
     for (const auto& peer : p) {
         peers.emplace(peer, std::ref(g(peer, policy)));
     }
-    electionTimeout = std::chrono::milliseconds(500);
-    heartbeatInterval = std::chrono::milliseconds(150);
+    electionTimeout = std::chrono::milliseconds(150);
+    heartbeatInterval = std::chrono::milliseconds(10);
 
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
@@ -178,6 +181,7 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
     if (role != Role::Leader) {
         return;
     }
+    std::cerr << selfId << " sending AppendEntries for term " << currentTerm << "\n";
     std::vector<std::thread> threads;
     std::mutex threadsMutex{};
     int successCount = 1;
@@ -271,6 +275,7 @@ void RaftImpl<Client>::requestVote(){
     if (role == Role::Leader) {
         return;
     }
+    std::cerr << selfId << " starting election for term " << currentTerm + 1 << "\n";
     role = Role::Candidate;
     ++currentTerm;
     votedFor = selfId;

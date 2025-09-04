@@ -3,14 +3,14 @@
 #include <cstring>
 
 LabrpcRaftClient::LabrpcRaftClient(int caller_id, int peer_id, const zdb::RetryPolicy& policy, labrpc_call_func call_func)
-    : caller_id_(caller_id), peer_id_(peer_id), policy_(policy), call_func_(call_func) {}
+    : caller_id_(caller_id), peer_id_(peer_id), policy_(policy), call_func_(call_func), circuitBreaker{policy_} {}
 
 template<typename Req, typename Rep>
 std::optional<std::monostate> LabrpcRaftClient::call(const std::string& method_name,
                                    grpc::Status (raft::proto::Raft::Stub::*)(grpc::ClientContext*, const Req&, Rep*),
                                    const Req& request, 
                                    Rep& reply) {
-    
+    // std::cerr << "LabrpcRaftClient::call to peer " << peer_id_ << " method " << method_name << "\n";
     if (!call_func_) {
         return std::nullopt;
     }
@@ -38,10 +38,15 @@ std::optional<std::monostate> LabrpcRaftClient::call(const std::string& method_n
     }
     
     // Call through labrpc
-    int result = call_func_(caller_id_, peer_id_, service_method.c_str(),
-                           serialized_request.data(), serialized_request.size(),
-                           &serialized_reply[0], serialized_reply.size());
-    
+    int result = -1;
+    auto f = [&]() {
+        result = call_func_(caller_id_, peer_id_, service_method.c_str(),
+                          serialized_request.data(), serialized_request.size(),
+                          &serialized_reply[0], serialized_reply.size());
+        return result > 0 ? grpc::Status::OK : grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "labrpc call failed");
+    };
+    circuitBreaker.call(method_name, f);
+
     if (result > 0) {
         // Resize to actual reply size and deserialize
         serialized_reply.resize(result);
