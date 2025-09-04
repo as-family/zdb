@@ -19,6 +19,7 @@ std::vector<grpc::Status> Repeater::attempt(const std::string& op, const std::fu
     std::vector<grpc::Status> statuses;
     while (!stopped.load()) {
         auto status = rpc();
+        // std::cerr << "Repeater: attempt" << op << " got status " << status.error_code() << ": " << status.error_message() << "\n";
         if (stopped.load()) {
             return std::vector<grpc::Status> {grpc::Status{grpc::StatusCode::CANCELLED, "Repeater stopped"}};
         }

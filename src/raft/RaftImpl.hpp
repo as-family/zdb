@@ -58,11 +58,10 @@ RaftImpl<Client>::~RaftImpl() {
     std::cerr << selfId << " heartbeat timer stopped\n";
     std::unique_lock lock{m};
     std::cerr << selfId << " acquiring lock to stop RPC clients\n";
-    for (auto& [peerId, _] : peers) {
-        peers.at(peerId).get().stop();
+    for (auto& [p, peer] : peers) {
+        peer.get().stop();
     }
     std::cerr << selfId << " stopped all RPC clients\n";
-    peers.clear();
 }
 
 template <typename Client>
@@ -206,6 +205,9 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
         return;
     }
     std::cerr << selfId << " sending AppendEntries for term " << currentTerm << "\n";
+    for (auto& [p, peer] : peers) {
+        peer.get().stop();
+    }
     std::vector<std::thread> threads;
     std::mutex threadsMutex{};
     int successCount = 1;
@@ -280,11 +282,8 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
     }
     for (auto& t : threads) {
         if(t.joinable()) {
-            t.join();
+            t.detach();
         }
-    }
-    for (auto& peer : peers) {
-        peer.second.get().stop();
     }
 }
 

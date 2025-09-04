@@ -37,23 +37,25 @@ public:
         p.resize(1024);
         auto len = 0;
         auto f = [&]() -> grpc::Status {
-            len = go_invoke_callback(handle, i, name.data(), r.data(), r.size(), p.data(), p.size());
-            if (len <= 0) {
+            std::string r_copy = r; // Make a copy to ensure the data pointer remains valid
+            std::string p_copy = p; // Make a copy to ensure the data pointer remains valid
+            len = go_invoke_callback(handle, i, name.data(), r_copy.data(), r_copy.size(), p_copy.data(), p_copy.size());
+            if (len < 0) {
                 return grpc::Status{grpc::StatusCode::DEADLINE_EXCEEDED, "labrpc failed"};
             } else {
+                p = std::move(p_copy);
                 return grpc::Status::OK;
             }
         };
         zdb::CircuitBreaker circuitBreaker{policy};
         std::unique_lock lock{m};
-        stopped = false;
         breakers.push_back(std::ref(circuitBreaker));
         lock.unlock();
         auto status = circuitBreaker.call(name, f);
         if (!status.back().ok()) {
             return std::nullopt;
         }
-        if (len <= 0) {
+        if (len < 0) {
             return std::nullopt;
         }
         p.resize(len);
@@ -68,7 +70,6 @@ private:
     zdb::RetryPolicy policy;
     uintptr_t handle;
     std::vector<std::reference_wrapper<zdb::CircuitBreaker>> breakers;
-    std::atomic<bool> stopped{false};
     std::mutex m;
 };
 

@@ -90,7 +90,7 @@ func go_invoke_request_vote(handle C.ulonglong, p C.int, s string, args unsafe.P
 	err := protobuf.Unmarshal(C.GoBytes(args, args_len), protoArg)
 	if err != nil {
 		fmt.Println("Error: failed to unmarshal RequestVoteArg")
-		return C.int(0)
+		return C.int(-1)
 	}
 	arg := &RequestVoteArg{
 		CandidateId:  protoArg.CandidateId,
@@ -101,18 +101,20 @@ func go_invoke_request_vote(handle C.ulonglong, p C.int, s string, args unsafe.P
 	rep := &RequestVoteReply{}
 	result := GoInvokeCallback(C.uintptr_t(handle), int(p), s, arg, rep)
 	if result == 0 {
-		return C.int(0)
+		return C.int(-1)
 	}
 	protoReply := &proto_raft.RequestVoteReply{
 		VoteGranted: rep.VoteGranted,
 		Term:        rep.Term,
 	}
 	replyBytes, err := protobuf.Marshal(protoReply)
-	if err != nil || len(replyBytes) <= 0 {
+	if err != nil || len(replyBytes) < 0 {
 		fmt.Println("Error: failed to marshal")
-		return C.int(0)
+		return C.int(-1)
 	}
-	C.memmove(reply, unsafe.Pointer(&replyBytes[0]), C.size_t(len(replyBytes)))
+	if len(replyBytes) != 0 {
+		C.memmove(reply, unsafe.Pointer(&replyBytes[0]), C.size_t(len(replyBytes)))
+	}
 	return C.int(len(replyBytes))
 }
 
@@ -121,7 +123,7 @@ func go_invoke_append_entries(handle C.ulonglong, p C.int, s string, args unsafe
 	err := protobuf.Unmarshal(C.GoBytes(args, args_len), protoArg)
 	if err != nil {
 		fmt.Println("Error: failed to unmarshal AppendEntriesArg")
-		return C.int(0)
+		return C.int(-1)
 	}
 	entries := make(Log, len(protoArg.Entries))
 	for i, entry := range protoArg.Entries {
@@ -142,18 +144,20 @@ func go_invoke_append_entries(handle C.ulonglong, p C.int, s string, args unsafe
 	rep := &AppendEntriesReply{}
 	result := GoInvokeCallback(C.uintptr_t(handle), int(p), s, arg, rep)
 	if result == 0 {
-		return C.int(0)
+		return C.int(-1)
 	}
 	protoReply := &proto_raft.AppendEntriesReply{
 		Success: rep.Success,
 		Term:    rep.Term,
 	}
 	replyBytes, err := protobuf.Marshal(protoReply)
-	if err != nil || len(replyBytes) <= 0 {
+	if err != nil || len(replyBytes) < 0 {
 		fmt.Println("Error: failed to marshal")
-		return C.int(0)
+		return C.int(-1)
 	}
-	C.memmove(reply, unsafe.Pointer(&replyBytes[0]), C.size_t(len(replyBytes)))
+	if len(replyBytes) != 0 {
+		C.memmove(reply, unsafe.Pointer(&replyBytes[0]), C.size_t(len(replyBytes)))
+	}
 	return C.int(len(replyBytes))
 }
 
@@ -240,7 +244,7 @@ func (rf *Raft) Kill() {
 	if rf.handle == nil {
 		return
 	}
-	fmt.Println("Go: Raft is being killed")
+	fmt.Println("Go: Raft is being killed", rf.me)
 	C.kill_raft(rf.handle)
 	GoFreeCallback(rf.cb)
 	fmt.Println("Go: Raft killed")
