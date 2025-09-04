@@ -11,6 +11,7 @@
 #include <cstdint>
 #include "grpc/grpc.h"
 #include <mutex>
+#include <atomic>
 
 extern "C" int go_invoke_callback(uintptr_t handle, int p, char* f, void* args, int args_len, void* reply, int reply_len);
 
@@ -67,7 +68,7 @@ private:
     zdb::RetryPolicy policy;
     uintptr_t handle;
     std::vector<std::reference_wrapper<zdb::CircuitBreaker>> breakers;
-    bool stopped{false};
+    std::atomic<bool> stopped{false};
     std::mutex m;
 };
 

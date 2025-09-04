@@ -50,10 +50,14 @@ private:
 
 template <typename Client>
 RaftImpl<Client>::~RaftImpl() {
-    std::unique_lock lock{m};
-    electionTimer.~AsyncTimer();
-    heartbeatTimer.~AsyncTimer();
     std::cerr << selfId << " is being destroyed\n";
+    killed = true;
+    electionTimer.stop();
+    std::cerr << selfId << " election timer stopped\n";
+    heartbeatTimer.stop();
+    std::cerr << selfId << " heartbeat timer stopped\n";
+    std::unique_lock lock{m};
+    std::cerr << selfId << " acquiring lock to stop RPC clients\n";
     for (auto& [peerId, _] : peers) {
         peers.at(peerId).get().stop();
     }
@@ -110,6 +114,9 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
 
 template <typename Client>
 RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg) {
+    if (killed.load()) {
+        return RequestVoteReply{false, currentTerm};
+    }
     std::unique_lock lock{m};
     std::cerr << selfId << " received RequestVote from " << arg.candidateId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
     RequestVoteReply reply;
@@ -140,6 +147,9 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
 
 template <typename Client>
 AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg& arg) {
+    if (killed.load()) {
+        return AppendEntriesReply{false, currentTerm};
+    }
     std::unique_lock lock{m};
     std::cerr << selfId << " received AppendEntries from " << arg.leaderId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
     AppendEntriesReply reply;
@@ -185,6 +195,9 @@ void RaftImpl<Client>::applyCommittedEntries(Channel& channel) {
 
 template <typename Client>
 void RaftImpl<Client>::appendEntries(bool heartBeat){
+    if (killed.load()) {
+        return;
+    }
     std::unique_lock lock{m, std::defer_lock};
     if (heartBeat) {
         lock.lock();
@@ -194,10 +207,11 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
     }
     std::cerr << selfId << " sending AppendEntries for term " << currentTerm << "\n";
     std::vector<std::thread> threads;
+    std::mutex threadsMutex{};
     int successCount = 1;
     for (auto& [peerId, _] : peers) {
         threads.emplace_back(
-        [this, peerId, &successCount] {
+        [this, peerId, &threadsMutex, &successCount] {
                 auto& peer = peers.at(peerId).get();
                 auto n = nextIndex.at(peerId);
                 auto v = mainLog.at(n);
@@ -227,7 +241,7 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
                     arg,
                     reply
                 );
-                std::unique_lock l{m};
+                std::unique_lock l{threadsMutex};
                 if (role != Role::Leader) {
                     return;
                 }
@@ -277,6 +291,9 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
 
 template <typename Client>
 void RaftImpl<Client>::requestVote(){
+    if (killed.load()) {
+        return;
+    }
     std::unique_lock lock{m};
     auto d = std::chrono::steady_clock::now() - lastHeartbeat;
     if (std::chrono::duration_cast<std::chrono::milliseconds>(d) < std::chrono::milliseconds(time)) {
@@ -343,6 +360,9 @@ void RaftImpl<Client>::requestVote(){
 
 template <typename Client>
 bool RaftImpl<Client>::start(std::string command) {
+    if (killed.load()) {
+        return false;
+    }
     std::unique_lock lock{m};
     if (role != Role::Leader) {
         return false;
@@ -359,7 +379,6 @@ bool RaftImpl<Client>::start(std::string command) {
 
 template <typename Client>
 void RaftImpl<Client>::kill(){
-    std::unique_lock killLock {m};
     killed = true;
 }
 

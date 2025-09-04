@@ -35,8 +35,10 @@ void kill_raft(RaftHandle* h) {
     if (h->raft) {
         // Properly signal the raft instance to stop its operations
         h->raft->kill();
+        std::cerr << "C++: Raft instance kill signal sent\n";
         // Reset the unique_ptr, which will automatically call the destructor
         h->raft.reset();
+        std::cerr << "C++: Raft instance destroyed\n";
     }
     std::cerr << "C++: Raft instance killed\n";
     if (h->serviceChannel) {
@@ -74,7 +76,7 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb) {
             std::chrono::milliseconds(2),
             std::chrono::milliseconds(10),
             std::chrono::milliseconds(12),
-            10000,
+            10,
             servers - 1,
             std::chrono::milliseconds(4),
             std::chrono::milliseconds(4)

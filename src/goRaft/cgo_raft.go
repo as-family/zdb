@@ -59,6 +59,14 @@ func deleteHandle(h uintptr) {
 
 func registerCallback(rf *Raft) C.uintptr_t {
 	cb := func(p int, s string, a interface{}, b interface{}) int {
+		// Prevent deadlock by avoiding self-calls during RPC processing
+		// If we're calling ourselves, just return failure to break the cycle
+		if p == rf.me {
+			return 0
+		}
+
+		// Don't hold any locks when making outgoing RPC calls
+		// This prevents deadlock when the RPC comes back to this same instance
 		if rf.peers[p].Call(s, a, b) {
 			return 1
 		}
@@ -216,8 +224,6 @@ func (rf *Raft) GetState() (int, bool) {
 	if rf.handle == nil {
 		return 0, false
 	}
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
 	var term C.int
 	var isleader C.int
 	if C.raft_get_state(rf.handle, &term, &isleader) == 0 {
@@ -230,8 +236,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	if rf.handle == nil {
 		return 0, 0, false
 	}
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
 	index := 0
 	term := 0
 	isLeader := true
@@ -242,11 +246,10 @@ func (rf *Raft) Kill() {
 	if rf.handle == nil {
 		return
 	}
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
 	fmt.Println("Go: Raft is being killed")
 	C.kill_raft(rf.handle)
 	GoFreeCallback(rf.cb)
+	fmt.Println("Go: Raft killed")
 }
 
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
@@ -261,8 +264,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArg, reply *RequestVoteReply) {
 	if rf.handle == nil {
 		return
 	}
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
+
+	// Prepare the protobuf request
 	protoArgs := &proto_raft.RequestVoteArg{
 		CandidateId:  args.CandidateId,
 		Term:         args.Term,
@@ -274,10 +277,14 @@ func (rf *Raft) RequestVote(args *RequestVoteArg, reply *RequestVoteReply) {
 		fmt.Println("Error: failed to marshal RequestVoteArg")
 		return
 	}
+
+	// Call C++ without holding any Go locks - C++ should handle its own synchronization
 	replyBuf := make([]byte, 1024)
 	len := C.handle_request_vote(rf.handle,
 		(*C.char)(unsafe.Pointer(&strArgs[0])), C.int(len(strArgs)),
 		(*C.char)(unsafe.Pointer(&replyBuf[0])))
+
+	// Process the response
 	protoReply := &proto.RequestVoteReply{}
 	err = protobuf.Unmarshal(replyBuf[:len], protoReply)
 	if err != nil {
@@ -292,8 +299,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArg, reply *AppendEntriesReply)
 	if rf.handle == nil {
 		return
 	}
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
+
+	// Prepare the protobuf request
 	protoEntries := make([]*proto_raft.LogEntry, len(args.Entries))
 	for i, entry := range args.Entries {
 		protoEntries[i] = &proto_raft.LogEntry{
@@ -315,10 +322,14 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArg, reply *AppendEntriesReply)
 		fmt.Println("Error: failed to marshal AppendEntriesArg")
 		return
 	}
+
+	// Call C++ without holding any Go locks - C++ should handle its own synchronization
 	replyBuf := make([]byte, 1024)
 	len := C.handle_append_entries(rf.handle,
 		(*C.char)(unsafe.Pointer(&strArgs[0])), C.int(len(strArgs)),
 		(*C.char)(unsafe.Pointer(&replyBuf[0])))
+
+	// Process the response
 	protoReply := &proto.AppendEntriesReply{}
 	err = protobuf.Unmarshal(replyBuf[:len], protoReply)
 	if err != nil {

@@ -15,7 +15,7 @@ void GoRPCClient::stop() {
 }
 
 GoRPCClient::~GoRPCClient() {
-    if (!stopped) {
+    if (!stopped.load()) {
         stop();
     }
 }
