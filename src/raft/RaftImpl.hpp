@@ -46,10 +46,11 @@ private:
     std::unordered_map<std::string, std::reference_wrapper<Client>> peers;
     AsyncTimer electionTimer;
     AsyncTimer heartbeatTimer;
-    std::mutex threadsMutex{};
     int successCount;
     int votesGranted;
     std::vector<std::thread> activeThreads{};
+    std::mutex appendEntriesMutex{};
+    std::mutex requestVoteMutex{};
 };
 
 template <typename Client>
@@ -65,6 +66,8 @@ RaftImpl<Client>::~RaftImpl() {
     for (auto& [p, peer] : peers) {
         peer.get().stop();
     }
+    std::cerr << selfId << " stopped all RPC clients\n";
+    std::cerr << selfId << " waiting for " << activeThreads.size() << " active threads to finish\n";
     for (auto& t : activeThreads) {
         if (t.joinable()) {
             t.join();
@@ -95,7 +98,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
     for (const auto& peer : p) {
         peers.emplace(peer, std::ref(g(peer, policy)));
     }
-    electionTimeout = std::chrono::milliseconds(150);
+    electionTimeout = std::chrono::milliseconds(300);
     heartbeatInterval = std::chrono::milliseconds(30);
 
     electionTimer.start(
@@ -126,7 +129,7 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
         return RequestVoteReply{false, currentTerm};
     }
     std::unique_lock lock{m};
-    std::cerr << selfId << " received RequestVote from " << arg.candidateId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
+    // std::cerr << selfId << " received RequestVote from " << arg.candidateId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
     RequestVoteReply reply;
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -159,7 +162,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         return AppendEntriesReply{false, currentTerm};
     }
     std::unique_lock lock{m};
-    std::cerr << selfId << " received AppendEntries from " << arg.leaderId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
+    // std::cerr << selfId << " received AppendEntries from " << arg.leaderId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
     AppendEntriesReply reply;
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -222,7 +225,7 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
     //     }
     // }
     // activeThreads.clear();
-    std::cerr << selfId << " sending AppendEntries for term " << currentTerm << "\n";
+    // std::cerr << selfId << " sending AppendEntries for term " << currentTerm << "\n";
     std::vector<std::thread> threads;
     successCount = 1;
     for (auto& [peerId, _] : peers) {
@@ -257,13 +260,13 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
                     arg,
                     reply
                 );
-                std::unique_lock l{threadsMutex};
                 if (killed.load()) {
                     return;
                 }
                 if (role != Role::Leader) {
                     return;
                 }
+                std::lock_guard l{appendEntriesMutex};
                 if (status.has_value()) {
                     if (reply.success()) {
                         nextIndex[peerId] = g.lastIndex() + 1;
@@ -326,7 +329,7 @@ void RaftImpl<Client>::requestVote(){
     //     }
     // }
     // activeThreads.clear();
-    std::cerr << selfId << " starting election for term " << currentTerm + 1 << "\n";
+    // std::cerr << selfId << " starting election for term " << currentTerm + 1 << "\n";
     role = Role::Candidate;
     ++currentTerm;
     votedFor = selfId;
@@ -348,7 +351,7 @@ void RaftImpl<Client>::requestVote(){
                     arg,
                     reply
                 );
-                std::unique_lock l{threadsMutex};
+                std::lock_guard l{requestVoteMutex};
                 if (killed.load()) {
                     return;
                 }
@@ -360,7 +363,7 @@ void RaftImpl<Client>::requestVote(){
                         ++votesGranted;
                         if (votesGranted == clusterSize / 2 + 1) {
                             role = Role::Leader;
-                            std::cerr << selfId << " became leader for term " << currentTerm << "\n";
+                            // std::cerr << selfId << " became leader for term " << currentTerm << "\n";
                             for (const auto& [a, _] : peers) {
                                 nextIndex[a] = mainLog.lastIndex() + 1;
                                 matchIndex[a] = 0;

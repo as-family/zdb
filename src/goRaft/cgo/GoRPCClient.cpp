@@ -9,7 +9,7 @@ void GoRPCClient::stop() {
     for (auto& b : breakers) {
         b.get().stop();
     }
-    std::cerr << "C++: GoRPCClient to " << address << " is stopping\n";
+    // std::cerr << "C++: GoRPCClient to " << address << " is stopping\n";
     breakers.clear();
 }
 
