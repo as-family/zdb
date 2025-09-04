@@ -49,6 +49,19 @@ private:
 };
 
 template <typename Client>
+RaftImpl<Client>::~RaftImpl() {
+    std::unique_lock lock{m};
+    electionTimer.~AsyncTimer();
+    heartbeatTimer.~AsyncTimer();
+    std::cerr << selfId << " is being destroyed\n";
+    for (auto& [peerId, _] : peers) {
+        peers.at(peerId).get().stop();
+    }
+    std::cerr << selfId << " stopped all RPC clients\n";
+    peers.clear();
+}
+
+template <typename Client>
 RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Channel& f, zdb::RetryPolicy r, std::function<Client&(std::string, zdb::RetryPolicy)> g)
     : serviceChannel {c},
       followerChannel {f},
@@ -93,17 +106,6 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
             appendEntries(true);
         }
     );
-}
-
-template <typename Client>
-RaftImpl<Client>::~RaftImpl() {
-    std::unique_lock killLock {m};
-    electionTimer.stop();
-    heartbeatTimer.stop();
-    for (auto& peer : peers) {
-        peer.second.get().stop();
-    }
-    killed = true;
 }
 
 template <typename Client>
@@ -192,11 +194,10 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
     }
     std::cerr << selfId << " sending AppendEntries for term " << currentTerm << "\n";
     std::vector<std::thread> threads;
-    std::mutex threadsMutex{};
     int successCount = 1;
     for (auto& [peerId, _] : peers) {
         threads.emplace_back(
-        [this, peerId, &threadsMutex, &successCount] {
+        [this, peerId, &successCount] {
                 auto& peer = peers.at(peerId).get();
                 auto n = nextIndex.at(peerId);
                 auto v = mainLog.at(n);
@@ -226,7 +227,7 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
                     arg,
                     reply
                 );
-                std::unique_lock l{threadsMutex};
+                std::unique_lock l{m};
                 if (role != Role::Leader) {
                     return;
                 }
@@ -263,7 +264,7 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
             }
         );
     }
-    std::this_thread::sleep_for(heartbeatInterval);
+    std::this_thread::sleep_for(heartbeatInterval/2);
     for (auto& peer : peers) {
         peer.second.get().stop();
     }

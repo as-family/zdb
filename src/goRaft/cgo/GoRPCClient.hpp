@@ -10,6 +10,7 @@
 #include <variant>
 #include <cstdint>
 #include "grpc/grpc.h"
+#include <mutex>
 
 extern "C" int go_invoke_callback(uintptr_t handle, int p, char* f, void* args, int args_len, void* reply, int reply_len);
 
@@ -43,7 +44,10 @@ public:
             }
         };
         zdb::CircuitBreaker circuitBreaker{policy};
+        std::unique_lock lock{m};
+        stopped = false;
         breakers.push_back(std::ref(circuitBreaker));
+        lock.unlock();
         auto status = circuitBreaker.call(name, f);
         if (!status.back().ok()) {
             return std::nullopt;
@@ -63,6 +67,8 @@ private:
     zdb::RetryPolicy policy;
     uintptr_t handle;
     std::vector<std::reference_wrapper<zdb::CircuitBreaker>> breakers;
+    bool stopped{false};
+    std::mutex m;
 };
 
 #endif // GO_RPC_CLIENT_HPP

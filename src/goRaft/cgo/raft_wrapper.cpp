@@ -21,11 +21,38 @@ struct RaftHandle {
     uintptr_t callback;
     std::unordered_map<std::string, int> peerIds;
     std::unordered_map<std::string, std::unique_ptr<GoRPCClient>> clients;
-    std::unique_ptr<raft::Raft> raft;
+    std::unique_ptr<raft::RaftImpl<GoRPCClient>> raft;
 };
 
 
 extern "C" {
+
+void kill_raft(RaftHandle* h) {
+    std::cerr << "C++: Killing Raft instance\n";
+    if (!h) {
+        return;
+    }
+    if (h->raft) {
+        // Properly signal the raft instance to stop its operations
+        h->raft->kill();
+        // Reset the unique_ptr, which will automatically call the destructor
+        h->raft.reset();
+    }
+    std::cerr << "C++: Raft instance killed\n";
+    if (h->serviceChannel) {
+        h->serviceChannel->close();
+        delete h->serviceChannel;
+        h->serviceChannel = nullptr;
+    }
+    std::cerr << "C++: Service channel closed\n";
+    if (h->followerChannel) {
+        h->followerChannel->close();
+        delete h->followerChannel;
+        h->followerChannel = nullptr;
+    }
+    std::cerr << "C++: Follower channel closed\n";
+    delete h;
+}
 
 RaftHandle* create_raft(int id, int servers, uintptr_t cb) {
     std::vector<std::string> peers;
@@ -69,10 +96,6 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb) {
         }
     );
     return handle;
-}
-
-void kill_raft(RaftHandle* h) {
-    delete h;
 }
 
 int handle_request_vote(RaftHandle* h, char* args, int args_size, char* reply) {
