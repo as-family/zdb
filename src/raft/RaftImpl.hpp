@@ -278,14 +278,13 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
             }
         );
     }
-    std::this_thread::sleep_for(heartbeatInterval/2);
-    for (auto& peer : peers) {
-        peer.second.get().stop();
-    }
     for (auto& t : threads) {
         if(t.joinable()) {
             t.join();
         }
+    }
+    for (auto& peer : peers) {
+        peer.second.get().stop();
     }
 }
 

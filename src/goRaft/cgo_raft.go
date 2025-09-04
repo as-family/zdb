@@ -59,12 +59,6 @@ func deleteHandle(h uintptr) {
 
 func registerCallback(rf *Raft) C.uintptr_t {
 	cb := func(p int, s string, a interface{}, b interface{}) int {
-		// Prevent deadlock by avoiding self-calls during RPC processing
-		// If we're calling ourselves, just return failure to break the cycle
-		if p == rf.me {
-			return 0
-		}
-
 		// Don't hold any locks when making outgoing RPC calls
 		// This prevents deadlock when the RPC comes back to this same instance
 		if rf.peers[p].Call(s, a, b) {

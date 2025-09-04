@@ -8,6 +8,7 @@
 #include <grpcpp/support/status.h>
 #include <vector>
 #include <string>
+#include <atomic>
 
 namespace zdb {
 
@@ -20,7 +21,7 @@ public:
 private:
     ExponentialBackoff backoff;
     FullJitter fullJitter;
-    bool stopped{false};
+    std::atomic<bool> stopped{false};
 };
 
 } // namespace zdb

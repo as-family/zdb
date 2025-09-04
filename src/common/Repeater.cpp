@@ -17,8 +17,11 @@ Repeater::Repeater(const RetryPolicy p)
 
 std::vector<grpc::Status> Repeater::attempt(const std::string& op, const std::function<grpc::Status()>& rpc) {
     std::vector<grpc::Status> statuses;
-    while (!stopped) {
+    while (!stopped.load()) {
         auto status = rpc();
+        if (stopped.load()) {
+            return std::vector<grpc::Status> {grpc::Status{grpc::StatusCode::CANCELLED, "Repeater stopped"}};
+        }
         statuses.push_back(status);
         if (status.ok()) {
             backoff.reset();
