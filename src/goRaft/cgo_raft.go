@@ -246,11 +246,11 @@ func (rf *Raft) Kill() {
 		return
 	}
 	fmt.Println("Go: Raft is being killed", rf.me)
-	
+
 	// Set handle to nil first to prevent double-kill
 	handle := rf.handle
 	rf.handle = nil
-	
+
 	C.kill_raft(handle)
 	GoFreeCallback(rf.cb)
 	fmt.Println("Go: Raft killed", rf.me)

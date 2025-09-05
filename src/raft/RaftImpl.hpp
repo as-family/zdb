@@ -127,7 +127,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
     }
     heartbeatInterval = 5 * policy.rpcTimeout;
     electionTimeout = 10 * heartbeatInterval;
-    threadsCleanupInterval = 2 * electionTimeout;
+    threadsCleanupInterval = electionTimeout;
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
             auto t = electionTimeout +
