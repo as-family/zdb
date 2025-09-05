@@ -86,12 +86,12 @@ RaftImpl<Client>::~RaftImpl() {
 template <typename Client>
 void RaftImpl<Client>::cleanUpThreads() {
     std::unique_lock lock{m};
-    if (activeThreads.size() <= clusterSize * 2) {
+    if (activeThreads.size() <= clusterSize * 3) {
         return;
     }
     std::cerr << selfId << " cleaning up threads, activeThreads size: " << activeThreads.size() << "\n";
     std::vector<std::thread> threads;
-    while (activeThreads.size() > clusterSize * 2) {
+    while (activeThreads.size() > clusterSize * 3) {
         std::thread& t = activeThreads.front();
         threads.push_back(std::move(t));
         activeThreads.pop();
@@ -129,7 +129,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
     }
     heartbeatInterval = 5 * policy.rpcTimeout;
     electionTimeout = 10 * heartbeatInterval;
-    threadsCleanupInterval = 2 * heartbeatInterval;
+    threadsCleanupInterval = heartbeatInterval;
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
             auto t = electionTimeout +
@@ -334,6 +334,10 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
             activeThreads.push(std::move(t));
         }
     }
+    if(heartBeat && activeThreads.size() > clusterSize * 10) {
+        lock.unlock();
+        cleanUpThreads();
+    }
 }
 
 template <typename Client>
@@ -404,6 +408,10 @@ void RaftImpl<Client>::requestVote(){
         if(t.joinable()) {
             activeThreads.push(std::move(t));
         }
+    }
+    if (activeThreads.size() > clusterSize * 10) {
+        lock.unlock();
+        cleanUpThreads();
     }
 }
 
