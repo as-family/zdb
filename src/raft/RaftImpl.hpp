@@ -10,13 +10,13 @@
 #include <vector>
 #include <cstdint>
 #include <proto/raft.grpc.pb.h>
-#include "common/RPCService.hpp"
 #include "common/RetryPolicy.hpp"
 #include <unordered_map>
-#include "raft/RaftServiceImpl.hpp"
 #include "raft/AsyncTimer.hpp"
 #include <atomic>
 #include <functional>
+#include "common/FullJitter.hpp"
+#include <queue>
 
 namespace raft {
 
@@ -48,7 +48,7 @@ private:
     AsyncTimer heartbeatTimer;
     int successCount;
     int votesGranted;
-    std::vector<std::thread> activeThreads{};
+    std::queue<std::thread> activeThreads{};
     std::mutex appendEntriesMutex{};
     std::mutex requestVoteMutex{};
 };
@@ -68,9 +68,9 @@ RaftImpl<Client>::~RaftImpl() {
     }
     std::cerr << selfId << " stopped all RPC clients\n";
     std::cerr << selfId << " waiting for " << activeThreads.size() << " active threads to finish\n";
-    for (auto& t : activeThreads) {
-        if (t.joinable()) {
-            t.join();
+    for (; !activeThreads.empty(); activeThreads.pop()) {
+        if (activeThreads.front().joinable()) {
+            activeThreads.front().join();
         }
     }
     std::cerr << selfId << " stopped all RPC clients\n";
@@ -98,8 +98,9 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
     for (const auto& peer : p) {
         peers.emplace(peer, std::ref(g(peer, policy)));
     }
-    electionTimeout = std::chrono::milliseconds(300);
-    heartbeatInterval = std::chrono::milliseconds(30);
+    heartbeatInterval = 10 * policy.rpcTimeout;
+    electionTimeout = 10 * heartbeatInterval;
+    
 
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
@@ -302,7 +303,7 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
     }
     for (auto& t : threads) {
         if(t.joinable()) {
-            activeThreads.push_back(std::move(t));
+            activeThreads.push(std::move(t));
         }
     }
 }
@@ -382,7 +383,7 @@ void RaftImpl<Client>::requestVote(){
     }
     for (auto& t : threads) {
         if(t.joinable()) {
-            activeThreads.push_back(std::move(t));
+            activeThreads.push(std::move(t));
         }
     }
 }
