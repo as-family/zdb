@@ -117,7 +117,7 @@ int handle_request_vote(RaftHandle* h, char* args, int args_size, char* reply) {
         return 0;
     }
     raft::proto::RequestVoteArg protoArgs{};
-    auto s = std::string{args, args_size};
+    auto s = std::string{args, static_cast<size_t>(args_size)};
     if (!protoArgs.ParseFromString(s)) {
         return 0;
     }
@@ -138,7 +138,7 @@ int handle_append_entries(RaftHandle* h, char* args, int args_size, char* reply)
         return 0;
     }
     raft::proto::AppendEntriesArg protoArgs{};
-    auto s = std::string {args, args_size};
+    auto s = std::string {args, static_cast<size_t>(args_size)};
     if (!protoArgs.ParseFromString(s)) {
         return 0;
     }
