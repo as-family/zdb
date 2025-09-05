@@ -31,6 +31,7 @@ public:
     bool start(std::string command) override;
     void kill() override;
     Log& log() override;
+    void cleanUpThreads();
     ~RaftImpl();
 private:
     void applyCommittedEntries(Channel& channel);
@@ -44,8 +45,10 @@ private:
     Log mainLog;
     std::atomic<bool> killed;
     std::unordered_map<std::string, std::reference_wrapper<Client>> peers;
+    std::chrono::milliseconds threadsCleanupInterval;
     AsyncTimer electionTimer;
     AsyncTimer heartbeatTimer;
+    AsyncTimer threadsCleanupTimer;
     int successCount;
     int votesGranted;
     std::queue<std::thread> activeThreads{};
@@ -63,17 +66,41 @@ RaftImpl<Client>::~RaftImpl() {
     std::cerr << selfId << " heartbeat timer stopped\n";
     std::unique_lock lock{m};
     std::cerr << selfId << " acquiring lock to stop RPC clients\n";
+    threadsCleanupTimer.stop();
+    std::cerr << selfId << " threads cleanup timer stopped\n";
     for (auto& [p, peer] : peers) {
         peer.get().stop();
     }
     std::cerr << selfId << " stopped all RPC clients\n";
     std::cerr << selfId << " waiting for " << activeThreads.size() << " active threads to finish\n";
-    for (; !activeThreads.empty(); activeThreads.pop()) {
-        if (activeThreads.front().joinable()) {
-            activeThreads.front().join();
+    while (!activeThreads.empty()) {
+        std::thread& t = activeThreads.front();
+        if (t.joinable()) {
+            t.join();
+        }
+        activeThreads.pop();
+    }
+    std::cerr << selfId << " all threads joined\n";
+}
+
+template <typename Client>
+void RaftImpl<Client>::cleanUpThreads() {
+    std::unique_lock lock{m};
+    if (activeThreads.size() < clusterSize * 2) {
+        return;
+    }
+    std::vector<std::thread> threads;
+    while (activeThreads.size() >= clusterSize * 2) {
+        std::thread& t = activeThreads.front();
+        threads.push_back(std::move(t));
+        activeThreads.pop();
+    }
+    lock.unlock();
+    for (auto& t : threads) {
+        if (t.joinable()) {
+            t.join();
         }
     }
-    std::cerr << selfId << " stopped all RPC clients\n";
 }
 
 template <typename Client>
@@ -98,10 +125,9 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
     for (const auto& peer : p) {
         peers.emplace(peer, std::ref(g(peer, policy)));
     }
-    heartbeatInterval = 10 * policy.rpcTimeout;
+    heartbeatInterval = 5 * policy.rpcTimeout;
     electionTimeout = 10 * heartbeatInterval;
-    
-
+    threadsCleanupInterval = 2 * electionTimeout;
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
             auto t = electionTimeout +
@@ -120,6 +146,15 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
         },
         [this] {
             appendEntries(true);
+        }
+    );
+    threadsCleanupTimer.start(
+        [this] -> std::chrono::milliseconds {
+            return threadsCleanupInterval + std::chrono::duration_cast<std::chrono::milliseconds>(fullJitter.jitter(
+                    std::chrono::duration_cast<std::chrono::microseconds>(threadsCleanupInterval)));
+        },
+        [this] {
+            cleanUpThreads();
         }
     );
 }
