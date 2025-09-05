@@ -17,6 +17,8 @@
 #include "raft/SyncChannel.hpp"
 #include "raft/RaftImpl.hpp"
 #include "common/LockedUnorderedMap.hpp"
+#include "raft/RaftServiceImpl.hpp"
+#include "server/RPCServer.hpp"
 
 struct EndPoints {
     std::string raftTarget;

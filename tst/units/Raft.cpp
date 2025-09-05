@@ -31,7 +31,6 @@ public:
     // Mock for call method - returns success result with optional wrapping
     template<typename Req, typename Rep>
     std::optional<std::monostate> call(const std::string& /* op */, 
-                       grpc::Status (proto::Raft::Stub::*)(grpc::ClientContext*, const Req&, Rep*),
                        const Req& /* request */, 
                        Rep& reply) {
         // Default successful response

@@ -15,6 +15,7 @@
 #include <mutex>
 #include <condition_variable>
 #include "common/RetryPolicy.hpp"
+#include "common/RPCService.hpp"
 
 template<typename Service>
 class ProxyService {
@@ -28,21 +29,23 @@ public:
     template<typename Req, typename Rep>
     std::expected<std::monostate, std::vector<zdb::Error>> call(
         std::string op,
-        grpc::Status (Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
         Rep& reply) {
         std::lock_guard l{m};
-        std::ignore = op;
         if (!networkConfig.isConnected()) {
             return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::UNAVAILABLE, "Disconnected"))});
         }
         if (!stub || !channel) {
             return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::UNAVAILABLE, "Not Connected"))});
         }
+        auto funcIt = functions.find(op);
+        if (funcIt == functions.end()) {
+            return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "Unknown operation"))});
+        }
         grpc::ClientContext c;
         c.set_deadline(std::chrono::system_clock::now() + policy.rpcTimeout);
         if (networkConfig.isReliable()) {
-            auto status = (stub.get()->*f)(&c, request, &reply);
+            auto status = funcIt->second(stub.get(), &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
             if (status.ok()) {
                 return {};
             } else {
@@ -52,7 +55,7 @@ public:
             if (networkConfig.shouldDrop()) {
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
-            auto status = (stub.get()->*f)(&c, request, &reply);
+            auto status = funcIt->second(stub.get(), &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
             if (networkConfig.shouldDrop()) {
                return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
@@ -84,12 +87,13 @@ public:
         return originalAddress;
     }
 private:
+    std::mutex m{};
     std::string originalAddress;
+    std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t> functions;
     std::shared_ptr<grpc::Channel> channel;
     std::unique_ptr<Stub> stub;
     NetworkConfig& networkConfig;
     zdb::RetryPolicy policy;
-    std::mutex m{};
 };
 
 #endif // PROXYSERVICE_HPP

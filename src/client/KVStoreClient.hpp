@@ -43,7 +43,7 @@ private:
         for (int i = 0; i < config.policy.servicesToTry; ++i) {
             auto serviceResult = config.nextService();
             if (serviceResult.has_value()) {
-                auto callResult = serviceResult.value()->call(op, f, request, reply);
+                auto callResult = serviceResult.value()->call(op, request, reply);
                 if (callResult.has_value()) {
                     return {};
                 } else {

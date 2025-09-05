@@ -14,6 +14,8 @@
 #include <string>
 #include <thread>
 #include <mutex>
+#include <unordered_map>
+#include "proto/kvStore.pb.h"
 
 namespace zdb {
 
@@ -21,24 +23,24 @@ template<typename Service>
 class RPCService {
 public:
     using Stub = typename Service::Stub;
-    RPCService(const std::string& address, const RetryPolicy p);
+    using function_t = std::function<grpc::Status(Stub*, grpc::ClientContext*, const google::protobuf::Message&, google::protobuf::Message*)>;
+    RPCService(const std::string& address, const RetryPolicy p, std::unordered_map<std::string, function_t> f);
     RPCService(const RPCService&) = delete;
     RPCService& operator=(const RPCService&) = delete;
     std::expected<std::monostate, Error> connect();
     template<typename Req, typename Rep>
     std::expected<std::monostate, std::vector<Error>> call(
         const std::string& op,
-        grpc::Status (Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         const Req& request,
         Rep& reply) {
         std::lock_guard<std::mutex> lock {m};
         if (!connected()) {
             return std::unexpected {std::vector<Error>{Error{ErrorCode::ServiceTemporarilyUnavailable, "Not connected"}}};
         }
-        auto bound = [this, f, &request, &reply] {
+        auto bound = [this, f = functions[op], &request, &reply] {
             grpc::ClientContext c {};
             c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(policy.rpcTimeout));
-            return (stub.get()->*f)(&c, request, &reply);
+            return f(stub.get(), &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
         };
         auto statuses = circuitBreaker.call(op, bound);
         if (statuses.back().ok()) {
@@ -55,19 +57,21 @@ public:
     [[nodiscard]] bool connected() const;
     [[nodiscard]] std::string address() const;
 private:
+    std::mutex m;
     std::string addr;
     RetryPolicy policy;
     CircuitBreaker circuitBreaker;
+    std::unordered_map<std::string, function_t> functions;
     std::shared_ptr<grpc::Channel> channel;
     std::unique_ptr<Stub> stub;
-    std::mutex m;
 };
 
 template<typename Service>
-RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p) 
+RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p, std::unordered_map<std::string, function_t> f) 
     : addr {address},
       policy {p},
-      circuitBreaker {p} {}
+      circuitBreaker {p},
+      functions {std::move(f)} {}
 
 template<typename Service>
 std::expected<std::monostate, Error> RPCService<Service>::connect() {
