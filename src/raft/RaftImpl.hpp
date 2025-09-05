@@ -64,9 +64,9 @@ RaftImpl<Client>::~RaftImpl() {
     std::cerr << selfId << " election timer stopped\n";
     heartbeatTimer.stop();
     std::cerr << selfId << " heartbeat timer stopped\n";
-    std::unique_lock lock{m};
     std::cerr << selfId << " acquiring lock to stop RPC clients\n";
     threadsCleanupTimer.stop();
+    std::unique_lock lock{m};
     std::cerr << selfId << " threads cleanup timer stopped\n";
     for (auto& [p, peer] : peers) {
         peer.get().stop();
@@ -86,11 +86,11 @@ RaftImpl<Client>::~RaftImpl() {
 template <typename Client>
 void RaftImpl<Client>::cleanUpThreads() {
     std::unique_lock lock{m};
-    if (activeThreads.size() < clusterSize * 2) {
+    if (activeThreads.size() <= clusterSize * 2) {
         return;
     }
     std::vector<std::thread> threads;
-    while (activeThreads.size() >= clusterSize * 2) {
+    while (activeThreads.size() > clusterSize * 2) {
         std::thread& t = activeThreads.front();
         threads.push_back(std::move(t));
         activeThreads.pop();
