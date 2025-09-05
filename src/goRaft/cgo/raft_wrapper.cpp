@@ -30,50 +30,42 @@ struct RaftHandle {
 extern "C" {
 
 void kill_raft(RaftHandle* h) {
-    std::cerr << "C++: Killing Raft instance, handle=" << h << "\n";
+    // std::cerr << "C++: Killing Raft instance, handle=" << h << "\n";
     if (!h) {
-        std::cerr << "C++: Handle is null, nothing to kill\n";
+        // std::cerr << "C++: Handle is null, nothing to kill\n";
         return;
     }
     
     // Add some basic validation
-    try {
-        std::cerr << "C++: Checking handle validity\n";
-        if (h->raft) {
-            std::cerr << "C++: Raft instance exists, signaling kill\n";
-            // Properly signal the raft instance to stop its operations
-            h->raft->kill();
-            std::cerr << "C++: Raft instance kill signal sent\n";
-            
-            // Give threads a moment to recognize the kill signal
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            
-            // Reset the unique_ptr, which will automatically call the destructor
-            h->raft.reset();
-            std::cerr << "C++: Raft instance destroyed\n";
-        } else {
-            std::cerr << "C++: Raft instance was already null\n";
-        }
+    // std::cerr << "C++: Checking handle validity\n";
+    if (h->raft) {
+        // std::cerr << "C++: Raft instance exists, signaling kill\n";
+        // Properly signal the raft instance to stop its operations
+        h->raft->kill();
+        // std::cerr << "C++: Raft instance kill signal sent\n";
         
-        std::cerr << "C++: Raft instance killed\n";
-        if (h->serviceChannel) {
-            h->serviceChannel->close();
-            delete h->serviceChannel;
-            h->serviceChannel = nullptr;
-        }
-        std::cerr << "C++: Service channel closed\n";
-        if (h->followerChannel) {
-            h->followerChannel->close();
-            delete h->followerChannel;
-            h->followerChannel = nullptr;
-        }
-        std::cerr << "C++: Follower channel closed\n";
-    } catch (const std::exception& e) {
-        std::cerr << "C++: Exception during kill_raft: " << e.what() << "\n";
-    } catch (...) {
-        std::cerr << "C++: Unknown exception during kill_raft\n";
+        // Give threads a moment to recognize the kill signal
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        
+        // Reset the unique_ptr, which will automatically call the destructor
+        h->raft.reset();
+        // std::cerr << "C++: Raft instance destroyed\n";
+    } else {
+        // std::cerr << "C++: Raft instance was already null\n";
     }
-    // Don't delete h here - let Go manage the handle lifecycle
+    
+    // std::cerr << "C++: Raft instance killed\n";
+    if (h->serviceChannel) {
+        h->serviceChannel->close();
+        delete h->serviceChannel;
+        h->serviceChannel = nullptr;
+    }
+    // std::cerr << "C++: Service channel closed\n";
+    if (h->followerChannel) {
+        h->followerChannel->close();
+        delete h->followerChannel;
+        h->followerChannel = nullptr;
+    }
 }
 
 RaftHandle* create_raft(int id, int servers, uintptr_t cb) {
@@ -176,7 +168,7 @@ int raft_get_state(RaftHandle* handle, int* term, int* is_leader) {
 
         return 1;
     } catch (const std::exception& e) {
-        std::cerr << "Error getting state: " << e.what() << std::endl;
+        // std::cerr << "Error getting state: " << e.what() << std::endl;
         return 0;
     }
 }

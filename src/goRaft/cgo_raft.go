@@ -242,10 +242,10 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 func (rf *Raft) Kill() {
 	if rf.handle == nil {
-		fmt.Println("Go: Raft handle is nil, already killed", rf.me)
+		// fmt.Println("Go: Raft handle is nil, already killed", rf.me)
 		return
 	}
-	fmt.Println("Go: Raft is being killed", rf.me)
+	// fmt.Println("Go: Raft is being killed", rf.me)
 
 	// Set handle to nil first to prevent double-kill
 	handle := rf.handle
@@ -253,7 +253,7 @@ func (rf *Raft) Kill() {
 
 	C.kill_raft(handle)
 	GoFreeCallback(rf.cb)
-	fmt.Println("Go: Raft killed", rf.me)
+	// fmt.Println("Go: Raft killed", rf.me)
 }
 
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
