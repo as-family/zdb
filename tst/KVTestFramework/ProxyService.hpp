@@ -16,6 +16,25 @@
 #include <condition_variable>
 #include "common/RetryPolicy.hpp"
 #include "common/RPCService.hpp"
+#include <proto/kvStore.grpc.pb.h>
+#include <proto/kvStore.pb.h>
+
+inline std::unordered_map<std::string, typename zdb::RPCService<zdb::kvStore::KVStoreService>::function_t> getDefaultKVProxyFunctions() {
+    return {
+        { "get", [](zdb::kvStore::KVStoreService::Stub* stub, grpc::ClientContext* ctx, const google::protobuf::Message& req, google::protobuf::Message* resp) -> grpc::Status {
+            return stub->get(ctx, static_cast<const zdb::kvStore::GetRequest&>(req), static_cast<zdb::kvStore::GetReply*>(resp));
+        }},
+        { "set", [](zdb::kvStore::KVStoreService::Stub* stub, grpc::ClientContext* ctx, const google::protobuf::Message& req, google::protobuf::Message* resp) -> grpc::Status {
+            return stub->set(ctx, static_cast<const zdb::kvStore::SetRequest&>(req), static_cast<zdb::kvStore::SetReply*>(resp));
+        }},
+        { "erase", [](zdb::kvStore::KVStoreService::Stub* stub, grpc::ClientContext* ctx, const google::protobuf::Message& req, google::protobuf::Message* resp) -> grpc::Status {
+            return stub->erase(ctx, static_cast<const zdb::kvStore::EraseRequest&>(req), static_cast<zdb::kvStore::EraseReply*>(resp));
+        }},
+        { "size", [](zdb::kvStore::KVStoreService::Stub* stub, grpc::ClientContext* ctx, const google::protobuf::Message& req, google::protobuf::Message* resp) -> grpc::Status {
+            return stub->size(ctx, static_cast<const zdb::kvStore::SizeRequest&>(req), static_cast<zdb::kvStore::SizeReply*>(resp));
+        }}
+    };
+}
 
 template<typename Service>
 class ProxyService {
@@ -23,6 +42,12 @@ class ProxyService {
 public:
     ProxyService(const std::string& original, NetworkConfig& c, zdb::RetryPolicy p)
     : originalAddress {original},
+      networkConfig {c},
+      policy {p} {}
+
+    ProxyService(const std::string& original, NetworkConfig& c, zdb::RetryPolicy p, std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t> f)
+    : originalAddress {original},
+      functions {std::move(f)},
       networkConfig {c},
       policy {p} {}
 
