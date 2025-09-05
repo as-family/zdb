@@ -18,6 +18,8 @@
 #include "common/RPCService.hpp"
 #include <proto/kvStore.grpc.pb.h>
 #include <proto/kvStore.pb.h>
+#include <proto/raft.grpc.pb.h>
+#include <proto/raft.pb.h>
 
 inline std::unordered_map<std::string, typename zdb::RPCService<zdb::kvStore::KVStoreService>::function_t> getDefaultKVProxyFunctions() {
     return {
@@ -32,6 +34,17 @@ inline std::unordered_map<std::string, typename zdb::RPCService<zdb::kvStore::KV
         }},
         { "size", [](zdb::kvStore::KVStoreService::Stub* stub, grpc::ClientContext* ctx, const google::protobuf::Message& req, google::protobuf::Message* resp) -> grpc::Status {
             return stub->size(ctx, static_cast<const zdb::kvStore::SizeRequest&>(req), static_cast<zdb::kvStore::SizeReply*>(resp));
+        }}
+    };
+}
+
+inline std::unordered_map<std::string, typename zdb::RPCService<raft::proto::Raft>::function_t> getDefaultRaftProxyFunctions() {
+    return {
+        { "appendEntries", [](raft::proto::Raft::Stub* stub, grpc::ClientContext* ctx, const google::protobuf::Message& req, google::protobuf::Message* resp) -> grpc::Status {
+            return stub->appendEntries(ctx, static_cast<const raft::proto::AppendEntriesArg&>(req), static_cast<raft::proto::AppendEntriesReply*>(resp));
+        }},
+        { "requestVote", [](raft::proto::Raft::Stub* stub, grpc::ClientContext* ctx, const google::protobuf::Message& req, google::protobuf::Message* resp) -> grpc::Status {
+            return stub->requestVote(ctx, static_cast<const raft::proto::RequestVoteArg&>(req), static_cast<raft::proto::RequestVoteReply*>(resp));
         }}
     };
 }
