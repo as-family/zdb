@@ -60,17 +60,17 @@ template <typename Client>
 RaftImpl<Client>::~RaftImpl() {
     std::cerr << selfId << " is being destroyed\n";
     killed = true;
+    threadsCleanupTimer.stop();
     electionTimer.stop();
     std::cerr << selfId << " election timer stopped\n";
     heartbeatTimer.stop();
     std::cerr << selfId << " heartbeat timer stopped\n";
     std::cerr << selfId << " acquiring lock to stop RPC clients\n";
-    threadsCleanupTimer.stop();
     std::unique_lock lock{m};
     std::cerr << selfId << " threads cleanup timer stopped\n";
-    for (auto& [p, peer] : peers) {
-        peer.get().stop();
-    }
+    // for (auto& [p, peer] : peers) {
+    //     peer.get().stop();
+    // }
     std::cerr << selfId << " stopped all RPC clients\n";
     std::cerr << selfId << " waiting for " << activeThreads.size() << " active threads to finish\n";
     while (!activeThreads.empty()) {
@@ -89,6 +89,7 @@ void RaftImpl<Client>::cleanUpThreads() {
     if (activeThreads.size() <= clusterSize * 2) {
         return;
     }
+    std::cerr << selfId << " cleaning up threads, activeThreads size: " << activeThreads.size() << "\n";
     std::vector<std::thread> threads;
     while (activeThreads.size() > clusterSize * 2) {
         std::thread& t = activeThreads.front();
@@ -112,7 +113,8 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
       lastHeartbeat {std::chrono::steady_clock::now()},
       mainLog {},
       electionTimer {},
-      heartbeatTimer {} {
+      heartbeatTimer {},
+      threadsCleanupTimer {} {
     selfId = s;
     clusterSize = p.size();
     nextIndex = std::unordered_map<std::string, uint64_t>{};
@@ -127,7 +129,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c
     }
     heartbeatInterval = 5 * policy.rpcTimeout;
     electionTimeout = 10 * heartbeatInterval;
-    threadsCleanupInterval = electionTimeout;
+    threadsCleanupInterval = 2 * heartbeatInterval;
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
             auto t = electionTimeout +
@@ -252,18 +254,9 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
     if (role != Role::Leader) {
         return;
     }
-    for (auto& [p, peer] : peers) {
-        peer.get().stop();
-    }
-    // for (auto& t : activeThreads) {
-    //     if (t.joinable()) {
-    //         t.join();
-    //     }
-    // }
-    // activeThreads.clear();
-    // std::cerr << selfId << " sending AppendEntries for term " << currentTerm << "\n";
     std::vector<std::thread> threads;
     successCount = 1;
+    std::cerr << selfId << " is sending AppendEntries for term " << currentTerm << " (commitIndex: " << commitIndex << ", lastIndex: " << mainLog.lastIndex() << ")\n";
     for (auto& [peerId, _] : peers) {
         threads.emplace_back(
         [this, peerId] {
@@ -356,21 +349,12 @@ void RaftImpl<Client>::requestVote(){
     if (role == Role::Leader) {
         return;
     }
-    for (auto& [p, peer] : peers) {
-        peer.get().stop();
-    }
-    // for (auto& t : activeThreads) {
-    //     if (t.joinable()) {
-    //         t.join();
-    //     }
-    // }
-    // activeThreads.clear();
-    // std::cerr << selfId << " starting election for term " << currentTerm + 1 << "\n";
     role = Role::Candidate;
     ++currentTerm;
     votedFor = selfId;
     lastHeartbeat = std::chrono::steady_clock::now();
     votesGranted = 1;
+    std::cerr << selfId << " is starting election for term " << currentTerm << "\n";
     std::vector<std::thread> threads;
     for (auto& [peerId, _] : peers) {
         threads.emplace_back(

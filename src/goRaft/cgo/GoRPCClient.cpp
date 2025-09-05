@@ -1,5 +1,6 @@
 #include "GoRPCClient.hpp"
 #include <iostream>
+#include <memory>
 
 GoRPCClient::GoRPCClient(int ii, std::string a, const zdb::RetryPolicy p, uintptr_t h)
     : i {ii}, address {a}, policy {p}, handle {h} {}
