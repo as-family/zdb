@@ -12,12 +12,12 @@ find_program(PROTOC_GEN_GO protoc-gen-go REQUIRED)
 add_custom_command(
   OUTPUT ${CMAKE_BINARY_DIR}/go-proto/raft.pb.go ${CMAKE_BINARY_DIR}/go-proto/go.mod
   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/go-proto
-  COMMAND /home/ahmed/go/bin/protoc-gen-go --version > /dev/null 2>&1 || echo "protoc-gen-go not found"
+  COMMAND ${PROTOC_GEN_GO} --version > /dev/null 2>&1 || echo "protoc-gen-go not found"
   COMMAND ${Protobuf_PROTOC_EXECUTABLE}
       --go_out=${CMAKE_BINARY_DIR}/go-proto
       --go_opt=paths=source_relative
       --proto_path=${CMAKE_SOURCE_DIR}/proto
-      --plugin=protoc-gen-go=/home/ahmed/go/bin/protoc-gen-go
+      --plugin=protoc-gen-go=${PROTOC_GEN_GO}
       ${CMAKE_SOURCE_DIR}/proto/raft.proto
   COMMAND ${CMAKE_COMMAND} -E echo "module proto" > ${CMAKE_BINARY_DIR}/go-proto/go.mod
   COMMAND ${CMAKE_COMMAND} -E echo "" >> ${CMAKE_BINARY_DIR}/go-proto/go.mod
