@@ -12,6 +12,8 @@
 #include "grpc/grpc.h"
 #include <mutex>
 #include <atomic>
+#include <vector>
+#include <memory>
 
 extern "C" int go_invoke_callback(uintptr_t handle, int p, char* f, void* args, int args_len, void* reply, int reply_len);
 
@@ -47,11 +49,12 @@ public:
                 return grpc::Status::OK;
             }
         };
-        zdb::CircuitBreaker circuitBreaker{policy};
+        auto circuitBreaker = std::make_unique<zdb::CircuitBreaker>(policy);
         std::unique_lock lock{m};
-        breakers.push_back(std::ref(circuitBreaker));
+        breakers.push_back(std::move(circuitBreaker));
+        auto& breaker = *breakers.back();  
         lock.unlock();
-        auto status = circuitBreaker.call(name, f);
+        auto status = breaker.call(name, f);
         if (!status.back().ok()) {
             return std::nullopt;
         }
@@ -69,7 +72,7 @@ private:
     std::string address;
     zdb::RetryPolicy policy;
     uintptr_t handle;
-    std::vector<std::reference_wrapper<zdb::CircuitBreaker>> breakers;
+    std::vector<std::unique_ptr<zdb::CircuitBreaker>> breakers;
     std::mutex m;
 };
 

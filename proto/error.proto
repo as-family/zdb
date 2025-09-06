@@ -13,6 +13,7 @@ enum ErrorCode {
     Timeout = 7;
     NotLeader = 8;
     Internal = 9;
+    Cancelled = 10;
     Unknown = 128;
 }
 

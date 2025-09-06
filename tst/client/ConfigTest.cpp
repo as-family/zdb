@@ -30,7 +30,7 @@ protected:
     // Test server setup for positive tests
     const std::string validServerAddr = "localhost:50053";
     const std::string validServerAddr2 = "localhost:50054";
-    const std::string invalidServerAddr = "localhost:99999";
+    const std::string invalidServerAddr = "localhost:59999";
     
     InMemoryKVStore kvStore;
     raft::SyncChannel leader1{};

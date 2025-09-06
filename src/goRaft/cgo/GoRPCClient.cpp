@@ -6,12 +6,16 @@ GoRPCClient::GoRPCClient(int ii, std::string a, const zdb::RetryPolicy p, uintpt
     : i {ii}, address {a}, policy {p}, handle {h} {}
 
 void GoRPCClient::stop() {
-    std::unique_lock lock{m};
-    for (auto& b : breakers) {
-        b.get().stop();
+    decltype(breakers) local;
+    {
+        std::unique_lock lock{m};
+        local = std::move(breakers);
+        breakers.clear();
+    }
+    for (auto& b : local) {
+        b->stop();
     }
     // std::cerr << "C++: GoRPCClient to " << address << " is stopping\n";
-    breakers.clear();
 }
 
 GoRPCClient::~GoRPCClient() {

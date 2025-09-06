@@ -79,8 +79,10 @@ protected:
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     void TearDown() override {
-        testServer->shutdown();
-        testServer.reset();
+        if (testServer) {
+            testServer->shutdown();
+            testServer.reset();
+        }
     }
 };
 
@@ -293,7 +295,7 @@ TEST_F(KVRPCServiceTest, MultipleAvailableCalls) {
 // Test available() behavior after connection failure
 TEST_F(KVRPCServiceTest, AvailableAfterConnectionFailure) {
     // Connect to invalid address
-    zdb::KVRPCService badService{"localhost:99999", policy, zdb::getDefaultKVFunctions()}; // unlikely port
+    zdb::KVRPCService badService{"localhost:59999", policy, zdb::getDefaultKVFunctions()}; // unlikely port
     
     // available() should return false when connection fails
     EXPECT_FALSE(badService.available());
@@ -310,6 +312,7 @@ TEST_F(KVRPCServiceTest, ReconnectionAfterServerRestart) {
     
     // Shutdown server temporarily
     testServer->shutdown();
+    testServer.reset();
     
     // Give time for disconnection
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -412,20 +415,30 @@ TEST_F(KVRPCServiceTest, RapidServerCycling) {
     
     // Cycle server multiple times
     for (int i = 0; i < 3; ++i) {
-        testServer->shutdown();
+        // Shutdown the current server (either testServer or previous temp server)
+        if (i == 0) {
+            testServer->shutdown();
+            testServer.reset();
+        } else {
+            tempServers.back()->shutdown();
+            tempServers.pop_back();
+        }
+        
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         
+        // Create new temporary server
         tempServers.push_back(std::make_unique<TestKVServer>(address));
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         
         // available() should handle reconnection
         EXPECT_TRUE(service.available());
-        
-        tempServers.back()->shutdown();
     }
     
     // Clean up temp servers
-    tempServers.clear();
+    if (!tempServers.empty()) {
+        tempServers.back()->shutdown();
+        tempServers.clear();
+    }
 }
 
 // Test error handling in available() when reconnection fails

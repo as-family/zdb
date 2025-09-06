@@ -23,7 +23,7 @@ enum class ErrorCode {
     NotLeader,
     Internal,
     Cancelled,
-    Unknown
+    Unknown = 128
 };
 
 struct ErrorCodeHash {

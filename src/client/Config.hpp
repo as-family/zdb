@@ -21,17 +21,57 @@ using KVRPCServicePtr = RPCService<zdb::kvStore::KVStoreService>*;
 
 inline std::unordered_map<std::string, KVRPCService::function_t> getDefaultKVFunctions() {
     return {
-        { "get", [](zdb::kvStore::KVStoreService::Stub* stub, grpc::ClientContext* ctx, const google::protobuf::Message& req, google::protobuf::Message* resp) -> grpc::Status {
-            return stub->get(ctx, static_cast<const zdb::kvStore::GetRequest&>(req), static_cast<zdb::kvStore::GetReply*>(resp));
+        { "get", [](zdb::kvStore::KVStoreService::Stub* stub,
+                    grpc::ClientContext* ctx,
+                    const google::protobuf::Message& req,
+                    google::protobuf::Message* resp) -> grpc::Status {
+            if (!resp ||
+                req.GetDescriptor() != zdb::kvStore::GetRequest::descriptor()) {
+                return {grpc::StatusCode::INVALID_ARGUMENT,
+                        "get: type mismatch or null resp"};
+            }
+            auto& r = static_cast<const zdb::kvStore::GetRequest&>(req);
+            auto* p = static_cast<zdb::kvStore::GetReply*>(resp);
+            return stub->get(ctx, r, p);
         }},
-        { "set", [](zdb::kvStore::KVStoreService::Stub* stub, grpc::ClientContext* ctx, const google::protobuf::Message& req, google::protobuf::Message* resp) -> grpc::Status {
-            return stub->set(ctx, static_cast<const zdb::kvStore::SetRequest&>(req), static_cast<zdb::kvStore::SetReply*>(resp));
+        { "set", [](zdb::kvStore::KVStoreService::Stub* stub,
+                    grpc::ClientContext* ctx,
+                    const google::protobuf::Message& req,
+                    google::protobuf::Message* resp) -> grpc::Status {
+            if (!resp ||
+                req.GetDescriptor() != zdb::kvStore::SetRequest::descriptor()) {
+                return {grpc::StatusCode::INVALID_ARGUMENT,
+                        "set: type mismatch or null resp"};
+            }
+            auto& r = static_cast<const zdb::kvStore::SetRequest&>(req);
+            auto* p = static_cast<zdb::kvStore::SetReply*>(resp);
+            return stub->set(ctx, r, p);
         }},
-        { "erase", [](zdb::kvStore::KVStoreService::Stub* stub, grpc::ClientContext* ctx, const google::protobuf::Message& req, google::protobuf::Message* resp) -> grpc::Status {
-            return stub->erase(ctx, static_cast<const zdb::kvStore::EraseRequest&>(req), static_cast<zdb::kvStore::EraseReply*>(resp));
+        { "erase", [](zdb::kvStore::KVStoreService::Stub* stub,
+                      grpc::ClientContext* ctx,
+                      const google::protobuf::Message& req,
+                      google::protobuf::Message* resp) -> grpc::Status {
+            if (!resp ||
+                req.GetDescriptor() != zdb::kvStore::EraseRequest::descriptor()) {
+                return {grpc::StatusCode::INVALID_ARGUMENT,
+                        "erase: type mismatch or null resp"};
+            }
+            auto& r = static_cast<const zdb::kvStore::EraseRequest&>(req);
+            auto* p = static_cast<zdb::kvStore::EraseReply*>(resp);
+            return stub->erase(ctx, r, p);
         }},
-        { "size", [](zdb::kvStore::KVStoreService::Stub* stub, grpc::ClientContext* ctx, const google::protobuf::Message& req, google::protobuf::Message* resp) -> grpc::Status {
-            return stub->size(ctx, static_cast<const zdb::kvStore::SizeRequest&>(req), static_cast<zdb::kvStore::SizeReply*>(resp));
+        { "size", [](zdb::kvStore::KVStoreService::Stub* stub,
+                     grpc::ClientContext* ctx,
+                     const google::protobuf::Message& req,
+                     google::protobuf::Message* resp) -> grpc::Status {
+            if (!resp ||
+                req.GetDescriptor() != zdb::kvStore::SizeRequest::descriptor()) {
+                return {grpc::StatusCode::INVALID_ARGUMENT,
+                        "size: type mismatch or null resp"};
+            }
+            auto& r = static_cast<const zdb::kvStore::SizeRequest&>(req);
+            auto* p = static_cast<zdb::kvStore::SizeReply*>(resp);
+            return stub->size(ctx, r, p);
         }}
     };
 }

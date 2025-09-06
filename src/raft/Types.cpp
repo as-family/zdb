@@ -15,7 +15,7 @@ AppendEntriesArg::AppendEntriesArg(const proto::AppendEntriesArg& arg)
     }
 }
 
-AppendEntriesArg::AppendEntriesArg(std::string l, uint64_t t, uint64_t pi, uint64_t pt, uint64_t c, Log& g)
+AppendEntriesArg::AppendEntriesArg(std::string l, uint64_t t, uint64_t pi, uint64_t pt, uint64_t c, const Log& g)
     : leaderId{l},
       term {t},
       prevLogIndex{pi},

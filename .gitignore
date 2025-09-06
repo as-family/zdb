@@ -7,3 +7,4 @@ cppcheck-report.xml
 6.5840/
 porcupine_operations.json
 raft-extended.pdf*
+src/goRaft/go.mod

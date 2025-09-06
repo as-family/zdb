@@ -10,11 +10,11 @@ package zdb
 #include <stdint.h>
 
 // Forward declaration of the Go function C++ will call.
-extern int go_invoke_callback(unsigned long long handle, int, char*, void*, int, void*, int);
+extern int go_invoke_callback(uintptr_t handle, int, char*, void*, int, void*, int);
 
 // C wrapper that C++ will call (calls the exported Go function).
 // We declare it here so the C++ library can link against it.
-int go_invoke_callback(unsigned long long handle, int v, char*, void*, int, void*, int);
+int go_invoke_callback(uintptr_t handle, int v, char*, void*, int, void*, int);
 */
 import "C"
 
@@ -27,7 +27,6 @@ import (
 	"6.5840/labrpc"
 	"6.5840/raftapi"
 	tester "6.5840/tester1"
-	"github.com/as-family/zdb/proto"
 	proto_raft "github.com/as-family/zdb/proto"
 	protobuf "google.golang.org/protobuf/proto"
 )
@@ -108,11 +107,15 @@ func go_invoke_request_vote(handle C.ulonglong, p C.int, s string, args unsafe.P
 		Term:        rep.Term,
 	}
 	replyBytes, err := protobuf.Marshal(protoReply)
-	if err != nil || len(replyBytes) < 0 {
+	if err != nil {
 		fmt.Println("Error: failed to marshal")
 		return C.int(-1)
 	}
 	if len(replyBytes) != 0 {
+		if len(replyBytes) > int(reply_len) {
+			fmt.Println("Error: reply buffer too small for RequestVoteReply")
+			return C.int(-1)
+		}
 		C.memmove(reply, unsafe.Pointer(&replyBytes[0]), C.size_t(len(replyBytes)))
 	}
 	return C.int(len(replyBytes))
@@ -151,11 +154,15 @@ func go_invoke_append_entries(handle C.ulonglong, p C.int, s string, args unsafe
 		Term:    rep.Term,
 	}
 	replyBytes, err := protobuf.Marshal(protoReply)
-	if err != nil || len(replyBytes) < 0 {
+	if err != nil {
 		fmt.Println("Error: failed to marshal")
 		return C.int(-1)
 	}
 	if len(replyBytes) != 0 {
+		if len(replyBytes) > int(reply_len) {
+			fmt.Println("Error: reply buffer too small for AppendEntriesReply")
+			return C.int(-1)
+		}
 		C.memmove(reply, unsafe.Pointer(&replyBytes[0]), C.size_t(len(replyBytes)))
 	}
 	return C.int(len(replyBytes))
@@ -169,7 +176,8 @@ func go_invoke_callback(handle C.ulonglong, p C.int, s *C.char, args unsafe.Poin
 	} else if f == "Raft.AppendEntries" {
 		return go_invoke_append_entries(handle, p, f, args, args_len, reply, reply_len)
 	} else {
-		panic("unknown function")
+		fmt.Printf("Go: unknown callback function: %s\n", f)
+		return C.int(-1)
 	}
 }
 
@@ -284,13 +292,17 @@ func (rf *Raft) RequestVote(args *RequestVoteArg, reply *RequestVoteReply) {
 
 	// Call C++ without holding any Go locks - C++ should handle its own synchronization
 	replyBuf := make([]byte, 1024)
-	len := C.handle_request_vote(rf.handle,
+	n := C.handle_request_vote(rf.handle,
 		(*C.char)(unsafe.Pointer(&strArgs[0])), C.int(len(strArgs)),
 		(*C.char)(unsafe.Pointer(&replyBuf[0])))
 
 	// Process the response
-	protoReply := &proto.RequestVoteReply{}
-	err = protobuf.Unmarshal(replyBuf[:len], protoReply)
+	if int(n) <= 0 || int(n) > len(replyBuf) {
+		fmt.Println("Error: invalid reply size for RequestVote")
+		return
+	}
+	protoReply := &proto_raft.RequestVoteReply{}
+	err = protobuf.Unmarshal(replyBuf[:n], protoReply)
 	if err != nil {
 		fmt.Println("Error: failed to unmarshal RequestVoteReply")
 		return
@@ -329,13 +341,16 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArg, reply *AppendEntriesReply)
 
 	// Call C++ without holding any Go locks - C++ should handle its own synchronization
 	replyBuf := make([]byte, 1024)
-	len := C.handle_append_entries(rf.handle,
+	n := C.handle_append_entries(rf.handle,
 		(*C.char)(unsafe.Pointer(&strArgs[0])), C.int(len(strArgs)),
 		(*C.char)(unsafe.Pointer(&replyBuf[0])))
-
+	if n <= 0 || int(n) > len(replyBuf) {
+		fmt.Println("Error: invalid reply size for AppendEntries")
+		return
+	}
 	// Process the response
-	protoReply := &proto.AppendEntriesReply{}
-	err = protobuf.Unmarshal(replyBuf[:len], protoReply)
+	protoReply := &proto_raft.AppendEntriesReply{}
+	err = protobuf.Unmarshal(replyBuf[:n], protoReply)
 	if err != nil {
 		fmt.Println("Error: failed to unmarshal AppendEntriesReply")
 		return
@@ -352,5 +367,10 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	rf.applyCh = applyCh
 	rf.cb = registerCallback(rf)
 	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), C.uintptr_t(rf.cb))
+	if rf.handle == nil {
+		// Avoid returning a half-initialized Raft
+		GoFreeCallback(rf.cb)
+		return nil
+	}
 	return rf
 }

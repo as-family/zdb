@@ -13,7 +13,10 @@ grpc::Status ProxyRaftService::appendEntries(
     if (t.has_value()) {
         return grpc::Status::OK;
     } else {
-        return zdb::toGrpcStatus(t.error()[0]);
+        const auto& errs = t.error();  
+        return errs.empty()
+            ? grpc::Status(grpc::StatusCode::UNKNOWN, "appendEntries: empty error stack")
+            : zdb::toGrpcStatus(errs.front());
     }
 }
 
@@ -25,6 +28,9 @@ grpc::Status ProxyRaftService::requestVote(
     if (t.has_value()) {
         return grpc::Status::OK;
     } else {
-        return zdb::toGrpcStatus(t.error()[0]);
+        const auto& errs = t.error();
+        return errs.empty()
+            ? grpc::Status(grpc::StatusCode::UNKNOWN, "requestVote: empty error stack")
+            : zdb::toGrpcStatus(errs.front());
     }
 }

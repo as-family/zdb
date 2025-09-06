@@ -33,14 +33,24 @@ public:
         const std::string& op,
         const Req& request,
         Rep& reply) {
-        std::lock_guard<std::mutex> lock {m};
-        if (!connected()) {
-            return std::unexpected {std::vector<Error>{Error{ErrorCode::ServiceTemporarilyUnavailable, "Not connected"}}};
+        Stub* stubLocal = nullptr;
+        function_t f;
+        {
+            std::lock_guard<std::mutex> lock {m};
+            if (!connected()) {
+                return std::unexpected(std::vector<Error>{Error{ErrorCode::ServiceTemporarilyUnavailable, "Not connected"}});
+            }
+            auto it = functions.find(op);
+            if (it == functions.end() || !it->second) {
+                return std::unexpected(std::vector<Error>{Error{ErrorCode::Unknown, "Unknown operation: " + op}});
+            }
+            f = it->second;
+            stubLocal = stub.get();
         }
-        auto bound = [this, f = functions[op], &request, &reply] {
+        auto bound = [stubLocal, f, &request, &reply, timeout = policy.rpcTimeout] {
             grpc::ClientContext c {};
-            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(policy.rpcTimeout));
-            return f(stub.get(), &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
+            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(timeout));
+            return f(stubLocal, &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
         };
         auto statuses = circuitBreaker.call(op, bound);
         if (statuses.back().ok()) {

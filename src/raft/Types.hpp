@@ -16,7 +16,7 @@ struct AppendEntriesArg {
     uint64_t prevLogTerm;
     uint64_t leaderCommit;
     Log entries;
-    AppendEntriesArg(std::string, uint64_t, uint64_t, uint64_t, uint64_t, Log&);
+    AppendEntriesArg(std::string, uint64_t, uint64_t, uint64_t, uint64_t, const Log&);
     AppendEntriesArg(const proto::AppendEntriesArg& arg);
 };
 

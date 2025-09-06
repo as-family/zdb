@@ -28,7 +28,19 @@ add_custom_command(
   COMMENT "Generating Go Protobuf code and module from raft.proto"
 )
 
+set(RAFT_SRC_DIR "${CMAKE_SOURCE_DIR}/6.5840/src")
+set(PROTO_BUILD_DIR "${CMAKE_BINARY_DIR}/go-proto")
+
+# Generate go.mod from template
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/go.mod.in"
+    "${CMAKE_CURRENT_SOURCE_DIR}/go.mod"
+    @ONLY
+)
+
+
 add_library(zdb_raft SHARED
+  ${CMAKE_CURRENT_SOURCE_DIR}/go.mod
   ${CMAKE_BINARY_DIR}/go-proto/raft.pb.go
   ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoRPCClient.cpp
   ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/raft_wrapper.cpp
