@@ -8,33 +8,32 @@ find_package(spdlog CONFIG REQUIRED)
 
 find_program(GO_BIN go REQUIRED)
 find_program(PROTOC_GEN_GO protoc-gen-go REQUIRED)
-
+set(PROTO_BUILD_DIR "${CMAKE_BINARY_DIR}/go-proto")
 add_custom_command(
-  OUTPUT ${CMAKE_BINARY_DIR}/go-proto/raft.pb.go ${CMAKE_BINARY_DIR}/go-proto/go.mod
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/go-proto
+  OUTPUT ${PROTO_BUILD_DIR}/raft.pb.go ${PROTO_BUILD_DIR}/go.mod
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${PROTO_BUILD_DIR}
   COMMAND ${PROTOC_GEN_GO} --version > /dev/null 2>&1 || echo "protoc-gen-go not found"
   COMMAND ${Protobuf_PROTOC_EXECUTABLE}
-      --go_out=${CMAKE_BINARY_DIR}/go-proto
+      --go_out=${PROTO_BUILD_DIR}
       --go_opt=paths=source_relative
       --proto_path=${CMAKE_SOURCE_DIR}/proto
       --plugin=protoc-gen-go=${PROTOC_GEN_GO}
       ${CMAKE_SOURCE_DIR}/proto/raft.proto
-  COMMAND ${CMAKE_COMMAND} -E echo "module proto" > ${CMAKE_BINARY_DIR}/go-proto/go.mod
-  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${CMAKE_BINARY_DIR}/go-proto/go.mod
-  COMMAND ${CMAKE_COMMAND} -E echo "go 1.23" >> ${CMAKE_BINARY_DIR}/go-proto/go.mod
-  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${CMAKE_BINARY_DIR}/go-proto/go.mod
-  COMMAND ${CMAKE_COMMAND} -E echo "require google.golang.org/protobuf v1.36.8" >> ${CMAKE_BINARY_DIR}/go-proto/go.mod
+  COMMAND ${CMAKE_COMMAND} -E echo "module proto" > ${PROTO_BUILD_DIR}/go.mod
+  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${PROTO_BUILD_DIR}/go.mod
+  COMMAND ${CMAKE_COMMAND} -E echo "go 1.23" >> ${PROTO_BUILD_DIR}/go.mod
+  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${PROTO_BUILD_DIR}/go.mod
+  COMMAND ${CMAKE_COMMAND} -E echo "require google.golang.org/protobuf v1.36.8" >> ${PROTO_BUILD_DIR}/go.mod
   DEPENDS ${CMAKE_SOURCE_DIR}/proto/raft.proto
   COMMENT "Generating Go Protobuf code and module from raft.proto"
 )
 
 # Create a target that depends on the protobuf generation
 add_custom_target(go_proto_gen
-  DEPENDS ${CMAKE_BINARY_DIR}/go-proto/raft.pb.go ${CMAKE_BINARY_DIR}/go-proto/go.mod
+  DEPENDS ${PROTO_BUILD_DIR}/raft.pb.go ${PROTO_BUILD_DIR}/go.mod
 )
 
 set(RAFT_SRC_DIR "${CMAKE_SOURCE_DIR}/6.5840/src")
-set(PROTO_BUILD_DIR "${CMAKE_BINARY_DIR}/go-proto")
 
 # Generate go.mod from template
 configure_file(
@@ -88,7 +87,7 @@ add_custom_command(TARGET zdb_raft POST_BUILD
 
 if(${BUILD_TESTING})
   add_custom_target(raft_tests
-    DEPENDS zdb_raft ${CMAKE_CURRENT_SOURCE_DIR}/go.mod ${CMAKE_BINARY_DIR}/go-proto/raft.pb.go
+    DEPENDS zdb_raft ${CMAKE_CURRENT_SOURCE_DIR}/go.mod ${PROTO_BUILD_DIR}/raft.pb.go
     # Clean and build goRaft module first
     COMMAND ${CMAKE_COMMAND} -E echo "Cleaning and building goRaft module..."
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/src/goRaft
