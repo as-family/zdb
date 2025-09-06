@@ -28,6 +28,11 @@ add_custom_command(
   COMMENT "Generating Go Protobuf code and module from raft.proto"
 )
 
+# Create a target that depends on the protobuf generation
+add_custom_target(go_proto_gen
+  DEPENDS ${CMAKE_BINARY_DIR}/go-proto/raft.pb.go ${CMAKE_BINARY_DIR}/go-proto/go.mod
+)
+
 set(RAFT_SRC_DIR "${CMAKE_SOURCE_DIR}/6.5840/src")
 set(PROTO_BUILD_DIR "${CMAKE_BINARY_DIR}/go-proto")
 
@@ -40,8 +45,6 @@ configure_file(
 
 
 add_library(zdb_raft SHARED
-  ${CMAKE_CURRENT_SOURCE_DIR}/go.mod
-  ${CMAKE_BINARY_DIR}/go-proto/raft.pb.go
   ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoRPCClient.cpp
   ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/raft_wrapper.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/Log.cpp
@@ -82,9 +85,10 @@ add_custom_command(TARGET zdb_raft POST_BUILD
     ${CMAKE_BINARY_DIR}/lib/
 )
 
+
 if(${BUILD_TESTING})
   add_custom_target(raft_tests
-    DEPENDS zdb_raft
+    DEPENDS zdb_raft ${CMAKE_CURRENT_SOURCE_DIR}/go.mod ${CMAKE_BINARY_DIR}/go-proto/raft.pb.go
     # Clean and build goRaft module first
     COMMAND ${CMAKE_COMMAND} -E echo "Cleaning and building goRaft module..."
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/src/goRaft
@@ -99,9 +103,32 @@ if(${BUILD_TESTING})
       go clean -cache
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/6.5840/src
       go build -a ./raft1/ ./raftapi/ ./tester1/ ./labrpc/ ./labgob/
-    # Run the tests
-    COMMAND ${CMAKE_COMMAND} -E echo "Running Go Raft tests..."
     COMMENT "Building Go modules"
     VERBATIM
+  )
+
+  # Add CTest for Go Raft 3A tests
+  add_test(
+    NAME raft_3a_tests
+    COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
+            ${GO_BIN} test -run "Test.*3A" -v
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
+  )
+  
+  # Set test properties - note: DEPENDS doesn't work for custom targets in CTest
+  # Instead, we'll use a wrapper script approach
+  set_tests_properties(raft_3a_tests PROPERTIES
+    ENVIRONMENT "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
+    FIXTURES_REQUIRED "raft_setup"
+  )
+  
+  # Create a setup fixture that ensures dependencies are built
+  add_test(
+    NAME raft_setup
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target zdb_raft --target go_proto_gen
+  )
+  
+  set_tests_properties(raft_setup PROPERTIES
+    FIXTURES_SETUP "raft_setup"
   )
 endif()
