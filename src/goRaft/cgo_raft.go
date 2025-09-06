@@ -84,7 +84,7 @@ func GoFreeCallback(h C.uintptr_t) {
 	deleteHandle(uintptr(h))
 }
 
-func go_invoke_request_vote(handle C.ulonglong, p C.int, s string, args unsafe.Pointer, args_len C.int, reply unsafe.Pointer, reply_len C.int) C.int {
+func go_invoke_request_vote(handle C.uintptr_t, p C.int, s string, args unsafe.Pointer, args_len C.int, reply unsafe.Pointer, reply_len C.int) C.int {
 	protoArg := &proto_raft.RequestVoteArg{}
 	err := protobuf.Unmarshal(C.GoBytes(args, args_len), protoArg)
 	if err != nil {
@@ -98,7 +98,7 @@ func go_invoke_request_vote(handle C.ulonglong, p C.int, s string, args unsafe.P
 		LastLogTerm:  protoArg.LastLogTerm,
 	}
 	rep := &RequestVoteReply{}
-	result := GoInvokeCallback(C.uintptr_t(handle), int(p), s, arg, rep)
+	result := GoInvokeCallback(handle, int(p), s, arg, rep)
 	if result == 0 {
 		return C.int(-1)
 	}
@@ -121,7 +121,7 @@ func go_invoke_request_vote(handle C.ulonglong, p C.int, s string, args unsafe.P
 	return C.int(len(replyBytes))
 }
 
-func go_invoke_append_entries(handle C.ulonglong, p C.int, s string, args unsafe.Pointer, args_len C.int, reply unsafe.Pointer, reply_len C.int) C.int {
+func go_invoke_append_entries(handle C.uintptr_t, p C.int, s string, args unsafe.Pointer, args_len C.int, reply unsafe.Pointer, reply_len C.int) C.int {
 	protoArg := &proto_raft.AppendEntriesArg{}
 	err := protobuf.Unmarshal(C.GoBytes(args, args_len), protoArg)
 	if err != nil {
@@ -145,7 +145,7 @@ func go_invoke_append_entries(handle C.ulonglong, p C.int, s string, args unsafe
 		Entries:      entries,
 	}
 	rep := &AppendEntriesReply{}
-	result := GoInvokeCallback(C.uintptr_t(handle), int(p), s, arg, rep)
+	result := GoInvokeCallback(handle, int(p), s, arg, rep)
 	if result == 0 {
 		return C.int(-1)
 	}
@@ -169,7 +169,7 @@ func go_invoke_append_entries(handle C.ulonglong, p C.int, s string, args unsafe
 }
 
 //export go_invoke_callback
-func go_invoke_callback(handle C.ulonglong, p C.int, s *C.char, args unsafe.Pointer, args_len C.int, reply unsafe.Pointer, reply_len C.int) C.int {
+func go_invoke_callback(handle C.uintptr_t, p C.int, s *C.char, args unsafe.Pointer, args_len C.int, reply unsafe.Pointer, reply_len C.int) C.int {
 	f := C.GoString(s)
 	if f == "Raft.RequestVote" {
 		return go_invoke_request_vote(handle, p, f, args, args_len, reply, reply_len)

@@ -20,6 +20,9 @@
 #include <proto/kvStore.pb.h>
 #include <proto/raft.grpc.pb.h>
 #include <proto/raft.pb.h>
+#include <unordered_map>
+#include <functional>
+#include <chrono>
 
 inline std::unordered_map<std::string, typename zdb::RPCService<zdb::kvStore::KVStoreService>::function_t> getDefaultKVProxyFunctions() {
     return {
