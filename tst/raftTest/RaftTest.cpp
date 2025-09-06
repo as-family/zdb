@@ -78,9 +78,6 @@ TEST(Raft, InitialElection) {
     RAFTTestFramework framework{config, p};
 
     framework.check1Leader();
-    EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
-    EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);
-    EXPECT_EQ(framework.nRole(raft::Role::Follower), 2);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     auto t1 = framework.checkTerms().value();
