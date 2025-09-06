@@ -36,7 +36,6 @@ private:
     template<typename Req, typename Rep>
     std::expected<std::monostate, std::vector<Error>> call(
         const std::string& op,
-        grpc::Status (kvStore::KVStoreService::Stub::* f)(grpc::ClientContext*, const Req&, Rep*),
         Req& request,
         Rep& reply) const {
         request.mutable_requestid()->set_uuid(uuid_v7_to_string(generate_uuid_v7()));

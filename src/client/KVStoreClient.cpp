@@ -19,7 +19,6 @@ std::expected<Value, Error> KVStoreClient::get(const Key& key) const {
     kvStore::GetReply reply;
     auto t = call(
         "get",
-        &kvStore::KVStoreService::Stub::get,
         request,
         reply
     );
@@ -39,7 +38,6 @@ std::expected<std::monostate, Error> KVStoreClient::set(const Key& key, const Va
 
     auto t = call(
         "set",
-        &kvStore::KVStoreService::Stub::set,
         request,
         reply
     );
@@ -61,7 +59,6 @@ std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
     kvStore::EraseReply reply;
     auto t = call(
         "erase",
-        &kvStore::KVStoreService::Stub::erase,
         request,
         reply
     );
@@ -77,7 +74,6 @@ std::expected<size_t, Error> KVStoreClient::size() const {
     kvStore::SizeReply reply;
     auto t = call(
         "size",
-        &kvStore::KVStoreService::Stub::size,
         request,
         reply
     );
