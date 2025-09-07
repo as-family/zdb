@@ -67,8 +67,8 @@ zdb::RetryPolicy makePolicy(int servers) {
         std::chrono::milliseconds(60),
         10,
         10,
-        std::chrono::milliseconds(4),
-        std::chrono::milliseconds(4)
+        std::chrono::milliseconds(10),
+        std::chrono::milliseconds(10)
     };
 }
 
