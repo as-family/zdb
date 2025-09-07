@@ -57,7 +57,7 @@ std::expected<KVRPCServicePtr, Error> Config::nextService() {
 std::expected<KVRPCServicePtr, Error> Config::randomService() {
     std::lock_guard lock{m};
     for (size_t j = 0; j < 10 * services.size(); ++j) {
-        auto i = std::next(services.begin(), static_cast<long>(dist(rng)));
+        auto i = std::next(services.begin(), static_cast<std::ptrdiff_t>(dist(rng)));
         if (i == cService) {
             continue;
         }

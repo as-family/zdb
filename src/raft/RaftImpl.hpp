@@ -43,14 +43,14 @@ private:
     zdb::FullJitter fullJitter;
     std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
     Log mainLog;
-    std::atomic<bool> killed;
+    std::atomic<bool> killed{false};
     std::unordered_map<std::string, std::reference_wrapper<Client>> peers;
     std::chrono::milliseconds threadsCleanupInterval;
     AsyncTimer electionTimer;
     AsyncTimer heartbeatTimer;
     AsyncTimer threadsCleanupTimer;
-    int successCount;
-    int votesGranted;
+    int successCount{0};
+    int votesGranted{0};
     std::queue<std::thread> activeThreads{};
     std::mutex appendEntriesMutex{};
     std::mutex requestVoteMutex{};
@@ -200,6 +200,9 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         return AppendEntriesReply{false, currentTerm};
     }
     std::unique_lock lock{m};
+    if (arg.term >= currentTerm) {
+        lastHeartbeat = std::chrono::steady_clock::now();
+    }
     // std::cerr << selfId << " received AppendEntries from " << arg.leaderId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
     AppendEntriesReply reply;
     if (arg.term < currentTerm) {
@@ -218,7 +221,6 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         if (arg.leaderCommit > commitIndex) {
             commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
         }
-        lastHeartbeat = std::chrono::steady_clock::now();
         applyCommittedEntries(followerChannel);
         reply.term = currentTerm;
         reply.success = true;
@@ -347,7 +349,7 @@ void RaftImpl<Client>::requestVote(){
     }
     std::unique_lock lock{m};
     auto d = std::chrono::steady_clock::now() - lastHeartbeat;
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(d) < std::chrono::milliseconds{time}) {
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(d) < std::chrono::milliseconds{time.load()}) {
         return;
     }
     if (role == Role::Leader) {

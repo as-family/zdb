@@ -20,7 +20,6 @@ grpc::Status KVStoreServiceImpl::get(
     grpc::ServerContext *context,
     const kvStore::GetRequest *request,
     kvStore::GetReply *reply) {
-    std::ignore = context;
     const Key key{request->key().data()};
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
     auto g = Get{uuid, key};
@@ -43,7 +42,6 @@ grpc::Status KVStoreServiceImpl::set(
     grpc::ServerContext *context,
     const kvStore::SetRequest* request,
     kvStore::SetReply *reply) {
-    std::ignore = context;
     std::ignore = reply;
     const Key key{request->key().data()};
     const Value value{request->value().data(), request->value().version()};
@@ -59,7 +57,6 @@ grpc::Status KVStoreServiceImpl::erase(
     grpc::ServerContext* context,
     const kvStore::EraseRequest* request,
     kvStore::EraseReply* reply) {
-    std::ignore = context;
     const Key key{request->key().data()};
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
     auto e = Erase{uuid, key};
@@ -82,7 +79,6 @@ grpc::Status KVStoreServiceImpl::size(
     grpc::ServerContext *context,
     const kvStore::SizeRequest *request,
     kvStore::SizeReply *reply) {
-    std::ignore = context;
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
     auto sz = Size{uuid};
     auto p = kvStateMachine.handleSize(sz, context->deadline());
@@ -93,9 +89,6 @@ grpc::Status KVStoreServiceImpl::size(
     }
     reply->set_size(v.value());
     return grpc::Status::OK;
-}
-
-KVStoreServiceImpl::~KVStoreServiceImpl() {
 }
 
 } // namespace zdb
