@@ -25,7 +25,7 @@ using zdb::ErrorCode;
 
 class ConfigTest : public ::testing::Test {
 protected:
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 3, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    RetryPolicy policy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{5000L}, 2, 3, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     
     // Test server setup for positive tests
     const std::string validServerAddr = "localhost:50053";
@@ -52,7 +52,7 @@ protected:
         server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl2);
         
         // Give servers time to start
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        std::this_thread::sleep_for(std::chrono::milliseconds{300L});
     }
     
     void TearDown() override {
@@ -198,19 +198,19 @@ TEST_F(ConfigTest, ConstructorWithDifferentRetryPolicies) {
     const std::vector<std::string> addresses{validServerAddr};
     
     // Test with very short delays
-    const RetryPolicy shortPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy shortPolicy{std::chrono::microseconds{1L}, std::chrono::microseconds{10L}, std::chrono::microseconds{100L}, 1, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     ASSERT_NO_THROW({
         const Config config(addresses, shortPolicy);
     });
     
     // Test with very long delays
-    const RetryPolicy longPolicy{std::chrono::microseconds(1000), std::chrono::microseconds(10000), std::chrono::microseconds(100000), 5, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy longPolicy{std::chrono::microseconds{1000L}, std::chrono::microseconds{10000L}, std::chrono::microseconds{100000L}, 5, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     ASSERT_NO_THROW({
         const Config config(addresses, longPolicy);
     });
     
     // Test with zero threshold
-    const RetryPolicy zeroThresholdPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 0, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy zeroThresholdPolicy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{5000L}, 0, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     ASSERT_NO_THROW({
         const Config config(addresses, zeroThresholdPolicy);
     });
@@ -281,7 +281,7 @@ TEST_F(ConfigTest, BasicThreadSafetyTest) {
 // Test currentService behavior when circuit breaker is open
 TEST_F(ConfigTest, CurrentServiceFailsWhenCircuitBreakerOpen) {
     // Use a policy with very low failure threshold to quickly open circuit breaker
-    const RetryPolicy lowThresholdPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(200), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy lowThresholdPolicy{std::chrono::microseconds{10L}, std::chrono::microseconds{50L}, std::chrono::microseconds{200L}, 1, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, lowThresholdPolicy);
     
@@ -293,7 +293,7 @@ TEST_F(ConfigTest, CurrentServiceFailsWhenCircuitBreakerOpen) {
     server1->shutdown();
 
     // Wait a bit for the circuit breaker to open after failed operations
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     
     // currentService should now fail due to circuit breaker being open
     auto resultAfterFailure = config.nextService();
@@ -304,7 +304,7 @@ TEST_F(ConfigTest, CurrentServiceFailsWhenCircuitBreakerOpen) {
 // Test nextService behavior with circuit breaker recovery
 TEST_F(ConfigTest, NextServiceWithCircuitBreakerRecovery) {
     // Use a policy with short reset timeout for circuit breaker
-    const RetryPolicy shortResetPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy shortResetPolicy{std::chrono::microseconds{10L}, std::chrono::microseconds{50L}, std::chrono::microseconds{100L}, 1, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     const std::vector<std::string> addresses{validServerAddr, validServerAddr2};
     Config config(addresses, shortResetPolicy);
     
@@ -321,7 +321,7 @@ TEST_F(ConfigTest, NextServiceWithCircuitBreakerRecovery) {
     
     // Restart first server
     server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::this_thread::sleep_for(std::chrono::milliseconds{200L});
     
     // After circuit breaker reset timeout, should be able to use services again
     auto result3 = config.nextService();
@@ -363,7 +363,7 @@ TEST_F(ConfigTest, CurrentServiceTriggersReconnectionThroughAvailable) {
     
     // Restart server quickly
     server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::this_thread::sleep_for(std::chrono::milliseconds{200L});
     
     // currentService should be able to recover (non-const allows state modification)
     auto result2 = config.nextService();
@@ -373,7 +373,7 @@ TEST_F(ConfigTest, CurrentServiceTriggersReconnectionThroughAvailable) {
 // Test differentiation between connected and available states
 TEST_F(ConfigTest, ConnectedVsAvailableStates) {
     // Use a policy that quickly opens circuit breaker
-    const RetryPolicy quickFailPolicy{std::chrono::microseconds(5), std::chrono::microseconds(25), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy quickFailPolicy{std::chrono::microseconds{5L}, std::chrono::microseconds{25L}, std::chrono::microseconds{100L}, 1, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, quickFailPolicy);
     
@@ -388,7 +388,7 @@ TEST_F(ConfigTest, ConnectedVsAvailableStates) {
     server1->shutdown();
 
     
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     
     // currentService should fail because service is not available
     auto resultAfterShutdown = config.nextService();
@@ -414,7 +414,7 @@ TEST_F(ConfigTest, NextServiceWithMixedServiceStates) {
     
     // Restart the second server
     server2 = std::make_unique<KVStoreServer>(validServerAddr2, serviceImpl2);
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::this_thread::sleep_for(std::chrono::milliseconds{200L});
     
     // Should be able to use services again
     auto result3 = config.nextService();
@@ -424,14 +424,14 @@ TEST_F(ConfigTest, NextServiceWithMixedServiceStates) {
 // Test that error messages are appropriate for circuit breaker scenarios
 TEST_F(ConfigTest, CircuitBreakerErrorMessages) {
     // Use a policy that opens circuit breaker quickly
-    const RetryPolicy fastFailPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(50), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy fastFailPolicy{std::chrono::microseconds{1L}, std::chrono::microseconds{10L}, std::chrono::microseconds{50L}, 1, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, fastFailPolicy);
     
     // Shutdown server to trigger failures
     server1->shutdown();
     
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     
     // Error message should indicate service unavailability
     auto result = config.nextService();
@@ -443,7 +443,7 @@ TEST_F(ConfigTest, CircuitBreakerErrorMessages) {
 // Test circuit breaker reset behavior in nextService
 TEST_F(ConfigTest, CircuitBreakerResetInNextService) {
     // Use a policy with very short reset timeout
-    const RetryPolicy shortResetPolicy{std::chrono::microseconds(1), std::chrono::microseconds(10), std::chrono::microseconds(50), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy shortResetPolicy{std::chrono::microseconds{1L}, std::chrono::microseconds{10L}, std::chrono::microseconds{50L}, 1, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     const std::vector<std::string> addresses{validServerAddr};
     Config config(addresses, shortResetPolicy);
     
@@ -456,7 +456,7 @@ TEST_F(ConfigTest, CircuitBreakerResetInNextService) {
 
     // Restart server immediately
     server1 = std::make_unique<KVStoreServer>(validServerAddr, serviceImpl1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L}); // Wait for circuit breaker reset
     
     // nextService should work after reset timeout
     auto result2 = config.nextService();

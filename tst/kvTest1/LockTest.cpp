@@ -40,7 +40,7 @@ KVTestFramework::ClientResult oneClient(int clientId, zdb::KVStoreClient& client
             throw std::runtime_error("Failed to set value for testKey i:" + std::to_string(i) + " v2:" + (v2.has_value() ? "OK" : v2.error().what));
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds{10L});
 
         auto v3 = client.set(zdb::Key{"testKey"}, zdb::Value{"testValue", v.value().version + 1});
         if(!v3.has_value() && v3.error().code != zdb::ErrorCode::Maybe) {
@@ -60,24 +60,24 @@ void runClients(int nClients, bool reliable) {
     raft::SyncChannel follower{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(150),
-        std::chrono::milliseconds(200),
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{150L},
+        std::chrono::milliseconds{200L},
         1,
         1,
-        std::chrono::milliseconds(10),
-        std::chrono::milliseconds(20)
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{20L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
 
     kvTest.spawnClientsAndWait(nClients, std::chrono::seconds(nSec), {proxyAddress}, zdb::RetryPolicy{
-        std::chrono::milliseconds(100),
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(5000),
+        std::chrono::milliseconds{100L},
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{5000L},
         100,
         1,
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(200)
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{200L}
     }, oneClient);
 }
 
@@ -105,23 +105,23 @@ TEST(LockTest, AcquireLock) {
     raft::SyncChannel follower{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(150),
-        std::chrono::milliseconds(200),
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{150L},
+        std::chrono::milliseconds{200L},
         1,
         1,
-        std::chrono::milliseconds(10),
-        std::chrono::milliseconds(20)
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{20L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
     zdb::RetryPolicy policy{
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
-        std::chrono::microseconds(5000),
+        std::chrono::microseconds{100L},
+        std::chrono::microseconds{1000L},
+        std::chrono::microseconds{5000L},
         10000,
         1,
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(200)
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{200L}
     };
     zdb::Config c {{proxyAddress}, policy};
     auto client = zdb::KVStoreClient {c};
@@ -138,23 +138,23 @@ TEST(LockTest, ReleaseLock) {
     raft::SyncChannel follower{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(150),
-        std::chrono::milliseconds(200),
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{150L},
+        std::chrono::milliseconds{200L},
         1,
         1,
-        std::chrono::milliseconds(10),
-        std::chrono::milliseconds(20)
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{20L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
     zdb::RetryPolicy policy{
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
-        std::chrono::microseconds(5000),
+        std::chrono::microseconds{100L},
+        std::chrono::microseconds{1000L},
+        std::chrono::microseconds{5000L},
         10000,
         1,
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(200)
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{200L}
     };
     zdb::Config c {{proxyAddress}, policy};
     auto client = zdb::KVStoreClient {c};

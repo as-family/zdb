@@ -62,13 +62,13 @@ std::vector<std::string> getRaftTargets(std::vector<EndPoints>& config) {
 
 zdb::RetryPolicy makePolicy(int servers) {
     return zdb::RetryPolicy {
-        std::chrono::milliseconds(10),
-        std::chrono::milliseconds(50),
-        std::chrono::milliseconds(60),
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{50L},
+        std::chrono::milliseconds{60L},
         10,
         10,
-        std::chrono::milliseconds(10),
-        std::chrono::milliseconds(10)
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{10L}
     };
 }
 
@@ -79,11 +79,11 @@ TEST(Raft, InitialElection) {
 
     framework.check1Leader();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds{50L});
     auto t1 = framework.checkTerms().value();
     EXPECT_GT(t1, 0);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+    std::this_thread::sleep_for(std::chrono::milliseconds{600L});
     auto t2 = framework.checkTerms().value();
     EXPECT_EQ(t1, t2);
     framework.check1Leader();
@@ -117,7 +117,7 @@ TEST(Raft, ReElection) {
     framework.disconnect(leader2);
     auto i = std::find(raftTargets.begin(), raftTargets.end(), leader2);
     framework.disconnect(*(i == raftTargets.begin() ? i + 1 : raftTargets.begin()));
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    std::this_thread::sleep_for(std::chrono::milliseconds{300L});
 
     framework.checkNoLeader();
 
@@ -161,13 +161,13 @@ TEST(Raft, BasicAgreeOneValue) {
     EXPECT_NO_THROW(framework.check1Leader());
     auto& kvFrameworks = framework.getKVFrameworks(config[0].raftTarget);
     auto clientPolicy = zdb::RetryPolicy {
-        std::chrono::milliseconds(10),
-        std::chrono::milliseconds(500),
-        std::chrono::milliseconds(60),
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{500L},
+        std::chrono::milliseconds{60L},
         3,
         10,
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(20)
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{20L}
     };
     auto r = kvFrameworks.spawnClientsAndWait(
         1,

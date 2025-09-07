@@ -49,7 +49,7 @@ public:
         }
         auto bound = [stubLocal, f, &request, &reply, timeout = policy.rpcTimeout] {
             grpc::ClientContext c {};
-            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(timeout));
+            c.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds{timeout});
             return f(stubLocal, &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
         };
         auto statuses = circuitBreaker.call(op, bound);
@@ -95,7 +95,7 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
                 }
                 return {};
             }
-            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(policy.channelTimeout))) {
+            if (channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds{policy.channelTimeout})) {
                 if (!stub) {
                     stub = Service::NewStub(channel);
                 }
@@ -105,7 +105,7 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
     }
     
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
-    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(policy.channelTimeout))) {
+    if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds{policy.channelTimeout})) {
         return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
     }
     stub = Service::NewStub(channel);

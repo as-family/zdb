@@ -12,7 +12,7 @@ using zdb::RetryPolicy;
 
 class CircuitBreakerTest : public ::testing::Test {
 protected:
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    RetryPolicy policy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{5000L}, 2, 2, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     CircuitBreaker breaker{policy};
 };
 
@@ -155,7 +155,7 @@ TEST_F(CircuitBreakerTest, OpenTransitionsToHalfOpenAfterTimeout) {
     EXPECT_TRUE(breaker.open());
     
     // Wait for reset timeout
-    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds{10L});
     
     // Calling open() should transition to HalfOpen and return false
     EXPECT_FALSE(breaker.open());
@@ -174,7 +174,7 @@ TEST_F(CircuitBreakerTest, OpenSideEffectsMultipleCalls) {
     EXPECT_TRUE(breaker.open());
     
     // Wait for reset timeout
-    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds{10L});
     
     // Multiple calls to open() should consistently return false after transition
     for (int i = 0; i < 5; ++i) {
@@ -212,7 +212,7 @@ TEST_F(CircuitBreakerTest, StateTransitionsWithOpenCalls) {
     EXPECT_TRUE(breaker.open()); // Now Open
     
     // Wait for reset timeout
-    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds{10L});
     
     // open() should transition to HalfOpen
     EXPECT_FALSE(breaker.open()); // Now HalfOpen
@@ -228,7 +228,7 @@ TEST_F(CircuitBreakerTest, StateTransitionsWithOpenCalls) {
 
 // Test open() behavior with very short reset timeout
 TEST_F(CircuitBreakerTest, OpenWithShortResetTimeout) {
-    const RetryPolicy shortTimeoutPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(1), 2, 2, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)}; // 1 microsecond reset timeout
+    const RetryPolicy shortTimeoutPolicy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{1L}, 2, 2, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}}; // 1 microsecond reset timeout
     CircuitBreaker shortTimeoutBreaker{shortTimeoutPolicy};
     
     // Open the breaker
@@ -239,7 +239,7 @@ TEST_F(CircuitBreakerTest, OpenWithShortResetTimeout) {
     EXPECT_TRUE(shortTimeoutBreaker.open());
     
     // Even a tiny sleep should trigger transition
-    std::this_thread::sleep_for(std::chrono::microseconds(10));
+    std::this_thread::sleep_for(std::chrono::microseconds{10L});
     EXPECT_FALSE(shortTimeoutBreaker.open());
 }
 
@@ -258,7 +258,7 @@ TEST_F(CircuitBreakerTest, OpenStateTransitionAffectsCallBehavior) {
     EXPECT_EQ(blockedStatus.back().error_message(), "Circuit breaker is open");
     
     // Wait for reset timeout
-    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds{10L});
     
     // Call open() to transition to HalfOpen
     EXPECT_FALSE(breaker.open());
@@ -284,7 +284,7 @@ TEST_F(CircuitBreakerTest, OpenConcurrentAccessSimulation) {
     EXPECT_TRUE(breaker.open());
     
     // Wait for reset timeout
-    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds{10L});
     
     // Simulate multiple threads checking open() status
     std::vector<bool> results;
@@ -343,7 +343,7 @@ TEST_F(CircuitBreakerTest, OpenAfterHalfOpenFailure) {
     EXPECT_TRUE(breaker.open());
     
     // Wait for reset timeout and transition to HalfOpen
-    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds{10L});
     EXPECT_FALSE(breaker.open()); // Transitions to HalfOpen
     
     // Fail in HalfOpen state (should reopen)
@@ -365,7 +365,7 @@ TEST_F(CircuitBreakerTest, OpenIsNonConst) {
     EXPECT_TRUE(nonConstBreaker.open());
     
     // Wait and call open() - should modify internal state
-    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(policy.resetTimeout + std::chrono::milliseconds{10L});
     EXPECT_FALSE(nonConstBreaker.open());
     
     // Verify the state was actually modified by the open() call

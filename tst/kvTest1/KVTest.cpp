@@ -19,23 +19,23 @@ TEST(KVTest, TestReliablePut) {
     raft::SyncChannel follower{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(150),
-        std::chrono::milliseconds(200),
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{150L},
+        std::chrono::milliseconds{200L},
         3,
         1,
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(20)
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{20L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
     zdb::Config config{{proxyAddress}, zdb::RetryPolicy{
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(150),
-        std::chrono::milliseconds(200),
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{150L},
+        std::chrono::milliseconds{200L},
         10,
         1,
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(200)
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{200L}
     }};
     zdb::KVStoreClient client = zdb::KVStoreClient {config};
 
@@ -69,23 +69,23 @@ TEST(KVTest, TestPutConcurrentReliable) {
     raft::SyncChannel follower{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(150),
-        std::chrono::milliseconds(200),
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{150L},
+        std::chrono::milliseconds{200L},
         1,
         1,
-        std::chrono::milliseconds(10),
-        std::chrono::milliseconds(20)
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{20L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
     zdb::RetryPolicy policy{
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(500),
-        std::chrono::milliseconds(600),
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{500L},
+        std::chrono::milliseconds{600L},
         100,
         2,
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(200)
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{200L}
     };
     const int nClients = 10;
     const std::chrono::seconds timeout(1);
@@ -106,23 +106,23 @@ TEST(KVTest, TestUnreliableNet) {
     raft::SyncChannel follower{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(150),
-        std::chrono::milliseconds(200),
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{150L},
+        std::chrono::milliseconds{200L},
         1,
         1,
-        std::chrono::milliseconds(10),
-        std::chrono::milliseconds(20)
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{20L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
     zdb::RetryPolicy policy{
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
-        std::chrono::microseconds(5000),
+        std::chrono::microseconds{100L},
+        std::chrono::microseconds{1000L},
+        std::chrono::microseconds{5000L},
         10000,
         1,
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(200)
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{200L}
     };
     zdb::Config c {{proxyAddress}, policy};
     auto client = zdb::KVStoreClient {c};

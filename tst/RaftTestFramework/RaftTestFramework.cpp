@@ -77,7 +77,7 @@ int RAFTTestFramework::nRole(raft::Role role) {
 std::string RAFTTestFramework::check1Leader() {
     std::uniform_int_distribution<> dist{0, 300};
     for (int i = 0; i < 10; i++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200 + dist(gen)));
+        std::this_thread::sleep_for(std::chrono::milliseconds{200 + dist(gen)});
         std::unordered_map<uint64_t, std::vector<std::string>> termsMap{};
         for (const auto& [id, raft] : rafts) {
             if (proxies.at(id).getNetworkConfig().isConnected()) {
@@ -229,7 +229,7 @@ int RAFTTestFramework::one(std::string c, int servers, bool retry) {
                         return index;
                     }
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                std::this_thread::sleep_for(std::chrono::milliseconds{20L});
             }
             
             if (!retry) {
@@ -238,7 +238,7 @@ int RAFTTestFramework::one(std::string c, int servers, bool retry) {
             }
         } else {
             // No leader found, wait a bit before trying again
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            std::this_thread::sleep_for(std::chrono::milliseconds{50L});
         }
     }
     

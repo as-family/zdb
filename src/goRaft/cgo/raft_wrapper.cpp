@@ -45,7 +45,7 @@ void kill_raft(RaftHandle* h) {
         // std::cerr << "C++: Raft instance kill signal sent\n";
         
         // Give threads a moment to recognize the kill signal
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds{10L});
         
         // Reset the unique_ptr, which will automatically call the destructor
         h->raft.reset();
@@ -85,13 +85,13 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb) {
         new raft::SyncChannel(),
         new raft::SyncChannel(),
         zdb::RetryPolicy(
-            std::chrono::milliseconds(2),
-            std::chrono::milliseconds(10),
-            std::chrono::milliseconds(12),
+            std::chrono::milliseconds{2L},
+            std::chrono::milliseconds{10L},
+            std::chrono::milliseconds{12L},
             2,
             servers - 1,
-            std::chrono::milliseconds(4),
-            std::chrono::milliseconds(4)
+            std::chrono::milliseconds{4L},
+            std::chrono::milliseconds{4L}
         ),
         cb,
         ids,

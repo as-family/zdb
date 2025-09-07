@@ -70,13 +70,13 @@ private:
 
 class KVRPCServiceTest : public ::testing::Test {
 protected:
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    RetryPolicy policy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{5000L}, 2, 0, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     std::string address{"localhost:50051"};
     std::unique_ptr<TestKVServer> testServer;
     void SetUp() override {
         testServer = std::make_unique<TestKVServer>(address);
         // Give server time to start
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds{500L});
     }
     void TearDown() override {
         if (testServer) {
@@ -221,7 +221,7 @@ TEST_F(KVRPCServiceTest, AvailableTriggersReconnection) {
 // Test available() returns false when circuit breaker is open
 TEST_F(KVRPCServiceTest, AvailableReturnsFalseWhenCircuitBreakerOpen) {
     // Use a policy that opens circuit breaker quickly
-    const RetryPolicy quickFailPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy quickFailPolicy{std::chrono::microseconds{10L}, std::chrono::microseconds{50L}, std::chrono::microseconds{100L}, 1, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     zdb::KVRPCService service{address, quickFailPolicy, zdb::getDefaultKVFunctions()};
     
     EXPECT_TRUE(service.connect().has_value());
@@ -256,7 +256,7 @@ TEST_F(KVRPCServiceTest, ConnectedReflectsChannelState) {
     testServer->shutdown();
     
     // Give some time for gRPC to detect the disconnection
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     
     // Note: gRPC channel state changes are asynchronous, so we might need to trigger activity
     GetRequest req;
@@ -274,7 +274,7 @@ TEST_F(KVRPCServiceTest, ConnectHandlesIdleChannel) {
     EXPECT_TRUE(service.connected());
     
     // Wait for channel to potentially go idle (this is implementation-dependent)
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds{50L});
     
     // Second connect should handle idle state gracefully
     auto result = service.connect();
@@ -315,11 +315,11 @@ TEST_F(KVRPCServiceTest, ReconnectionAfterServerRestart) {
     testServer.reset();
     
     // Give time for disconnection
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     
     // Create new server instance (simulating restart)
     auto newServer = std::make_unique<TestKVServer>(address);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     
     // available() should trigger reconnection
     EXPECT_TRUE(service.available());
@@ -348,7 +348,7 @@ TEST_F(KVRPCServiceTest, ConnectCreatesStubWhenMissing) {
 
 // Test circuit breaker integration with available()
 TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
-    const RetryPolicy circuitBreakerPolicy{std::chrono::milliseconds(10), std::chrono::milliseconds(50), std::chrono::milliseconds(200), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy circuitBreakerPolicy{std::chrono::milliseconds{10L}, std::chrono::milliseconds{50L}, std::chrono::milliseconds{200L}, 1, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     zdb::KVRPCService service{address, circuitBreakerPolicy, zdb::getDefaultKVFunctions()};
     
     EXPECT_TRUE(service.connect().has_value());
@@ -424,11 +424,11 @@ TEST_F(KVRPCServiceTest, RapidServerCycling) {
             tempServers.pop_back();
         }
         
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds{50L});
         
         // Create new temporary server
         tempServers.push_back(std::make_unique<TestKVServer>(address));
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds{100L});
         
         // available() should handle reconnection
         EXPECT_TRUE(service.available());
@@ -453,7 +453,7 @@ TEST_F(KVRPCServiceTest, AvailableHandlesReconnectionFailure) {
     testServer->shutdown();
     
     // Give time for disconnection
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     
     // available() should return false when reconnection fails
     EXPECT_FALSE(service.available());

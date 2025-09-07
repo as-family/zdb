@@ -67,13 +67,13 @@ protected:
         selfId = "self";
         
         policy = zdb::RetryPolicy{
-            std::chrono::microseconds(10),    // baseDelay
-            std::chrono::microseconds(100),   // maxDelay
-            std::chrono::microseconds(1000),  // resetTimeout
+            std::chrono::microseconds{10L},    // baseDelay
+            std::chrono::microseconds{100L},   // maxDelay
+            std::chrono::microseconds{1000L},  // resetTimeout
             3,                                // failureThreshold
             1,                                // servicesToTry
-            std::chrono::milliseconds(1000),  // rpcTimeout
-            std::chrono::milliseconds(200)    // channelTimeout
+            std::chrono::milliseconds{1000L},  // rpcTimeout
+            std::chrono::milliseconds{200L}    // channelTimeout
         };
         
         serviceChannel = std::make_unique<MockChannel>();
@@ -94,12 +94,12 @@ protected:
     std::vector<std::string> peers;
     std::string selfId;
     zdb::RetryPolicy policy{
-        std::chrono::microseconds(10),
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
+        std::chrono::microseconds{10L},
+        std::chrono::microseconds{100L},
+        std::chrono::microseconds{1000L},
         3, 1,
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(200)
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{200L}
     };
     std::unique_ptr<MockChannel> serviceChannel;
     std::unique_ptr<MockChannel> followerChannel;
@@ -536,12 +536,12 @@ class RaftImplIntegrationTest : public ::testing::Test {
 protected:
     void SetUp() override {
         policy = zdb::RetryPolicy{
-            std::chrono::microseconds(10),
-            std::chrono::microseconds(100),
-            std::chrono::microseconds(1000),
+            std::chrono::microseconds{10L},
+            std::chrono::microseconds{100L},
+            std::chrono::microseconds{1000L},
             3, 1,
-            std::chrono::milliseconds(1000),
-            std::chrono::milliseconds(200)
+            std::chrono::milliseconds{1000L},
+            std::chrono::milliseconds{200L}
         };
         
         serviceChannel = std::make_unique<raft::SyncChannel>();
@@ -549,12 +549,12 @@ protected:
     }
     
     zdb::RetryPolicy policy{
-        std::chrono::microseconds(10),
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
+        std::chrono::microseconds{10L},
+        std::chrono::microseconds{100L},
+        std::chrono::microseconds{1000L},
         3, 1,
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(200)
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{200L}
     };
     std::unique_ptr<raft::SyncChannel> serviceChannel;
     std::unique_ptr<raft::SyncChannel> followerChannel;
@@ -585,7 +585,7 @@ TEST_F(RaftImplIntegrationTest, BasicChannelInteraction) {
     // Check that command was sent to follower channel
     // Note: Due to async nature, we might need to wait or use polling
     auto received = followerChannel->receiveUntil(
-        std::chrono::system_clock::now() + std::chrono::milliseconds(100));
+        std::chrono::system_clock::now() + std::chrono::milliseconds{100L});
     EXPECT_TRUE(received.has_value());
     if (received.has_value()) {
         EXPECT_EQ(received.value(), "test-command");

@@ -347,7 +347,7 @@ void RaftImpl<Client>::requestVote(){
     }
     std::unique_lock lock{m};
     auto d = std::chrono::steady_clock::now() - lastHeartbeat;
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(d) < std::chrono::milliseconds(time)) {
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(d) < std::chrono::milliseconds{time}) {
         return;
     }
     if (role == Role::Leader) {

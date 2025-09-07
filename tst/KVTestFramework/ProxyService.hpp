@@ -176,7 +176,7 @@ public:
     void connectTarget() {
         std::lock_guard l{m};
         channel = grpc::CreateChannel(originalAddress, grpc::InsecureChannelCredentials());
-        if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds(500))) {
+        if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds{500L})) {
             throw std::runtime_error("Failed to connect to channel");
         }
         stub = Service::NewStub(channel);
