@@ -19,8 +19,9 @@ public:
     std::optional<std::string> receiveUntil(std::chrono::system_clock::time_point t) override;
     virtual void close() override;
     virtual bool isClosed() override;
-    ~SyncChannel();
+    ~SyncChannel() override;
 private:
+    void doClose() noexcept;
     std::mutex m;
     std::condition_variable cv;
     std::optional<std::string> value;

@@ -8,7 +8,7 @@
 namespace raft {
 
 class StateMachine;
-class State;
+struct State;
 
 struct Command {
     virtual ~Command() = default;
@@ -20,7 +20,7 @@ struct Command {
         return uuid;
     };
 protected:
-    UUIDV7 uuid;
+    UUIDV7 uuid{};
 };
 
 } // namespace raft

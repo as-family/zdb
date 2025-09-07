@@ -61,10 +61,14 @@ std::optional<std::string> SyncChannel::receiveUntil(std::chrono::system_clock::
     return std::nullopt;
 }
 
-void SyncChannel::close() {
+void SyncChannel::doClose() noexcept {
     std::unique_lock<std::mutex> lock(m);
     closed = true;
     cv.notify_all();
+}
+
+void SyncChannel::close() {
+    doClose();
 }
 
 bool SyncChannel::isClosed() {
@@ -73,7 +77,7 @@ bool SyncChannel::isClosed() {
 }
 
 SyncChannel::~SyncChannel() {
-    close();
+    doClose();
 }
 
 } // namespace raft
