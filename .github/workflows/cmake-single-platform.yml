@@ -41,7 +41,7 @@ jobs:
         # Install LLVM 21
         sudo tee /etc/apt/sources.list.d/llvm.list << EOF
           deb https://apt.llvm.org/noble/ llvm-toolchain-noble-21 main
-          deb-srchttps:///apt.llvm.org/noble/ llvm-toolchain-noble-21 main
+          deb-src https:///apt.llvm.org/noble/ llvm-toolchain-noble-21 main
         EOF
         wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
 
