@@ -31,7 +31,6 @@ public:
     // Mock for call method - returns success result with optional wrapping
     template<typename Req, typename Rep>
     std::optional<std::monostate> call(const std::string& /* op */, 
-                       grpc::Status (proto::Raft::Stub::*)(grpc::ClientContext*, const Req&, Rep*),
                        const Req& /* request */, 
                        Rep& reply) {
         // Default successful response
@@ -51,9 +50,10 @@ private:
 };
 
 // Mock Channel for testing
-class MockChannel : public Channel {
+class MockChannel final : public Channel {
 public:
     MOCK_METHOD(void, send, (std::string message), (override));
+    MOCK_METHOD(bool, sendUntil, (std::string message, std::chrono::system_clock::time_point t), (override));
     MOCK_METHOD(std::string, receive, (), (override));
     MOCK_METHOD(std::optional<std::string>, receiveUntil, (std::chrono::system_clock::time_point t), (override));
     MOCK_METHOD(void, close, (), (override));
@@ -67,13 +67,13 @@ protected:
         selfId = "self";
         
         policy = zdb::RetryPolicy{
-            std::chrono::microseconds(10),    // baseDelay
-            std::chrono::microseconds(100),   // maxDelay
-            std::chrono::microseconds(1000),  // resetTimeout
+            std::chrono::microseconds{10L},    // baseDelay
+            std::chrono::microseconds{100L},   // maxDelay
+            std::chrono::microseconds{1000L},  // resetTimeout
             3,                                // failureThreshold
             1,                                // servicesToTry
-            std::chrono::milliseconds(1000),  // rpcTimeout
-            std::chrono::milliseconds(200)    // channelTimeout
+            std::chrono::milliseconds{1000L},  // rpcTimeout
+            std::chrono::milliseconds{200L}    // channelTimeout
         };
         
         serviceChannel = std::make_unique<MockChannel>();
@@ -94,12 +94,12 @@ protected:
     std::vector<std::string> peers;
     std::string selfId;
     zdb::RetryPolicy policy{
-        std::chrono::microseconds(10),
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
+        std::chrono::microseconds{10L},
+        std::chrono::microseconds{100L},
+        std::chrono::microseconds{1000L},
         3, 1,
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(200)
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{200L}
     };
     std::unique_ptr<MockChannel> serviceChannel;
     std::unique_ptr<MockChannel> followerChannel;
@@ -231,7 +231,7 @@ TEST_F(RaftImplTest, AppendEntriesHandlerWithHigherTerm) {
     AppendEntriesArg arg{"leader1", 5, 0, 0, 0, emptyLog};
     
     // Expect followerChannel to receive applied entries
-    EXPECT_CALL(*followerChannel, send(_)).Times(0); // No entries to apply
+    EXPECT_CALL(*followerChannel, sendUntil(_, _)).Times(0); // No entries to apply
     
     AppendEntriesReply reply = raft->appendEntriesHandler(arg);
     
@@ -319,7 +319,7 @@ TEST_F(RaftImplTest, AppendEntriesWithValidEntries) {
     entriesLog.append(entry);
     
     // Expect the command to be sent to followerChannel when applied
-    EXPECT_CALL(*followerChannel, send("test-command")).Times(1);
+    EXPECT_CALL(*followerChannel, sendUntil("test-command", _)).Times(1);
     
     AppendEntriesArg arg{"leader1", 1, 0, 0, 1, entriesLog}; // leaderCommit = 1
     AppendEntriesReply reply = raft->appendEntriesHandler(arg);
@@ -342,7 +342,7 @@ TEST_F(RaftImplTest, MultipleAppendEntriesOperations) {
     LogEntry entry1{1, 1, "command1"};
     entriesLog1.append(entry1);
     
-    EXPECT_CALL(*followerChannel, send("command1")).Times(1);
+    EXPECT_CALL(*followerChannel, sendUntil("command1", _)).Times(1).WillOnce(Return(true));
     
     AppendEntriesArg arg1{"leader1", 1, 0, 0, 1, entriesLog1};
     AppendEntriesReply reply1 = raft->appendEntriesHandler(arg1);
@@ -353,7 +353,8 @@ TEST_F(RaftImplTest, MultipleAppendEntriesOperations) {
     LogEntry entry2{2, 1, "command2"};
     entriesLog2.append(entry2);
     
-    EXPECT_CALL(*followerChannel, send("command2")).Times(1);
+    // On second append, only command2 should be applied since command1 is already applied
+    EXPECT_CALL(*followerChannel, sendUntil("command2", _)).Times(1).WillOnce(Return(true));
     
     AppendEntriesArg arg2{"leader1", 1, 1, 1, 2, entriesLog2}; // prevLogIndex=1, prevLogTerm=1
     AppendEntriesReply reply2 = raft->appendEntriesHandler(arg2);
@@ -487,11 +488,11 @@ TEST_F(RaftImplTest, StateMachineSafetyProperty) {
     entriesLog.append(entry1);
     entriesLog.append(entry2);
     
-    // Expect commands to be applied in order
+    // Expect commands to be applied in order when both are committed
     InSequence seq;
-    EXPECT_CALL(*followerChannel, send("command1")).Times(1);
-    EXPECT_CALL(*followerChannel, send("command2")).Times(1);
-    
+    EXPECT_CALL(*followerChannel, sendUntil("command1", _)).Times(1).WillOnce(Return(true));
+    EXPECT_CALL(*followerChannel, sendUntil("command2", _)).Times(1).WillOnce(Return(true));
+
     // Leader commits both entries (leaderCommit = 2)
     AppendEntriesArg arg{"leader1", 1, 0, 0, 2, entriesLog};
     AppendEntriesReply reply = raft->appendEntriesHandler(arg);
@@ -535,12 +536,12 @@ class RaftImplIntegrationTest : public ::testing::Test {
 protected:
     void SetUp() override {
         policy = zdb::RetryPolicy{
-            std::chrono::microseconds(10),
-            std::chrono::microseconds(100),
-            std::chrono::microseconds(1000),
+            std::chrono::microseconds{10L},
+            std::chrono::microseconds{100L},
+            std::chrono::microseconds{1000L},
             3, 1,
-            std::chrono::milliseconds(1000),
-            std::chrono::milliseconds(200)
+            std::chrono::milliseconds{1000L},
+            std::chrono::milliseconds{200L}
         };
         
         serviceChannel = std::make_unique<raft::SyncChannel>();
@@ -548,12 +549,12 @@ protected:
     }
     
     zdb::RetryPolicy policy{
-        std::chrono::microseconds(10),
-        std::chrono::microseconds(100),
-        std::chrono::microseconds(1000),
+        std::chrono::microseconds{10L},
+        std::chrono::microseconds{100L},
+        std::chrono::microseconds{1000L},
         3, 1,
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(200)
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{200L}
     };
     std::unique_ptr<raft::SyncChannel> serviceChannel;
     std::unique_ptr<raft::SyncChannel> followerChannel;
@@ -584,7 +585,7 @@ TEST_F(RaftImplIntegrationTest, BasicChannelInteraction) {
     // Check that command was sent to follower channel
     // Note: Due to async nature, we might need to wait or use polling
     auto received = followerChannel->receiveUntil(
-        std::chrono::system_clock::now() + std::chrono::milliseconds(100));
+        std::chrono::system_clock::now() + std::chrono::milliseconds{100L});
     EXPECT_TRUE(received.has_value());
     if (received.has_value()) {
         EXPECT_EQ(received.value(), "test-command");

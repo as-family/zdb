@@ -34,6 +34,9 @@ void AsyncTimer::stop() {
 }
 
 AsyncTimer::~AsyncTimer() {
-    stop();
+    if (running) {
+        stop();
+    }
 }
+
 } // namespace raft

@@ -8,6 +8,7 @@
 #include <grpcpp/support/status.h>
 #include <vector>
 #include <string>
+#include <atomic>
 
 namespace zdb {
 
@@ -16,9 +17,11 @@ public:
     explicit Repeater(const RetryPolicy p);
     std::vector<grpc::Status> attempt(const std::string& op, const std::function<grpc::Status()>& rpc);
     void reset();
+    void stop() noexcept;
 private:
     ExponentialBackoff backoff;
     FullJitter fullJitter;
+    std::atomic<bool> stopped{false};
 };
 
 } // namespace zdb

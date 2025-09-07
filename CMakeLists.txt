@@ -58,6 +58,9 @@ target_include_directories(protobuf_generated SYSTEM PUBLIC
   ${CMAKE_BINARY_DIR}
 )
 
+# Set position-independent code for protobuf_generated to allow linking into shared libraries
+set_target_properties(protobuf_generated PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 # Enable testing at the root level for proper CTest integration
 if(${BUILD_TESTING})
   include(CTest)
@@ -116,4 +119,5 @@ message(STATUS "  Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C++ Standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "  Build Testing: ${BUILD_TESTING}")
 message(STATUS "  Target 'post-test-analysis': runs tests, then cppcheck and run-clang-tidy.sh")
+message(STATUS "  Target 'raft_tests': runs Go Raft integration tests")
 message(STATUS "")

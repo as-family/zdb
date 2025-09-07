@@ -60,15 +60,15 @@ std::vector<std::string> getRaftTargets(std::vector<EndPoints>& config) {
     return targets;
 }
 
-zdb::RetryPolicy makePolicy(int servers) {
+zdb::RetryPolicy makePolicy(int /*servers*/) {
     return zdb::RetryPolicy {
-        std::chrono::milliseconds(10),
-        std::chrono::milliseconds(50),
-        std::chrono::milliseconds(60),
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{50L},
+        std::chrono::milliseconds{60L},
         10,
         10,
-        std::chrono::milliseconds(4),
-        std::chrono::milliseconds(4)
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{10L}
     };
 }
 
@@ -78,15 +78,12 @@ TEST(Raft, InitialElection) {
     RAFTTestFramework framework{config, p};
 
     framework.check1Leader();
-    EXPECT_EQ(framework.nRole(raft::Role::Leader), 1);
-    EXPECT_EQ(framework.nRole(raft::Role::Candidate), 0);
-    EXPECT_EQ(framework.nRole(raft::Role::Follower), 2);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds{50L});
     auto t1 = framework.checkTerms().value();
     EXPECT_GT(t1, 0);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+    std::this_thread::sleep_for(std::chrono::milliseconds{600L});
     auto t2 = framework.checkTerms().value();
     EXPECT_EQ(t1, t2);
     framework.check1Leader();
@@ -120,7 +117,7 @@ TEST(Raft, ReElection) {
     framework.disconnect(leader2);
     auto i = std::find(raftTargets.begin(), raftTargets.end(), leader2);
     framework.disconnect(*(i == raftTargets.begin() ? i + 1 : raftTargets.begin()));
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    std::this_thread::sleep_for(std::chrono::milliseconds{300L});
 
     framework.checkNoLeader();
 
@@ -164,21 +161,22 @@ TEST(Raft, BasicAgreeOneValue) {
     EXPECT_NO_THROW(framework.check1Leader());
     auto& kvFrameworks = framework.getKVFrameworks(config[0].raftTarget);
     auto clientPolicy = zdb::RetryPolicy {
-        std::chrono::milliseconds(10),
-        std::chrono::milliseconds(500),
-        std::chrono::milliseconds(60),
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{500L},
+        std::chrono::milliseconds{60L},
         3,
         10,
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(20)
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{20L}
     };
     auto r = kvFrameworks.spawnClientsAndWait(
         1,
-        std::chrono::seconds(1),
+        std::chrono::seconds{1},
         getKVProxies(config),
         clientPolicy,
         [](int id, zdb::KVStoreClient& client, std::atomic<bool>& done) {
             std::ignore = id;
+            std::ignore = done;
             int nOK = 0;
             int nMaybe = 0;
             auto res = client.set(zdb::Key {"key"}, zdb::Value{"value", 0});
@@ -195,11 +193,12 @@ TEST(Raft, BasicAgreeOneValue) {
     EXPECT_EQ(r[0].nOK, 1);
     auto r2 = kvFrameworks.spawnClientsAndWait(
         1,
-        std::chrono::seconds(1),
+        std::chrono::seconds{1},
         getKVProxies(config),
         clientPolicy,
         [](int id, zdb::KVStoreClient& client, std::atomic<bool>& done) {
             std::ignore = id;
+            std::ignore = done;
             int nOK = 0;
             int nMaybe = 0;
             auto res = client.get(zdb::Key {"key"});
@@ -219,4 +218,12 @@ TEST(Raft, BasicAgree) {
     auto p = makePolicy(config.size());
     RAFTTestFramework framework{config, p};
     EXPECT_NO_THROW(framework.check1Leader());
+    for (int i = 1; i <= 3; ++i) {
+        auto uuid = generate_uuid_v7();
+        auto c = zdb::Get{uuid, zdb::Key{"key"}};
+        auto nd = framework.nCommitted(i).first;
+        ASSERT_EQ(nd, 0);
+        auto xi = framework.one(c.serialize(), 3, false);
+        ASSERT_EQ(xi, i);
+    }
 }

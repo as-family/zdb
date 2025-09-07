@@ -18,7 +18,7 @@ std::optional<std::chrono::microseconds> ExponentialBackoff::nextDelay() {
     auto baseCount = static_cast<uint64_t>(policy.baseDelay.count());
     auto delay = baseCount * (1UL << static_cast<unsigned int>(attempt));
     attempt++;
-    return std::chrono::microseconds(std::min(delay, static_cast<uint64_t>(policy.maxDelay.count())));
+    return std::chrono::microseconds{std::min(delay, static_cast<uint64_t>(policy.maxDelay.count()))};
 }
 
 void ExponentialBackoff::reset() {

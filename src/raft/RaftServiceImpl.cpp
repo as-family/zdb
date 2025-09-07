@@ -7,7 +7,7 @@ RaftServiceImpl::RaftServiceImpl(Raft& r) : raft(r) {
 }
 
 grpc::Status RaftServiceImpl::requestVote(
-    grpc::ServerContext* context,
+    grpc::ServerContext* /*context*/,
     const proto::RequestVoteArg* request,
     proto::RequestVoteReply* reply) {
     auto r = raft.requestVoteHandler(*request);
@@ -17,11 +17,10 @@ grpc::Status RaftServiceImpl::requestVote(
 }
 
 grpc::Status RaftServiceImpl::appendEntries(
-    grpc::ServerContext* context,
+    grpc::ServerContext* /*context*/,
     const proto::AppendEntriesArg* request,
     proto::AppendEntriesReply* reply) {
-    Log log{};
-    AppendEntriesArg arg {*request, log};
+    AppendEntriesArg arg {*request};
     auto r = raft.appendEntriesHandler(arg);
     reply->set_success(r.success);
     reply->set_term(r.term);

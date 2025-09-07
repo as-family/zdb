@@ -30,7 +30,6 @@ public:
         std::chrono::time_point<std::chrono::steady_clock> end;
         int clientId;
     };
-    Porcupine();
     void append(Operation op);
     size_t size() const;
     std::vector<Operation> read() const;

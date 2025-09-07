@@ -70,23 +70,25 @@ private:
 
 class KVRPCServiceTest : public ::testing::Test {
 protected:
-    RetryPolicy policy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    RetryPolicy policy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{5000L}, 2, 0, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     std::string address{"localhost:50051"};
     std::unique_ptr<TestKVServer> testServer;
     void SetUp() override {
         testServer = std::make_unique<TestKVServer>(address);
         // Give server time to start
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds{500L});
     }
     void TearDown() override {
-        testServer->shutdown();
-        testServer.reset();
+        if (testServer) {
+            testServer->shutdown();
+            testServer.reset();
+        }
     }
 };
 
 
 TEST_F(KVRPCServiceTest, ConnectSuccess) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     auto result = service.connect();
     EXPECT_TRUE(result.has_value());
     EXPECT_TRUE(service.available());
@@ -94,7 +96,7 @@ TEST_F(KVRPCServiceTest, ConnectSuccess) {
 
 
 TEST_F(KVRPCServiceTest, ConnectFailure) {
-    zdb::KVRPCService badService{"localhost:59999", policy}; // unlikely port
+    zdb::KVRPCService badService{"localhost:59999", policy, zdb::getDefaultKVFunctions()}; // unlikely port
     auto result = badService.connect();
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code, ErrorCode::Unknown);
@@ -102,95 +104,95 @@ TEST_F(KVRPCServiceTest, ConnectFailure) {
 
 
 TEST_F(KVRPCServiceTest, availableReflectsCircuitBreaker) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     EXPECT_TRUE(service.connect().has_value());
     EXPECT_TRUE(service.available());
     testServer->shutdown(); // Simulate server failure
     GetRequest req;
     req.mutable_key()->set_data("key");
     GetReply rep;
-    EXPECT_FALSE(service.call("get", &zdb::kvStore::KVStoreService::Stub::get, req, rep).has_value());
+    EXPECT_FALSE(service.call("get", req, rep).has_value());
     EXPECT_FALSE(service.available());
 }
 
 
 TEST_F(KVRPCServiceTest, CallGetSuccess) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest setReq;
     setReq.mutable_key()->set_data("foo");
     setReq.mutable_value()->set_data("bar");
     SetReply setRep;
     EXPECT_TRUE(
-        service.call("set", &zdb::kvStore::KVStoreService::Stub::set, setReq, setRep).has_value());
+        service.call("set", setReq, setRep).has_value());
     GetRequest req;
     req.mutable_key()->set_data("foo");
     GetReply rep;
-    auto result = service.call("get", &zdb::kvStore::KVStoreService::Stub::get, req, rep);
+    auto result = service.call("get", req, rep);
     EXPECT_TRUE(result.has_value());
     EXPECT_EQ(rep.value().data(), "bar");
 }
 
 
 TEST_F(KVRPCServiceTest, CallSetSuccess) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest req;
     req.mutable_key()->set_data("foo");
     req.mutable_value()->set_data("bar");
     SetReply rep;
-    auto result = service.call("set", &zdb::kvStore::KVStoreService::Stub::set, req, rep);
+    auto result = service.call("set", req, rep);
     EXPECT_TRUE(result.has_value());
 }
 
 
 TEST_F(KVRPCServiceTest, CallEraseSuccess) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest setReq;
     setReq.mutable_key()->set_data("foo");
     setReq.mutable_value()->set_data("bar");
     SetReply setRep;
-    EXPECT_TRUE(service.call("set", &zdb::kvStore::KVStoreService::Stub::set, setReq, setRep).has_value());
+    EXPECT_TRUE(service.call("set", setReq, setRep).has_value());
     EraseRequest req;
     req.mutable_key()->set_data("foo");
     EraseReply rep;
-    auto result = service.call("erase", &zdb::kvStore::KVStoreService::Stub::erase, req, rep);
+    auto result = service.call("erase", req, rep);
     EXPECT_TRUE(result.has_value());
     EXPECT_EQ(rep.value().data(), "bar");
 }
 
 
 TEST_F(KVRPCServiceTest, CallSizeSuccess) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     EXPECT_TRUE(service.connect().has_value());
     SetRequest setReq;
     setReq.mutable_key()->set_data("foo");
     setReq.mutable_value()->set_data("bar");
     SetReply setRep;
-    EXPECT_TRUE(service.call("set", &zdb::kvStore::KVStoreService::Stub::set, setReq, setRep).has_value());
+    EXPECT_TRUE(service.call("set", setReq, setRep).has_value());
     const SizeRequest req;
     SizeReply rep;
-    auto result = service.call("size", &zdb::kvStore::KVStoreService::Stub::size, req, rep);
+    auto result = service.call("size", req, rep);
     EXPECT_TRUE(result.has_value());
     EXPECT_GE(rep.size(), 1);
 }
 
 
 TEST_F(KVRPCServiceTest, CallFailureReturnsError) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     EXPECT_TRUE(service.connect().has_value());
     GetRequest req;
     req.mutable_key()->set_data("notfound");
     GetReply rep;
-    auto result = service.call("get", &zdb::kvStore::KVStoreService::Stub::get, req, rep);
+    auto result = service.call("get", req, rep);
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error().back().code, ErrorCode::KeyNotFound);
 }
 
 // Test connection reuse when channel is already READY
 TEST_F(KVRPCServiceTest, ConnectReuseReadyChannel) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     
     // First connection
     auto result1 = service.connect();
@@ -205,7 +207,7 @@ TEST_F(KVRPCServiceTest, ConnectReuseReadyChannel) {
 
 // Test that available() can trigger reconnection
 TEST_F(KVRPCServiceTest, AvailableTriggersReconnection) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     
     // Initially not connected
     EXPECT_FALSE(service.connected());
@@ -219,8 +221,8 @@ TEST_F(KVRPCServiceTest, AvailableTriggersReconnection) {
 // Test available() returns false when circuit breaker is open
 TEST_F(KVRPCServiceTest, AvailableReturnsFalseWhenCircuitBreakerOpen) {
     // Use a policy that opens circuit breaker quickly
-    const RetryPolicy quickFailPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(100), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
-    zdb::KVRPCService service{address, quickFailPolicy};
+    const RetryPolicy quickFailPolicy{std::chrono::microseconds{10L}, std::chrono::microseconds{50L}, std::chrono::microseconds{100L}, 1, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
+    zdb::KVRPCService service{address, quickFailPolicy, zdb::getDefaultKVFunctions()};
     
     EXPECT_TRUE(service.connect().has_value());
     EXPECT_TRUE(service.available());
@@ -232,7 +234,7 @@ TEST_F(KVRPCServiceTest, AvailableReturnsFalseWhenCircuitBreakerOpen) {
     GetRequest req;
     req.mutable_key()->set_data("test");
     GetReply rep;
-    auto result = service.call("get", &zdb::kvStore::KVStoreService::Stub::get, req, rep);
+    auto result = service.call("get", req, rep);
     EXPECT_FALSE(result.has_value());
     
     // available() should now return false due to circuit breaker
@@ -241,7 +243,7 @@ TEST_F(KVRPCServiceTest, AvailableReturnsFalseWhenCircuitBreakerOpen) {
 
 // Test connected() reflects actual gRPC channel state
 TEST_F(KVRPCServiceTest, ConnectedReflectsChannelState) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     
     // Initially not connected
     EXPECT_FALSE(service.connected());
@@ -254,25 +256,25 @@ TEST_F(KVRPCServiceTest, ConnectedReflectsChannelState) {
     testServer->shutdown();
     
     // Give some time for gRPC to detect the disconnection
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     
     // Note: gRPC channel state changes are asynchronous, so we might need to trigger activity
     GetRequest req;
     req.mutable_key()->set_data("test");
     GetReply rep;
-    EXPECT_FALSE(service.call("get", &zdb::kvStore::KVStoreService::Stub::get, req, rep).has_value()); // This will fail and potentially update channel state
+    EXPECT_FALSE(service.call("get", req, rep).has_value()); // This will fail and potentially update channel state
 }
 
 // Test connection reuse with IDLE channel state
 TEST_F(KVRPCServiceTest, ConnectHandlesIdleChannel) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     
     // First connection
     EXPECT_TRUE(service.connect().has_value());
     EXPECT_TRUE(service.connected());
     
     // Wait for channel to potentially go idle (this is implementation-dependent)
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds{50L});
     
     // Second connect should handle idle state gracefully
     auto result = service.connect();
@@ -281,7 +283,7 @@ TEST_F(KVRPCServiceTest, ConnectHandlesIdleChannel) {
 
 // Test multiple consecutive calls to available()
 TEST_F(KVRPCServiceTest, MultipleAvailableCalls) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     
     // Multiple calls should be consistent
     for (int i = 0; i < 5; ++i) {
@@ -293,7 +295,7 @@ TEST_F(KVRPCServiceTest, MultipleAvailableCalls) {
 // Test available() behavior after connection failure
 TEST_F(KVRPCServiceTest, AvailableAfterConnectionFailure) {
     // Connect to invalid address
-    zdb::KVRPCService badService{"localhost:99999", policy};
+    zdb::KVRPCService badService{"localhost:59999", policy, zdb::getDefaultKVFunctions()}; // unlikely port
     
     // available() should return false when connection fails
     EXPECT_FALSE(badService.available());
@@ -302,7 +304,7 @@ TEST_F(KVRPCServiceTest, AvailableAfterConnectionFailure) {
 
 // Test reconnection after server restart
 TEST_F(KVRPCServiceTest, ReconnectionAfterServerRestart) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     
     // Initial connection
     EXPECT_TRUE(service.connect().has_value());
@@ -310,13 +312,14 @@ TEST_F(KVRPCServiceTest, ReconnectionAfterServerRestart) {
     
     // Shutdown server temporarily
     testServer->shutdown();
+    testServer.reset();
     
     // Give time for disconnection
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     
     // Create new server instance (simulating restart)
     auto newServer = std::make_unique<TestKVServer>(address);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     
     // available() should trigger reconnection
     EXPECT_TRUE(service.available());
@@ -328,7 +331,7 @@ TEST_F(KVRPCServiceTest, ReconnectionAfterServerRestart) {
 
 // Test that connect() creates stub when missing
 TEST_F(KVRPCServiceTest, ConnectCreatesStubWhenMissing) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     
     // Connect should succeed and service should be ready for calls
     EXPECT_TRUE(service.connect().has_value());
@@ -339,14 +342,14 @@ TEST_F(KVRPCServiceTest, ConnectCreatesStubWhenMissing) {
     req.mutable_key()->set_data("test");
     req.mutable_value()->set_data("value");
     SetReply rep;
-    auto result = service.call("set", &zdb::kvStore::KVStoreService::Stub::set, req, rep);
+    auto result = service.call("set", req, rep);
     EXPECT_TRUE(result.has_value());
 }
 
 // Test circuit breaker integration with available()
 TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
-    const RetryPolicy circuitBreakerPolicy{std::chrono::milliseconds(10), std::chrono::milliseconds(50), std::chrono::milliseconds(200), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
-    zdb::KVRPCService service{address, circuitBreakerPolicy};
+    const RetryPolicy circuitBreakerPolicy{std::chrono::milliseconds{10L}, std::chrono::milliseconds{50L}, std::chrono::milliseconds{200L}, 1, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
+    zdb::KVRPCService service{address, circuitBreakerPolicy, zdb::getDefaultKVFunctions()};
     
     EXPECT_TRUE(service.connect().has_value());
     EXPECT_TRUE(service.available());
@@ -358,14 +361,14 @@ TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
     GetRequest req;
     req.mutable_key()->set_data("test");
     GetReply rep;
-    EXPECT_FALSE(service.call("get", &zdb::kvStore::KVStoreService::Stub::get, req, rep).has_value());
+    EXPECT_FALSE(service.call("get", req, rep).has_value());
 
     // available() should return false when circuit breaker is open
     EXPECT_FALSE(service.available());
     
     // Restart server
     testServer = std::make_unique<TestKVServer>(address);
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::seconds{2}); // Wait for circuit breaker reset
     
     // available() should trigger reconnection after circuit breaker reset
     EXPECT_TRUE(service.available());
@@ -375,7 +378,7 @@ TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
 // Test address() method consistency
 TEST_F(KVRPCServiceTest, AddressMethodConsistency) {
     const std::string testAddr = "test.example.com:1234";
-    zdb::KVRPCService service{testAddr, policy};
+    zdb::KVRPCService service{testAddr, policy, zdb::getDefaultKVFunctions()};
     
     EXPECT_EQ(service.address(), testAddr);
     
@@ -387,7 +390,7 @@ TEST_F(KVRPCServiceTest, AddressMethodConsistency) {
 
 // Test non-const available() can modify state
 TEST_F(KVRPCServiceTest, AvailableCanModifyState) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     
     // Initially not connected
     EXPECT_FALSE(service.connected());
@@ -401,7 +404,7 @@ TEST_F(KVRPCServiceTest, AvailableCanModifyState) {
 
 // Test behavior with rapid server cycling
 TEST_F(KVRPCServiceTest, RapidServerCycling) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     
     // Initial connection
     EXPECT_TRUE(service.connect().has_value());
@@ -412,25 +415,35 @@ TEST_F(KVRPCServiceTest, RapidServerCycling) {
     
     // Cycle server multiple times
     for (int i = 0; i < 3; ++i) {
-        testServer->shutdown();
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        // Shutdown the current server (either testServer or previous temp server)
+        if (i == 0) {
+            testServer->shutdown();
+            testServer.reset();
+        } else {
+            tempServers.back()->shutdown();
+            tempServers.pop_back();
+        }
         
+        std::this_thread::sleep_for(std::chrono::milliseconds{50L});
+        
+        // Create new temporary server
         tempServers.push_back(std::make_unique<TestKVServer>(address));
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds{100L});
         
         // available() should handle reconnection
         EXPECT_TRUE(service.available());
-        
-        tempServers.back()->shutdown();
     }
     
     // Clean up temp servers
-    tempServers.clear();
+    if (!tempServers.empty()) {
+        tempServers.back()->shutdown();
+        tempServers.clear();
+    }
 }
 
 // Test error handling in available() when reconnection fails
 TEST_F(KVRPCServiceTest, AvailableHandlesReconnectionFailure) {
-    zdb::KVRPCService service{address, policy};
+    zdb::KVRPCService service{address, policy, zdb::getDefaultKVFunctions()};
     
     // Initial connection
     EXPECT_TRUE(service.connect().has_value());
@@ -440,7 +453,7 @@ TEST_F(KVRPCServiceTest, AvailableHandlesReconnectionFailure) {
     testServer->shutdown();
     
     // Give time for disconnection
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     
     // available() should return false when reconnection fails
     EXPECT_FALSE(service.available());

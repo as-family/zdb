@@ -45,7 +45,7 @@ protected:
     void SetUp() override {
         server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
         // Wait for server to start
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds{200L});
     }
 
     void TearDown() override {

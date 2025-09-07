@@ -28,6 +28,9 @@ grpc::StatusCode toGrpcStatusCode(const ErrorCode& code) {
         case ErrorCode::NotLeader:
             return grpc::StatusCode::FAILED_PRECONDITION;
 
+        case ErrorCode::Cancelled:
+            return grpc::StatusCode::CANCELLED;
+
         default:
             return grpc::StatusCode::UNKNOWN;
     }
@@ -80,6 +83,9 @@ Error toError(const grpc::Status& status) {
             break;
         case grpc::StatusCode::FAILED_PRECONDITION:
             code = ErrorCode::NotLeader;
+            break;
+        case grpc::StatusCode::CANCELLED:
+            code = ErrorCode::Cancelled;
             break;
         default:
             code = ErrorCode::Unknown;

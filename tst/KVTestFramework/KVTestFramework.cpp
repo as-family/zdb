@@ -16,6 +16,7 @@
 #include "raft/Channel.hpp"
 #include "raft/SyncChannel.hpp"
 #include "KVTestFramework/NetworkConfig.hpp"
+#include "KVTestFramework/ProxyService.hpp"
 KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel& l, raft::Channel& f, raft::Raft& r, zdb::RetryPolicy p)
     : addr {a},
       targetServerAddr {t},
@@ -26,7 +27,7 @@ KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, Net
       raft {r},
       kvState {mem, leader, follower, raft},
       targetService {kvState},
-      targetProxyService{targetServerAddr, networkConfig, p},
+      targetProxyService{targetServerAddr, networkConfig, p, getDefaultKVProxyFunctions()},
       service {targetProxyService},
       targetServer {targetServerAddr, targetService},
       server {addr, service},

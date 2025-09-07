@@ -15,6 +15,7 @@
 #include "common/Command.hpp"
 #include "proto/types.pb.h"
 #include <thread>
+#include <chrono>
 #include "proto/raft.grpc.pb.h"
 #include "common/Util.hpp"
 
@@ -35,12 +36,12 @@ RAFTTestFramework::RAFTTestFramework(
             leaders.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
             followers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
             rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, leaders.at(e.raftTarget), followers.at(e.raftTarget), policy, [this, &e](const std::string addr, zdb::RetryPolicy) -> Client& {
-                clients[e.raftTarget].emplace(std::piecewise_construct, std::forward_as_tuple(addr), std::forward_as_tuple(addr, e.raftNetworkConfig, policy));
+                clients[e.raftTarget].emplace(std::piecewise_construct, std::forward_as_tuple(addr), std::forward_as_tuple(addr, e.raftNetworkConfig, policy, getDefaultRaftProxyFunctions()));
                 return clients[e.raftTarget].at(addr);
             }));
             raftServices.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(rafts.at(e.raftTarget)));
             raftServers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, raftServices.at(e.raftTarget)));
-            proxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, e.raftNetworkConfig, policy));
+            proxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, e.raftNetworkConfig, policy, getDefaultRaftProxyFunctions()));
             raftProxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(proxies.at(e.raftTarget)));
             raftProxyServers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftProxy, raftProxies.at(e.raftTarget)));
             kvTests.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.kvProxy, e.kvTarget, e.kvNetworkConfig, leaders.at(e.raftTarget), followers.at(e.raftTarget), rafts.at(e.raftTarget), policy));
@@ -74,9 +75,9 @@ int RAFTTestFramework::nRole(raft::Role role) {
 }
 
 std::string RAFTTestFramework::check1Leader() {
-    std::uniform_int_distribution<> dist{0, 150};
+    std::uniform_int_distribution<> dist{0, 300};
     for (int i = 0; i < 10; i++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(150 + dist(gen)));
+        std::this_thread::sleep_for(std::chrono::milliseconds{static_cast<long>(200 + dist(gen))});
         std::unordered_map<uint64_t, std::vector<std::string>> termsMap{};
         for (const auto& [id, raft] : rafts) {
             if (proxies.at(id).getNetworkConfig().isConnected()) {
@@ -181,4 +182,66 @@ std::pair<int, std::string> RAFTTestFramework::nCommitted(uint64_t index) {
         }
     }
     return {count, c};
+}
+
+int RAFTTestFramework::one(std::string c, int servers, bool retry) {
+    auto start_time = std::chrono::steady_clock::now();
+    size_t starts = 0;
+    
+    // Main timeout loop - try for up to 10 seconds
+    while (std::chrono::duration_cast<std::chrono::seconds>(
+               std::chrono::steady_clock::now() - start_time).count() < 10) {
+        
+        // Try all servers to find a leader that will accept the command
+        int index = -1;
+        for (size_t i = 0; i < rafts.size(); i++) {
+            starts = (starts + 1) % rafts.size();
+            
+            // Get the server ID at this position
+            auto it = rafts.begin();
+            std::advance(it, starts);
+            const std::string& server_id = it->first;
+            auto& raft = it->second;
+            
+            // Check if this server is connected
+            if (proxies.at(server_id).getNetworkConfig().isConnected()) {
+                // Try to submit the command
+                if (raft.start(c)) {
+                    // Command was accepted, get the index where it should be committed
+                    index = raft.log().lastIndex();
+                    break;
+                }
+            }
+        }
+        
+        if (index != -1) {
+            // Someone claimed to be the leader and submitted our command
+            // Wait up to 2 seconds for agreement
+            auto wait_start = std::chrono::steady_clock::now();
+            while (std::chrono::duration_cast<std::chrono::seconds>(
+                       std::chrono::steady_clock::now() - wait_start).count() < 2) {
+                
+                auto [nd, cmd1] = nCommitted(index);
+                if (nd > 0 && nd >= servers) {
+                    // Committed by enough servers
+                    if (cmd1 == c) {
+                        // And it was the command we submitted
+                        return index;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds{20L});
+            }
+            
+            if (!retry) {
+                // Not retrying, so fail if we didn't get agreement
+                throw std::runtime_error{"Failed to reach agreement for command: " + c};
+            }
+        } else {
+            // No leader found, wait a bit before trying again
+            std::this_thread::sleep_for(std::chrono::milliseconds{50L});
+        }
+    }
+    
+    // Timeout reached
+    throw std::runtime_error{"Timeout: failed to reach agreement for command: " + c};
 }

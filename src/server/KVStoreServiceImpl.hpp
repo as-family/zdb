@@ -29,7 +29,6 @@ public:
         grpc::ServerContext* context,
         const kvStore::SizeRequest* request,
         kvStore::SizeReply* reply) override;
-    ~KVStoreServiceImpl();
 private:
     KVStateMachine& kvStateMachine;
 };

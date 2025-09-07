@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package raft.proto;
+option go_package = "github.com/as-family/zdb/proto";
 
 service Raft {
     rpc appendEntries(AppendEntriesArg) returns (AppendEntriesReply);

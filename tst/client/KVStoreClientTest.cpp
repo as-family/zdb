@@ -39,12 +39,12 @@ protected:
     zdb::KVStateMachine kvState {kvStore, leader, follower, raft};
     KVStoreServiceImpl serviceImpl{kvState};
     std::unique_ptr<KVStoreServer> server;
-    const RetryPolicy policy{std::chrono::milliseconds(100), std::chrono::milliseconds(1000), std::chrono::milliseconds(5000), 3, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy policy{std::chrono::milliseconds{100L}, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{5000L}, 3, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     std::vector<std::string> addresses{SERVER_ADDR};
 
     void SetUp() override {
         server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds{500L});
     }
     void TearDown() override {
         if (server) {
@@ -136,7 +136,7 @@ TEST_F(KVStoreClientTest, SetFailureReturnsError) {
     Config c {addresses, policy};
     KVStoreClient client {c};
     server->shutdown(); // Simulate server down
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     auto setResult = client.set(Key{"foo"}, Value{"bar"});
     EXPECT_FALSE(setResult.has_value());
     EXPECT_EQ(setResult.error().code, ErrorCode::AllServicesUnavailable);
@@ -146,7 +146,7 @@ TEST_F(KVStoreClientTest, GetFailureReturnsError) {
     Config c {addresses, policy};
     const KVStoreClient client {c};
     server->shutdown();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     auto getResult = client.get(Key{"foo"});
     EXPECT_FALSE(getResult.has_value());
     EXPECT_EQ(getResult.error().code, ErrorCode::AllServicesUnavailable);
@@ -156,7 +156,7 @@ TEST_F(KVStoreClientTest, EraseFailureReturnsError) {
     Config c {addresses, policy};
     KVStoreClient client {c};
     server->shutdown();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     auto eraseResult = client.erase(Key{"foo"});
     EXPECT_FALSE(eraseResult.has_value());
     EXPECT_EQ(eraseResult.error().code, ErrorCode::AllServicesUnavailable);
@@ -166,7 +166,7 @@ TEST_F(KVStoreClientTest, SizeFailureReturnsError) {
     Config c {addresses, policy};
     const KVStoreClient client {c};
     server->shutdown();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     auto sizeResult = client.size();
     EXPECT_FALSE(sizeResult.has_value());
     EXPECT_EQ(sizeResult.error().code, ErrorCode::AllServicesUnavailable);
@@ -200,7 +200,7 @@ TEST_F(KVStoreClientTest, LargeValueSetGet) {
 
 // Test behavior with servicesToTry = 0 (should fail immediately)
 TEST_F(KVStoreClientTest, ServicesToTryZeroFailsImmediately) {
-    const RetryPolicy zeroServicesPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 0, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy zeroServicesPolicy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{5000L}, 2, 0, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, zeroServicesPolicy};
     const KVStoreClient client{c};
     
@@ -212,7 +212,7 @@ TEST_F(KVStoreClientTest, ServicesToTryZeroFailsImmediately) {
 
 // Test behavior with servicesToTry = 1 (should try only once)
 TEST_F(KVStoreClientTest, ServicesToTryOneTriesOnlyOnce) {
-    const RetryPolicy oneServicePolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy oneServicePolicy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{5000L}, 2, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, oneServicePolicy};
     KVStoreClient client{c};
     
@@ -239,12 +239,12 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     std::thread serverThread2;
     
     server2 = std::make_unique<KVStoreServer>(serverAddress2, serviceImpl2);
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds{500L});
     
     const std::vector<std::string> multiAddresses{SERVER_ADDR, serverAddress2};
     
     // Test with servicesToTry = 1 (should work with first available service)
-    const RetryPolicy oneServicePolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy oneServicePolicy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{5000L}, 2, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c1{multiAddresses, oneServicePolicy};
     KVStoreClient client1{c1};
     
@@ -252,7 +252,7 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     EXPECT_TRUE(result1.has_value());
     
     // Test with servicesToTry = 2 (should work with up to 2 services)
-    const RetryPolicy twoServicesPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 2, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy twoServicesPolicy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{5000L}, 2, 2, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c2{multiAddresses, twoServicesPolicy};
     KVStoreClient client2{c2};
     
@@ -263,7 +263,7 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
 // Test servicesToTry behavior when services become unavailable
 TEST_F(KVStoreClientTest, ServicesToTryWithServiceFailure) {
     // Use a policy that tries more services than available
-    const RetryPolicy multiServicePolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 3, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy multiServicePolicy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{5000L}, 2, 3, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, multiServicePolicy};
     KVStoreClient client{c};
     
@@ -273,7 +273,7 @@ TEST_F(KVStoreClientTest, ServicesToTryWithServiceFailure) {
     
     // Now simulate service becoming unavailable by shutting down the server
     server->shutdown();
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::this_thread::sleep_for(std::chrono::milliseconds{200L});
     
     // Should fail after trying available services (up to servicesToTry limit)
     auto getResult = client.get(Key{"test"});
@@ -284,7 +284,7 @@ TEST_F(KVStoreClientTest, ServicesToTryWithServiceFailure) {
 // Test edge case: servicesToTry larger than available services
 TEST_F(KVStoreClientTest, ServicesToTryLargerThanAvailableServices) {
     // policy tries 5 services but only 1 is available
-    const RetryPolicy excessiveRetryPolicy{std::chrono::microseconds(100), std::chrono::microseconds(1000), std::chrono::microseconds(5000), 2, 5, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy excessiveRetryPolicy{std::chrono::microseconds{100L}, std::chrono::microseconds{1000L}, std::chrono::microseconds{5000L}, 2, 5, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, excessiveRetryPolicy};
     KVStoreClient client{c};
     
@@ -299,13 +299,13 @@ TEST_F(KVStoreClientTest, ServicesToTryLargerThanAvailableServices) {
 
 // Test that Config properly exposes the RetryPolicy
 TEST_F(KVStoreClientTest, ConfigExposesRetryPolicy) {
-    const RetryPolicy customPolicy{std::chrono::microseconds(200), std::chrono::microseconds(2000), std::chrono::microseconds(10000), 5, 3, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy customPolicy{std::chrono::microseconds{200L}, std::chrono::microseconds{2000L}, std::chrono::microseconds{10000L}, 5, 3, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     const Config c{addresses, customPolicy};
     
     // Verify the policy is properly stored and accessible
-    EXPECT_EQ(c.policy.baseDelay, std::chrono::microseconds(200));
-    EXPECT_EQ(c.policy.maxDelay, std::chrono::microseconds(2000));
-    EXPECT_EQ(c.policy.resetTimeout, std::chrono::microseconds(10000));
+    EXPECT_EQ(c.policy.baseDelay, std::chrono::microseconds{200L});
+    EXPECT_EQ(c.policy.maxDelay, std::chrono::microseconds{2000L});
+    EXPECT_EQ(c.policy.resetTimeout, std::chrono::microseconds{10000L});
     EXPECT_EQ(c.policy.failureThreshold, 5);
     EXPECT_EQ(c.policy.servicesToTry, 3);
 }
@@ -315,7 +315,7 @@ TEST_F(KVStoreClientTest, ConfigExposesRetryPolicy) {
 // Test client retry behavior with short-lived server outages
 TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
     // Use a fast retry policy for testing
-    const RetryPolicy fastRetryPolicy{std::chrono::microseconds(50), std::chrono::microseconds(200), std::chrono::microseconds(500), 3, 2, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy fastRetryPolicy{std::chrono::microseconds{50L}, std::chrono::microseconds{200L}, std::chrono::microseconds{500L}, 3, 2, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, fastRetryPolicy};
     KVStoreClient client{c};
     
@@ -332,7 +332,7 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
     
     // Restart the server
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    std::this_thread::sleep_for(std::chrono::milliseconds{1000L});
     
     // Client should recover and work again
     auto setResult = client.set(Key{"recovery"}, Value{"test"});
@@ -345,7 +345,7 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
 
 // Test client behavior with multiple server restarts
 TEST_F(KVStoreClientTest, MultipleServerRestarts) {
-    const RetryPolicy fastRetryPolicy{std::chrono::milliseconds(25), std::chrono::milliseconds(100), std::chrono::milliseconds(300), 3, 1, std::chrono::milliseconds(20), std::chrono::milliseconds(200)};
+    const RetryPolicy fastRetryPolicy{std::chrono::milliseconds{25L}, std::chrono::milliseconds{100L}, std::chrono::milliseconds{300L}, 3, 1, std::chrono::milliseconds{20L}, std::chrono::milliseconds{200L}};
     Config c{addresses, fastRetryPolicy};
     KVStoreClient client{c};
     
@@ -364,7 +364,7 @@ TEST_F(KVStoreClientTest, MultipleServerRestarts) {
         
         // Restart server
         server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds{1});
         
         // Client should recover
         auto newSetResult = client.set(Key{"after_restart_" + std::to_string(restart)}, Value{"recovery"});
@@ -375,7 +375,7 @@ TEST_F(KVStoreClientTest, MultipleServerRestarts) {
 // Test client resilience with circuit breaker behavior during extended outage
 TEST_F(KVStoreClientTest, CircuitBreakerDuringExtendedOutage) {
     // Use a policy with a low failure threshold to trigger circuit breaker quickly
-    const RetryPolicy circuitBreakerPolicy{std::chrono::milliseconds(10), std::chrono::milliseconds(50), std::chrono::milliseconds(200), 1, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy circuitBreakerPolicy{std::chrono::milliseconds{10L}, std::chrono::milliseconds{50L}, std::chrono::milliseconds{200L}, 1, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, circuitBreakerPolicy};
     KVStoreClient client{c};
     
@@ -394,7 +394,7 @@ TEST_F(KVStoreClientTest, CircuitBreakerDuringExtendedOutage) {
 
     // Restart server
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-    std::this_thread::sleep_for(std::chrono::seconds(4)); // Wait for circuit breaker reset timeout
+    std::this_thread::sleep_for(std::chrono::seconds{4}); // Wait for circuit breaker reset timeout
     
     // Circuit breaker should allow operations after reset timeout
     auto recoveryResult = client.set(Key{"after_recovery"}, Value{"test"});
@@ -421,10 +421,10 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     
     server2 = std::make_unique<KVStoreServer>(serverAddress2, serviceImpl2);
     server3 = std::make_unique<KVStoreServer>(serverAddress3, serviceImpl3);
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::this_thread::sleep_for(std::chrono::milliseconds{200L});
     
     const std::vector<std::string> multiAddresses{SERVER_ADDR, serverAddress2, serverAddress3};
-    const RetryPolicy multiServicePolicy{std::chrono::microseconds(50), std::chrono::microseconds(200), std::chrono::microseconds(500), 2, 3, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy multiServicePolicy{std::chrono::microseconds{50L}, std::chrono::microseconds{200L}, std::chrono::microseconds{500L}, 2, 3, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{multiAddresses, multiServicePolicy};
     KVStoreClient client{c};
     
@@ -458,7 +458,7 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     
     // Restart one server
     server2 = std::make_unique<KVStoreServer>(serverAddress2, serviceImpl2);
-    std::this_thread::sleep_for(std::chrono::milliseconds(600)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::milliseconds{600L}); // Wait for circuit breaker reset
     
     // Client should recover with the restarted service
     auto recoveryResult = client.set(Key{"recovery"}, Value{"success"});
@@ -473,7 +473,7 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
 // Test exponential backoff behavior during retries
 TEST_F(KVStoreClientTest, ExponentialBackoffDuringRetries) {
     // Use a policy with noticeable delays for testing backoff
-    const RetryPolicy backoffPolicy{std::chrono::milliseconds(100), std::chrono::milliseconds(500), std::chrono::milliseconds(1000), 3, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy backoffPolicy{std::chrono::milliseconds{100L}, std::chrono::milliseconds{500L}, std::chrono::milliseconds{1000L}, 3, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, backoffPolicy};
     KVStoreClient client{c};
     
@@ -497,7 +497,7 @@ TEST_F(KVStoreClientTest, ExponentialBackoffDuringRetries) {
 
 // Test client recovery with data persistence after server restart
 TEST_F(KVStoreClientTest, DataPersistenceAfterServerRestart) {
-    const RetryPolicy recoveryPolicy{std::chrono::microseconds(50), std::chrono::microseconds(200), std::chrono::microseconds(300), 2, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy recoveryPolicy{std::chrono::microseconds{50L}, std::chrono::microseconds{200L}, std::chrono::microseconds{300L}, 2, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, recoveryPolicy};
     KVStoreClient client{c};
     
@@ -513,7 +513,7 @@ TEST_F(KVStoreClientTest, DataPersistenceAfterServerRestart) {
     EXPECT_FALSE(client.get(Key{"persistent_key"}).has_value());
     
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::this_thread::sleep_for(std::chrono::seconds{1});
     
     auto newSize = client.size();
     ASSERT_TRUE(newSize.has_value());
@@ -527,7 +527,7 @@ TEST_F(KVStoreClientTest, DataPersistenceAfterServerRestart) {
 
 // Test client behavior during rapid server cycling
 TEST_F(KVStoreClientTest, RapidServerCycling) {
-    const RetryPolicy rapidCyclePolicy{std::chrono::microseconds(20), std::chrono::microseconds(80), std::chrono::microseconds(300), 2, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy rapidCyclePolicy{std::chrono::microseconds{20L}, std::chrono::microseconds{80L}, std::chrono::microseconds{300L}, 2, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, rapidCyclePolicy};
     KVStoreClient client{c};
     
@@ -541,10 +541,10 @@ TEST_F(KVStoreClientTest, RapidServerCycling) {
         server->shutdown();
         
         // Very brief downtime
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds{50L});
         
         server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds{100L});
     }
     
     // Final verification that client still works
@@ -554,7 +554,7 @@ TEST_F(KVStoreClientTest, RapidServerCycling) {
 
 // Test retry exhaustion with all services down
 TEST_F(KVStoreClientTest, RetryExhaustionAllServicesDown) {
-    const RetryPolicy exhaustionPolicy{std::chrono::microseconds(10), std::chrono::microseconds(50), std::chrono::microseconds(200), 2, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy exhaustionPolicy{std::chrono::microseconds{10L}, std::chrono::microseconds{50L}, std::chrono::microseconds{200L}, 2, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, exhaustionPolicy};
     KVStoreClient client{c};
     
@@ -585,7 +585,7 @@ TEST_F(KVStoreClientTest, RetryExhaustionAllServicesDown) {
 // Test client resilience with intermittent connectivity
 TEST_F(KVStoreClientTest, IntermittentConnectivityResilience) {
     // Use longer reset timeout to ensure circuit breaker can recover
-    const RetryPolicy intermittentPolicy{std::chrono::milliseconds(30), std::chrono::milliseconds(120), std::chrono::milliseconds(100), 3, 1, std::chrono::milliseconds(1000), std::chrono::milliseconds(200)};
+    const RetryPolicy intermittentPolicy{std::chrono::milliseconds{30L}, std::chrono::milliseconds{120L}, std::chrono::milliseconds{100L}, 3, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, intermittentPolicy};
     KVStoreClient client{c};
     
@@ -600,7 +600,7 @@ TEST_F(KVStoreClientTest, IntermittentConnectivityResilience) {
     
     // 3. Restore service - wait much longer for circuit breaker reset
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-    std::this_thread::sleep_for(std::chrono::seconds(1)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::seconds{1}); // Wait for circuit breaker reset
     EXPECT_TRUE(client.set(Key{"intermittent2"}, Value{"value2"}).has_value());
     
     // 4. Another failure
@@ -609,6 +609,6 @@ TEST_F(KVStoreClientTest, IntermittentConnectivityResilience) {
     
     // 5. Final restore - wait much longer for circuit breaker reset
     server = std::make_unique<KVStoreServer>(SERVER_ADDR, serviceImpl);
-    std::this_thread::sleep_for(std::chrono::seconds(1)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::seconds{1}); // Wait for circuit breaker reset
     EXPECT_TRUE(client.set(Key{"intermittent3"}, Value{"value3"}).has_value());
 }

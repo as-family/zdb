@@ -16,28 +16,28 @@ TEST(KVTestFrameworkTest, SpawnClientsAndWaitCoordinatesResults) {
     raft::SyncChannel follower{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
-        std::chrono::milliseconds(20),
-        std::chrono::milliseconds(150),
-        std::chrono::milliseconds(200),
+        std::chrono::milliseconds{20L},
+        std::chrono::milliseconds{150L},
+        std::chrono::milliseconds{200L},
         1,
         1,
-        std::chrono::milliseconds(10),
-        std::chrono::milliseconds(20)
+        std::chrono::milliseconds{10L},
+        std::chrono::milliseconds{20L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
     zdb::RetryPolicy policy {
-        std::chrono::milliseconds(100),
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(5000),
+        std::chrono::milliseconds{100L},
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{5000L},
         3,
         1,
-        std::chrono::milliseconds(1000),
-        std::chrono::milliseconds(200)
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{200L}
     };
-    auto r = kvTest.spawnClientsAndWait(10, std::chrono::seconds(5), {proxyAddress}, policy,
-        [](int id, zdb::KVStoreClient& client, std::atomic<bool>& done) {
+    auto r = kvTest.spawnClientsAndWait(10, std::chrono::seconds{5}, {proxyAddress}, policy,
+        [](int id, zdb::KVStoreClient& /*client*/, std::atomic<bool>& done) {
             while(!done.load()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                std::this_thread::sleep_for(std::chrono::milliseconds{100L});
             }
             return KVTestFramework::ClientResult{id, id};
         });

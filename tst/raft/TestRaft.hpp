@@ -20,7 +20,7 @@ struct TestRaft : raft::Raft {
         std::ignore = arg;
         return {};
     }
-    void appendEntries(bool heartBeat) override {
+    void appendEntries(bool /*heartBeat*/) override {
     }
     void requestVote() override {
     }

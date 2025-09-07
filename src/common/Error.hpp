@@ -12,17 +12,18 @@
 namespace zdb {
 
 enum class ErrorCode {
-    OK,
-    InvalidArg,
-    ServiceTemporarilyUnavailable,
-    AllServicesUnavailable,
-    VersionMismatch,
-    Maybe,
-    KeyNotFound,
-    Timeout,
-    NotLeader,
-    Internal,
-    Unknown
+    OK = 0,
+    InvalidArg = 1,
+    ServiceTemporarilyUnavailable = 2,
+    AllServicesUnavailable = 3,
+    VersionMismatch = 4,
+    Maybe = 5,
+    KeyNotFound = 6,
+    Timeout = 7,
+    NotLeader = 8,
+    Internal = 9,
+    Cancelled = 10,
+    Unknown = 128
 };
 
 struct ErrorCodeHash {

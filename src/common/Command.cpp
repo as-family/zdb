@@ -54,7 +54,7 @@ std::unique_ptr<raft::State> Get::apply(raft::StateMachine& stateMachine) {
 }
 
 bool Get::operator==(const raft::Command& other) const {
-    if (auto o = dynamic_cast<const Get*>(&other)) {
+    if (const auto o = dynamic_cast<const Get*>(&other)) {
         return key == o->key;
     }
     return false;
@@ -92,7 +92,7 @@ std::unique_ptr<raft::State> Set::apply(raft::StateMachine& stateMachine) {
 }
 
 bool Set::operator==(const raft::Command& other) const {
-    if (auto o = dynamic_cast<const Set*>(&other)) {
+    if (const auto o = dynamic_cast<const Set*>(&other)) {
         return key == o->key && value == o->value;
     }
     return false;
@@ -128,7 +128,7 @@ std::unique_ptr<raft::State> Erase::apply(raft::StateMachine& stateMachine) {
 }
 
 bool Erase::operator==(const raft::Command& other) const {
-    if (auto o = dynamic_cast<const Erase*>(&other)) {
+    if (const auto o = dynamic_cast<const Erase*>(&other)) {
         return key == o->key;
     }
     return false;

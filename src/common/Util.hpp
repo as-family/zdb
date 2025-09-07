@@ -23,15 +23,15 @@ auto random_generator() -> T {
 
 std::string zdb_generate_random_alphanumeric_string(std::size_t len);
 
+using UUIDV7 = std::array<uint8_t, 16>;
+
 // Generate UUID version 7 (time-ordered, RFC 9562)
-std::array<uint8_t, 16> generate_uuid_v7();
+UUIDV7 generate_uuid_v7();
 
 // Convert UUID v7 array to string for protobuf bytes field
-std::string uuid_v7_to_string(const std::array<uint8_t, 16>& uuid);
+std::string uuid_v7_to_string(const UUIDV7& uuid);
 
 // Convert string back to UUID v7 array
-std::array<uint8_t, 16> string_to_uuid_v7(const std::string& str);
-
-using UUIDV7 = std::array<uint8_t, 16>;
+UUIDV7 string_to_uuid_v7(const std::string& str);
 
 #endif // ZDB_UTIL_H_DLKJH

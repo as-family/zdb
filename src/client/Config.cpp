@@ -9,6 +9,7 @@
 #include <expected>
 #include "client/Config.hpp"
 #include <mutex>
+#include <unordered_map>
 
 namespace zdb {
 
@@ -24,7 +25,7 @@ Config::iterator Config::nextActiveServiceIterator() {
     return services.end();
 }
 
-Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p)
+Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p, std::unordered_map<std::string, KVRPCService::function_t> f)
     : policy{p},
       rng{std::random_device{}()} {
     if (addresses.empty()) {
@@ -34,7 +35,7 @@ Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p)
     for (auto address : addresses) {
         services.emplace(std::piecewise_construct, 
                         std::forward_as_tuple(address), 
-                        std::forward_as_tuple(address, p));
+                        std::forward_as_tuple(address, p, f));
     }
     cService = services.end();
 }
@@ -56,7 +57,7 @@ std::expected<KVRPCServicePtr, Error> Config::nextService() {
 std::expected<KVRPCServicePtr, Error> Config::randomService() {
     std::lock_guard lock{m};
     for (size_t j = 0; j < 10 * services.size(); ++j) {
-        auto i = std::next(services.begin(), dist(rng));
+        auto i = std::next(services.begin(), static_cast<std::ptrdiff_t>(dist(rng)));
         if (i == cService) {
             continue;
         }

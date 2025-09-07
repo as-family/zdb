@@ -8,7 +8,7 @@ using zdb::FullJitter;
 
 TEST(FullJitterTest, ReturnsValueWithinRange) {
     FullJitter jitter;
-    auto input = std::chrono::microseconds(1000);
+    auto input = std::chrono::microseconds{1000L};
     for (int i = 0; i < 100; ++i) {
         auto result = jitter.jitter(input);
         EXPECT_GE(result.count(), 0);
@@ -18,7 +18,7 @@ TEST(FullJitterTest, ReturnsValueWithinRange) {
 
 TEST(FullJitterTest, ZeroInputAlwaysReturnsZero) {
     FullJitter jitter;
-    auto input = std::chrono::microseconds(0);
+    auto input = std::chrono::microseconds{0L};
     for (int i = 0; i < 10; ++i) {
         auto result = jitter.jitter(input);
         EXPECT_EQ(result.count(), 0);
@@ -27,7 +27,7 @@ TEST(FullJitterTest, ZeroInputAlwaysReturnsZero) {
 
 TEST(FullJitterTest, DistributionIsUniformEnough) {
     FullJitter jitter;
-    auto input = std::chrono::microseconds(10);
+    auto input = std::chrono::microseconds{10L};
     std::set<int64_t> seen;
     for (int i = 0; i < 1000; ++i) {
         auto result = jitter.jitter(input);
@@ -39,7 +39,7 @@ TEST(FullJitterTest, DistributionIsUniformEnough) {
 
 TEST(FullJitterTest, LargeInputDoesNotOverflow) {
     FullJitter jitter;
-    auto input = std::chrono::microseconds(1000000);
+    auto input = std::chrono::microseconds{1000000L};
     for (int i = 0; i < 10; ++i) {
         auto result = jitter.jitter(input);
         EXPECT_GE(result.count(), 0);
@@ -50,7 +50,7 @@ TEST(FullJitterTest, LargeInputDoesNotOverflow) {
 // Negative input is not supported by FullJitter, but test for robustness
 TEST(FullJitterTest, NegativeInputThrowsOrReturnsZero) {
     FullJitter jitter;
-    auto input = std::chrono::microseconds(-100);
+    auto input = std::chrono::microseconds{-100};
     // Uniform distribution with negative max is undefined, so expect exception or zero
     try {
         auto result = jitter.jitter(input);

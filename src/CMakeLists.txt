@@ -64,3 +64,6 @@ target_link_libraries(zdb PRIVATE
   spdlog::spdlog
   protobuf_generated
 )
+
+# Add goRaft subdirectory for C++ Raft implementation
+add_subdirectory(goRaft)

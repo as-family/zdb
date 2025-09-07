@@ -8,7 +8,7 @@
 
 namespace raft {
 
-class Command;
+struct Command;
 
 struct State {
     virtual ~State() = default;

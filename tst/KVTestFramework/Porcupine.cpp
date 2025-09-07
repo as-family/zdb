@@ -5,8 +5,9 @@
 #include <fstream>
 #include <unistd.h>
 #include <sys/wait.h>
-
-Porcupine::Porcupine() : operations() {}
+#include <cstdlib>
+#include <cstdio>
+#include <ctime>
 
 void Porcupine::append(Operation op) {
     std::lock_guard<std::mutex> lock(mtx);
@@ -20,7 +21,7 @@ size_t Porcupine::size() const {
 
 std::vector<Porcupine::Operation> Porcupine::read() const {
     std::lock_guard<std::mutex> lock(mtx);
-    std::vector<Operation> v {operations};
+    std::vector<Operation> v{operations};
     return v;
 }
 
@@ -37,7 +38,7 @@ void to_json(nlohmann::json& j, const Porcupine::Output& output) {
     j = nlohmann::json{
         {"value", output.value},
         {"version", output.version},
-        {"error", output.error}
+        {"error", static_cast<int>(output.error)}
     };
 }
 
@@ -54,9 +55,14 @@ void to_json(nlohmann::json& j, const Porcupine::Operation& op) {
 bool Porcupine::check(int timeout) const {
     std::vector<Operation> ops = read();
     nlohmann::json j = ops;
-    std::string filename = "porcupine_operations.json";
-    std::ofstream ofs(filename);
-    ofs << j.dump(2);
+    std::string filename = "/tmp/porcupine_operations_" + std::to_string(::getpid()) +
+        "_" + std::to_string(::time(nullptr)) + ".json";
+    std::ofstream ofs(filename, std::ios::trunc);
+    if (!ofs) {
+        spdlog::error("failed to open {} for writing", filename);
+        return false;
+    }
+    ofs << j.dump(2) << '\n';
     ofs.close();
     pid_t pid = fork();
     if (pid == 0) {
@@ -65,10 +71,23 @@ bool Porcupine::check(int timeout) const {
         perror("execl");
         exit(1);
     } else if (pid > 0) {
-        // Parent process
-        int status;
-        waitpid(pid, &status, 0);
-        return status == 0;
+        int status = 0;
+        const pid_t w = waitpid(pid, &status, 0);
+        if (w == -1) {
+            perror("waitpid");
+            return false;
+        }
+        if (WIFEXITED(status)) {
+            const int code = WEXITSTATUS(status);
+            if (code != 0) {
+                spdlog::error("porcupine exited with code {}", code);
+            }
+            return code == 0;
+        }
+        if (WIFSIGNALED(status)) {
+            spdlog::error("porcupine terminated by signal {}", WTERMSIG(status));
+        }
+        return false;
     } else {
         // Fork failed
         perror("fork");

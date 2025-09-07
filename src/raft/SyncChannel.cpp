@@ -14,6 +14,21 @@ void SyncChannel::send(std::string cmd) {
     cv.notify_one();
 }
 
+bool SyncChannel::sendUntil(std::string cmd, std::chrono::system_clock::time_point t) {
+    std::unique_lock<std::mutex> lock(m);
+    while (value.has_value() && !closed) {
+        if (cv.wait_until(lock, t) == std::cv_status::timeout) {
+            return false;
+        }
+    }
+    if (closed) {
+        return false;
+    }
+    value = cmd;
+    cv.notify_one();
+    return true;
+}
+
 std::string SyncChannel::receive() {
     std::unique_lock<std::mutex> lock(m);
     while (!value.has_value() && !closed) {
@@ -46,10 +61,14 @@ std::optional<std::string> SyncChannel::receiveUntil(std::chrono::system_clock::
     return std::nullopt;
 }
 
-void SyncChannel::close() {
+void SyncChannel::doClose() noexcept {
     std::unique_lock<std::mutex> lock(m);
     closed = true;
     cv.notify_all();
+}
+
+void SyncChannel::close() {
+    doClose();
 }
 
 bool SyncChannel::isClosed() {
@@ -58,7 +77,7 @@ bool SyncChannel::isClosed() {
 }
 
 SyncChannel::~SyncChannel() {
-    close();
+    doClose();
 }
 
 } // namespace raft

@@ -17,6 +17,8 @@
 #include "raft/SyncChannel.hpp"
 #include "raft/RaftImpl.hpp"
 #include "common/LockedUnorderedMap.hpp"
+#include "raft/RaftServiceImpl.hpp"
+#include "server/RPCServer.hpp"
 
 struct EndPoints {
     std::string raftTarget;
@@ -45,6 +47,7 @@ public:
     void connect(std::string);
     void start();
     std::pair<int, std::string> nCommitted(uint64_t index);
+    int one(std::string c, int servers, bool retry);
 private:
     std::vector<EndPoints>& config;
     zdb::RetryPolicy policy;
