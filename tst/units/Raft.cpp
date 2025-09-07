@@ -50,7 +50,7 @@ private:
 };
 
 // Mock Channel for testing
-class MockChannel : public Channel {
+class MockChannel final : public Channel {
 public:
     MOCK_METHOD(void, send, (std::string message), (override));
     MOCK_METHOD(bool, sendUntil, (std::string message, std::chrono::system_clock::time_point t), (override));

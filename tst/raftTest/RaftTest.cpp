@@ -171,11 +171,12 @@ TEST(Raft, BasicAgreeOneValue) {
     };
     auto r = kvFrameworks.spawnClientsAndWait(
         1,
-        std::chrono::seconds(1),
+        std::chrono::seconds{1},
         getKVProxies(config),
         clientPolicy,
         [](int id, zdb::KVStoreClient& client, std::atomic<bool>& done) {
             std::ignore = id;
+            std::ignore = done;
             int nOK = 0;
             int nMaybe = 0;
             auto res = client.set(zdb::Key {"key"}, zdb::Value{"value", 0});
@@ -192,11 +193,12 @@ TEST(Raft, BasicAgreeOneValue) {
     EXPECT_EQ(r[0].nOK, 1);
     auto r2 = kvFrameworks.spawnClientsAndWait(
         1,
-        std::chrono::seconds(1),
+        std::chrono::seconds{1},
         getKVProxies(config),
         clientPolicy,
         [](int id, zdb::KVStoreClient& client, std::atomic<bool>& done) {
             std::ignore = id;
+            std::ignore = done;
             int nOK = 0;
             int nMaybe = 0;
             auto res = client.get(zdb::Key {"key"});

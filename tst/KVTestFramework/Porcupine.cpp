@@ -37,7 +37,7 @@ void to_json(nlohmann::json& j, const Porcupine::Output& output) {
     j = nlohmann::json{
         {"value", output.value},
         {"version", output.version},
-        {"error", output.error}
+        {"error", static_cast<int>(output.error)}
     };
 }
 

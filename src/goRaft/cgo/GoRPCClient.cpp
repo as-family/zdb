@@ -12,7 +12,7 @@ void GoRPCClient::stop() {
         local = std::move(breakers);
         breakers.clear();
     }
-    for (auto& b : local) {
+    for (const auto& b : local) {
         b->stop();
     }
     // std::cerr << "C++: GoRPCClient to " << address << " is stopping\n";

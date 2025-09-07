@@ -38,7 +38,7 @@ void Log::merge(const Log& other) {
         return;
     }
     const auto i = other.entries.front().index;
-    auto cut = std::find_if(entries.begin(), entries.end(), [i](const LogEntry& e) { return e.index >= i; });
+    auto cut = std::ranges::find_if(entries, [i](const LogEntry& e) { return e.index >= i; });
     if (cut == entries.end()) {
         entries.insert(entries.end(), other.entries.begin(), other.entries.end());
         return;
@@ -73,7 +73,7 @@ uint64_t Log::firstTerm() const {
 
 Log Log::suffix(uint64_t start) const {
     std::lock_guard g{m};
-    auto i = std::find_if(entries.begin(), entries.end(), [start](const LogEntry& e) { return e.index == start; });
+    auto i = std::ranges::find_if(entries, [start](const LogEntry& e) { return e.index == start; });
     if (i == entries.end()) {
         return Log {};
     }
@@ -83,7 +83,7 @@ Log Log::suffix(uint64_t start) const {
 
 std::optional<LogEntry> Log::at(uint64_t index) const {
     std::lock_guard g{m};
-    auto i = std::find_if(entries.begin(), entries.end(), [index](const LogEntry& e) { return e.index == index; });
+    auto i = std::ranges::find_if(entries, [index](const LogEntry& e) { return e.index == index; });
     if (i == entries.end()) {
         return std::nullopt;
     }

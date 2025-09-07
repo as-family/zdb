@@ -70,7 +70,7 @@ void runClients(int nClients, bool reliable) {
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
 
-    kvTest.spawnClientsAndWait(nClients, std::chrono::seconds(nSec), {proxyAddress}, zdb::RetryPolicy{
+    kvTest.spawnClientsAndWait(nClients, std::chrono::seconds{nSec}, {proxyAddress}, zdb::RetryPolicy{
         std::chrono::milliseconds{100L},
         std::chrono::milliseconds{1000L},
         std::chrono::milliseconds{5000L},

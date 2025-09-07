@@ -368,7 +368,7 @@ TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
     
     // Restart server
     testServer = std::make_unique<TestKVServer>(address);
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // Wait for circuit breaker reset
+    std::this_thread::sleep_for(std::chrono::seconds{2}); // Wait for circuit breaker reset
     
     // available() should trigger reconnection after circuit breaker reset
     EXPECT_TRUE(service.available());
