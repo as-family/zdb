@@ -60,7 +60,7 @@ std::vector<std::string> getRaftTargets(std::vector<EndPoints>& config) {
     return targets;
 }
 
-zdb::RetryPolicy makePolicy(int servers) {
+zdb::RetryPolicy makePolicy(int /*servers*/) {
     return zdb::RetryPolicy {
         std::chrono::milliseconds{10L},
         std::chrono::milliseconds{50L},

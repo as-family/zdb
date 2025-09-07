@@ -132,7 +132,7 @@ TEST(RepeaterTest, TimeSpentMatchesPolicyDelay) {
     int64_t expectedMin = 0;
     int64_t expectedMax = 0;
     for (int i = 0; i < retries; ++i) {
-        int64_t delay = std::min<int64_t>(baseDelay.count() * (1UL << i), static_cast<int64_t>(maxDelay.count()));
+        int64_t delay = std::min<int64_t>(baseDelay.count() * (1LL << i), static_cast<int64_t>(maxDelay.count()));
         expectedMin += 0; // FullJitter can be 0
         expectedMax += delay / 1000; // convert to ms
     }

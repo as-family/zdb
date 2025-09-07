@@ -6,7 +6,7 @@ ProxyRaftService::ProxyRaftService(ProxyService<raft::proto::Raft>& p)
     : proxy{p} {}
 
 grpc::Status ProxyRaftService::appendEntries(
-    grpc::ServerContext* context,
+    grpc::ServerContext* /*context*/,
     const raft::proto::AppendEntriesArg* request,
     raft::proto::AppendEntriesReply* response) {
     auto t = proxy.call("appendEntries", *request, *response);
@@ -21,7 +21,7 @@ grpc::Status ProxyRaftService::appendEntries(
 }
 
 grpc::Status ProxyRaftService::requestVote(
-    grpc::ServerContext* context,
+    grpc::ServerContext* /*context*/,
     const raft::proto::RequestVoteArg* request,
     raft::proto::RequestVoteReply* response) {
     auto t = proxy.call("requestVote", *request, *response);

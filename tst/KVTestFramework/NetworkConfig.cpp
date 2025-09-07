@@ -12,7 +12,7 @@ bool NetworkConfig::shouldDelay() const {
 }
 
 bool NetworkConfig::shouldDrop() const {
-    return !connected || !isReliable() && dist(rng) < dropRate;
+    return !connected || (!isReliable() && dist(rng) < dropRate);
 }
 
 std::chrono::microseconds NetworkConfig::delayTime() {

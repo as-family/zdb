@@ -6,7 +6,7 @@ ProxyKVStoreService::ProxyKVStoreService(ProxyService<zdb::kvStore::KVStoreServi
     : proxy{p} {}
 
 grpc::Status ProxyKVStoreService::get(
-    grpc::ServerContext* context,
+    grpc::ServerContext* /*context*/,
     const zdb::kvStore::GetRequest* request,
     zdb::kvStore::GetReply* reply) {
     auto t = proxy.call("get", *request, *reply);
@@ -17,7 +17,7 @@ grpc::Status ProxyKVStoreService::get(
 }
 
 grpc::Status ProxyKVStoreService::set(
-    grpc::ServerContext* context,
+    grpc::ServerContext* /*context*/,
     const zdb::kvStore::SetRequest* request,
     zdb::kvStore::SetReply* reply) {
     auto t = proxy.call("set", *request, *reply);
@@ -28,7 +28,7 @@ grpc::Status ProxyKVStoreService::set(
 }
 
 grpc::Status ProxyKVStoreService::erase(
-    grpc::ServerContext* context,
+    grpc::ServerContext* /*context*/,
     const zdb::kvStore::EraseRequest* request,
     zdb::kvStore::EraseReply* reply) {
     auto t = proxy.call("erase", *request, *reply);
@@ -39,7 +39,7 @@ grpc::Status ProxyKVStoreService::erase(
 }
 
 grpc::Status ProxyKVStoreService::size(
-    grpc::ServerContext* context,
+    grpc::ServerContext* /*context*/,
     const zdb::kvStore::SizeRequest* request,
     zdb::kvStore::SizeReply* reply) {
     auto t = proxy.call("size", *request, *reply);

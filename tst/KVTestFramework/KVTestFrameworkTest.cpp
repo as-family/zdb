@@ -35,7 +35,7 @@ TEST(KVTestFrameworkTest, SpawnClientsAndWaitCoordinatesResults) {
         std::chrono::milliseconds{200L}
     };
     auto r = kvTest.spawnClientsAndWait(10, std::chrono::seconds{5}, {proxyAddress}, policy,
-        [](int id, zdb::KVStoreClient& client, std::atomic<bool>& done) {
+        [](int id, zdb::KVStoreClient& /*client*/, std::atomic<bool>& done) {
             while(!done.load()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds{100L});
             }
