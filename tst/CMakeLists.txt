@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ZDB a distributed, fault-tolerant database.
 # Copyright (C) 2025 Ahmed Refaat Gadalla Mohamed
 #
