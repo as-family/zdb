@@ -1,0 +1,20 @@
+ATTRIBUTION
+===========
+
+This directory (6.5840) contains code that was copied from the MIT 6.824
+Distributed Systems course materials.
+
+Source:
+- Course: MIT 6.824: Distributed Systems
+- Website: https://pdos.csail.mit.edu/6.824/index.html
+- Repository: git://g.csail.mit.edu/6.5840-golabs-2025
+
+The code in this directory is derived from the MIT 6.824 course labs and
+assignments. All original copyright and licensing terms from the source
+repository apply to this code.
+
+MIT 6.824 is taught by Robert Morris and Frans Kaashoek at MIT's Computer
+Science and Artificial Intelligence Laboratory (CSAIL).
+
+For the original source code and complete course materials, please visit:
+https://pdos.csail.mit.edu/6.824/index.html
