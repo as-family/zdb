@@ -31,7 +31,7 @@ std::vector<grpc::Status> Repeater::attempt(const std::string& op, const std::fu
     while (!stopped.load(std::memory_order_acquire)) {
         auto status = rpc();
         if (stopped.load(std::memory_order_acquire)) {
-            statuses.push_back(grpc::Status{grpc::StatusCode::CANCELLED, "Repeater stopped"});
+            statuses.emplace_back(grpc::StatusCode::CANCELLED, "Repeater stopped");
             return statuses;
         }
         statuses.push_back(status);
@@ -51,12 +51,12 @@ std::vector<grpc::Status> Repeater::attempt(const std::string& op, const std::fu
             if (delay.has_value()) {
                 auto remaining = delay.value();
                 while (!stopped.load(std::memory_order_acquire) && remaining > std::chrono::microseconds::zero()) {
-                    auto step = std::min<std::chrono::microseconds>(remaining, std::chrono::microseconds{1000});
+                    auto step = std::min<std::chrono::microseconds>(remaining, std::chrono::microseconds{1000L});
                     std::this_thread::sleep_for(step);
                     remaining -= step;
                 }
                 if (stopped.load(std::memory_order_acquire)) {
-                    statuses.push_back(grpc::Status{grpc::StatusCode::CANCELLED, "Repeater stopped"});
+                    statuses.emplace_back(grpc::StatusCode::CANCELLED, "Repeater stopped");
                     return statuses;
                 }
             } else {

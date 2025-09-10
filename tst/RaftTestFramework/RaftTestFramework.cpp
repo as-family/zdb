@@ -217,7 +217,7 @@ int RAFTTestFramework::one(std::string c, int servers, bool retry) {
             // Check if this server is connected
             if (proxies.at(server_id).getNetworkConfig().isConnected()) {
                 // Try to submit the command
-                if (raft.start(c)) {
+                if (raft.start(c).isLeader) {
                     // Command was accepted, get the index where it should be committed
                     index = raft.log().lastIndex();
                     break;

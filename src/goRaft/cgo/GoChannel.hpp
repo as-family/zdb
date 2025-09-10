@@ -10,28 +10,26 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-syntax = "proto3";
+#ifndef GO_CHANNEL_HPP
+#define GO_CHANNEL_HPP
 
-package zdb.proto;
-option go_package = "github.com/as-family/zdb/proto";
+#include "raft/Channel.hpp"
+#include <string>
+#include "raft_wrapper.hpp"
 
-message Key {
-    string data = 1;
-}
+class GoChannel : public raft::Channel {
+public:
+    GoChannel(uintptr_t h, RaftHandle* r);
+    ~GoChannel() override;
+    void send(std::string) override;
+    bool sendUntil(std::string, std::chrono::system_clock::time_point t) override;
+    std::string receive() override;
+    std::optional<std::string> receiveUntil(std::chrono::system_clock::time_point t) override;
+    void close() override;
+    bool isClosed() override;
+private:
+    uintptr_t handle;
+    RaftHandle* raftHandle;
+};
 
-message Value {
-    string data = 1;
-    uint64 version = 2;
-}
-
-message RequestID {
-    bytes uuid = 1;  // 16-byte UUID v7 for request correlation
-}
-
-message Command {
-    string op = 1;
-    zdb.proto.Key key = 2;
-    zdb.proto.Value value = 3;
-    zdb.proto.RequestID requestID = 4;
-    uint64 index = 5;
-}
+#endif // GO_CHANNEL_HPP

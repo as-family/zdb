@@ -16,15 +16,14 @@
 #include "raft/Types.hpp"
 #include "raft/Channel.hpp"
 #include "raft/Log.hpp"
-#include "raft/Command.hpp"
 #include <string>
 #include <vector>
 #include <cstdint>
-#include <proto/raft.grpc.pb.h>
 #include "common/RetryPolicy.hpp"
 #include <unordered_map>
 #include "raft/AsyncTimer.hpp"
 #include <atomic>
+#include "proto/types.pb.h"
 #include <functional>
 #include "common/FullJitter.hpp"
 #include <queue>
@@ -39,7 +38,7 @@ public:
     void requestVote() override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
     RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) override;
-    bool start(std::string command) override;
+    Start start(std::string command) override;
     void kill() override;
     Log& log() override;
     void cleanUpThreads();
@@ -232,7 +231,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         if (arg.leaderCommit > commitIndex) {
             commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
         }
-        applyCommittedEntries(followerChannel);
+        applyCommittedEntries(serviceChannel);
         reply.term = currentTerm;
         reply.success = true;
         return reply;
@@ -359,11 +358,10 @@ void RaftImpl<Client>::requestVote(){
         return;
     }
     std::unique_lock lock{m};
-    auto d = std::chrono::steady_clock::now() - lastHeartbeat;
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(d) < std::chrono::milliseconds{time.load()}) {
+    if (role == Role::Leader) {
         return;
     }
-    if (role == Role::Leader) {
+    if (const auto d = std::chrono::steady_clock::now() - lastHeartbeat; std::chrono::duration_cast<std::chrono::milliseconds>(d) < std::chrono::milliseconds{time.load()}) {
         return;
     }
     role = Role::Candidate;
@@ -429,22 +427,39 @@ void RaftImpl<Client>::requestVote(){
 }
 
 template <typename Client>
-bool RaftImpl<Client>::start(std::string command) {
+Start RaftImpl<Client>::start(std::string command) {
     if (killed.load()) {
-        return false;
+        return Start {
+            0,
+            currentTerm,
+            false
+        };
     }
     std::unique_lock lock{m};
     if (role != Role::Leader) {
-        return false;
+        return Start{
+            0,
+            currentTerm,
+            false
+        };
     }
+    zdb::proto::Command protoCommand;
+    if (!protoCommand.ParseFromString(command)) {
+        throw std::runtime_error("Failed to parse command");
+    }
+    protoCommand.set_index(mainLog.lastIndex() + 1);
     LogEntry e {
         mainLog.lastIndex() + 1,
         currentTerm,
-        command
+        protoCommand.SerializeAsString()
     };
     mainLog.append(e);
     appendEntries(false);
-    return true;
+    return {
+        e.index,
+        currentTerm,
+        true
+    };
 }
 
 template <typename Client>

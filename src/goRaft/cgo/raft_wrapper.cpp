@@ -22,21 +22,28 @@
 #include <thread>
 #include <chrono>
 #include <cstdint>
+#include <queue>
+#include <unordered_map>
+#include "GoChannel.hpp"
 
 struct RaftHandle {
     int id;
     int servers;
     std::string selfId;
+    std::unordered_map<std::string, std::queue<uint64_t>> commands;
     std::vector<std::string> peers;
     raft::Channel* serviceChannel;
     raft::Channel* followerChannel;
     zdb::RetryPolicy policy;
     uintptr_t callback;
+    uintptr_t channelCallback;
+    uintptr_t followerChannelCallback;
+    std::unique_ptr<raft::Channel> goChannel;
+    std::unique_ptr<raft::Channel> followerGoChannel;
     std::unordered_map<std::string, int> peerIds;
     std::unordered_map<std::string, std::unique_ptr<GoRPCClient>> clients;
     std::unique_ptr<raft::RaftImpl<GoRPCClient>> raft;
 };
-
 
 extern "C" {
 
@@ -77,9 +84,17 @@ void kill_raft(RaftHandle* h) {
         delete h->followerChannel;
         h->followerChannel = nullptr;
     }
+    if (h->goChannel) {
+        h->goChannel->close();
+        h->goChannel.reset();
+    }
+    if (h->followerGoChannel) {
+        h->followerGoChannel->close();
+        h->followerGoChannel.reset();
+    }
 }
 
-RaftHandle* create_raft(int id, int servers, uintptr_t cb) {
+RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, uintptr_t followerChannel) {
     std::vector<std::string> peers;
     std::unordered_map<std::string, int> ids;
     std::string selfId = "peer_" + std::to_string(id);
@@ -92,6 +107,7 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb) {
         id,
         servers,
         selfId,
+        {},
         peers,
         new raft::SyncChannel(),
         new raft::SyncChannel(),
@@ -99,24 +115,30 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb) {
             std::chrono::milliseconds{2L},
             std::chrono::milliseconds{10L},
             std::chrono::milliseconds{12L},
-            2,
+            10,
             servers - 1,
             std::chrono::milliseconds{4L},
             std::chrono::milliseconds{4L}
         ),
         cb,
+        channelCb,
+        followerChannel,
+        nullptr,
+        nullptr,
         ids,
         {},
         nullptr
     };
+    handle->goChannel = std::make_unique<GoChannel>(handle->channelCallback, handle);
+    handle->followerGoChannel = std::make_unique<GoChannel>(handle->followerChannelCallback, handle);
     handle->raft = std::make_unique<raft::RaftImpl<GoRPCClient>>(
         peers,
         selfId,
-        *handle->serviceChannel,
-        *handle->followerChannel,
+        *handle->goChannel,
+        *handle->followerGoChannel,
         handle->policy,
         [handle, cb](std::string address, zdb::RetryPolicy p) -> GoRPCClient& {
-            handle->clients[address] = std::make_unique<GoRPCClient>(handle->peerIds[address], address, p, cb);
+            handle->clients[address] = std::make_unique<GoRPCClient>(handle->peerIds.at(address), address, p, cb);
             return *(handle->clients[address]);
         }
     );
@@ -182,6 +204,21 @@ int raft_get_state(RaftHandle* handle, int* term, int* is_leader) {
         // std::cerr << "Error getting state: " << e.what() << std::endl;
         return 0;
     }
+}
+
+int raft_start(RaftHandle* handle, void* command, int command_size, int* index, int* term, int* is_leader) {
+    if (!handle || !handle->raft) {
+        return 0;
+    }
+    std::string command_str{static_cast<const char*>(command), static_cast<size_t>(command_size)};
+    raft::Start r = handle->raft->start(command_str);
+    *index = r.index;
+    *term = r.term;
+    *is_leader = r.isLeader;
+    if (r.isLeader) {
+        handle->commands[command_str].push(r.index);
+    }
+    return 1;
 }
 
 }

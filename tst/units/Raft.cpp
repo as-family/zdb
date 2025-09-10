@@ -136,7 +136,7 @@ TEST_F(RaftImplTest, StartCommandWhenFollower) {
         peers, selfId, *serviceChannel, *followerChannel, policy, clientFactory);
     
     // Follower should not accept start commands
-    EXPECT_FALSE(raft->start("test-command"));
+    EXPECT_FALSE(raft->start("test-command").isLeader);
 }
 
 TEST_F(RaftImplTest, StartCommandWhenLeader) {
@@ -316,7 +316,7 @@ TEST_F(RaftImplTest, KillMethod) {
     
     // After kill, start should still work if it was a leader (behavior test)
     // This is more of a state consistency test
-    EXPECT_FALSE(raft->start("command-after-kill"));
+    EXPECT_FALSE(raft->start("command-after-kill").isLeader);
 }
 
 // Raft spec: Append entries and update commitIndex

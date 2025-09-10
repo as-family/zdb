@@ -20,7 +20,7 @@ find_program(GO_BIN go REQUIRED)
 find_program(PROTOC_GEN_GO protoc-gen-go REQUIRED)
 set(PROTO_BUILD_DIR "${CMAKE_BINARY_DIR}/go-proto")
 add_custom_command(
-  OUTPUT ${PROTO_BUILD_DIR}/raft.pb.go ${PROTO_BUILD_DIR}/go.mod
+  OUTPUT ${PROTO_BUILD_DIR}/raft.pb.go ${PROTO_BUILD_DIR}/types.pb.go ${PROTO_BUILD_DIR}/go.mod
   COMMAND ${CMAKE_COMMAND} -E make_directory ${PROTO_BUILD_DIR}
   COMMAND ${PROTOC_GEN_GO} --version > /dev/null 2>&1 || echo "protoc-gen-go not found"
   COMMAND ${Protobuf_PROTOC_EXECUTABLE}
@@ -28,19 +28,19 @@ add_custom_command(
       --go_opt=paths=source_relative
       --proto_path=${CMAKE_SOURCE_DIR}/proto
       --plugin=protoc-gen-go=${PROTOC_GEN_GO}
-      ${CMAKE_SOURCE_DIR}/proto/raft.proto
+      ${CMAKE_SOURCE_DIR}/proto/raft.proto ${CMAKE_SOURCE_DIR}/proto/types.proto
   COMMAND ${CMAKE_COMMAND} -E echo "module proto" > ${PROTO_BUILD_DIR}/go.mod
   COMMAND ${CMAKE_COMMAND} -E echo "" >> ${PROTO_BUILD_DIR}/go.mod
   COMMAND ${CMAKE_COMMAND} -E echo "go 1.23" >> ${PROTO_BUILD_DIR}/go.mod
   COMMAND ${CMAKE_COMMAND} -E echo "" >> ${PROTO_BUILD_DIR}/go.mod
   COMMAND ${CMAKE_COMMAND} -E echo "require google.golang.org/protobuf v1.36.8" >> ${PROTO_BUILD_DIR}/go.mod
-  DEPENDS ${CMAKE_SOURCE_DIR}/proto/raft.proto
+  DEPENDS ${CMAKE_SOURCE_DIR}/proto/raft.proto ${CMAKE_SOURCE_DIR}/proto/types.proto
   COMMENT "Generating Go Protobuf code and module from raft.proto"
 )
 
 # Create a target that depends on the protobuf generation
 add_custom_target(go_proto_gen
-  DEPENDS ${PROTO_BUILD_DIR}/raft.pb.go ${PROTO_BUILD_DIR}/go.mod
+  DEPENDS ${PROTO_BUILD_DIR}/raft.pb.go ${PROTO_BUILD_DIR}/types.pb.go ${PROTO_BUILD_DIR}/go.mod
 )
 
 set(RAFT_SRC_DIR "${CMAKE_SOURCE_DIR}/6.5840/src")
@@ -68,6 +68,7 @@ add_library(zdb_raft SHARED
   ${CMAKE_SOURCE_DIR}/src/common/Error.cpp
   ${CMAKE_SOURCE_DIR}/src/common/ErrorConverter.cpp
   ${CMAKE_SOURCE_DIR}/src/common/Repeater.cpp
+  ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoChannel.cpp
 )
 
 target_include_directories(zdb_raft PRIVATE
@@ -116,22 +117,30 @@ if(${BUILD_TESTING})
     VERBATIM
   )
 
-  # Add CTest for Go Raft 3A tests
   add_test(
     NAME raft_3a_tests
     COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
             ${GO_BIN} test -run "Test.*3A" -v
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
   )
-  
-  # Set test properties - note: DEPENDS doesn't work for custom targets in CTest
-  # Instead, we'll use a wrapper script approach
+
   set_tests_properties(raft_3a_tests PROPERTIES
     ENVIRONMENT "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
     FIXTURES_REQUIRED "raft_setup"
   )
+
+  add_test(
+          NAME raft_3b_tests
+          COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
+          ${GO_BIN} test -run "Test.*3B" -v
+          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
+  )
+
+  set_tests_properties(raft_3b_tests PROPERTIES
+          ENVIRONMENT "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
+          FIXTURES_REQUIRED "raft_setup"
+  )
   
-  # Create a setup fixture that ensures dependencies are built
   add_test(
     NAME raft_setup
     COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target zdb_raft --target go_proto_gen

@@ -69,7 +69,7 @@ State KVStateMachine::size() {
 }
 
 std::unique_ptr<raft::State> KVStateMachine::handleGet(Get c, std::chrono::system_clock::time_point t) {
-    if (!raft.start(c.serialize())) {
+    if (!raft.start(c.serialize()).isLeader) {
         return std::make_unique<State>(State{c.key, std::expected<std::optional<Value>, Error>{
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}});
     }
@@ -88,7 +88,7 @@ std::unique_ptr<raft::State> KVStateMachine::handleGet(Get c, std::chrono::syste
 }
 
 std::unique_ptr<raft::State> KVStateMachine::handleSet(Set c, std::chrono::system_clock::time_point t) {
-    if (!raft.start(c.serialize())) {
+    if (!raft.start(c.serialize()).isLeader) {
         return std::make_unique<State>(State{c.key, std::expected<std::monostate, Error>{
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}});
     }
@@ -106,7 +106,7 @@ std::unique_ptr<raft::State> KVStateMachine::handleSet(Set c, std::chrono::syste
 }
 
 std::unique_ptr<raft::State> KVStateMachine::handleErase(Erase c, std::chrono::system_clock::time_point t) {
-    if (!raft.start(c.serialize())) {  
+    if (!raft.start(c.serialize()).isLeader) {  
         return std::make_unique<State>(State{c.key, std::expected<std::optional<Value>, Error>{  
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}});  
     }
@@ -124,7 +124,7 @@ std::unique_ptr<raft::State> KVStateMachine::handleErase(Erase c, std::chrono::s
 }
 
 std::unique_ptr<raft::State> KVStateMachine::handleSize(Size c, std::chrono::system_clock::time_point t) {
-    if (!raft.start(c.serialize())) {  
+    if (!raft.start(c.serialize()).isLeader) {  
         return std::make_unique<State>(State{std::expected<size_t, Error>{  
             std::unexpected(Error{ErrorCode::NotLeader, "not the leader"})}});  
     }

@@ -23,15 +23,18 @@ package zdb
 
 // Forward declaration of the Go function C++ will call.
 extern int go_invoke_callback(uintptr_t handle, int, char*, void*, int, void*, int);
+extern int channel_go_invoke_callback(uintptr_t handle, void*, int, int);
 
 // C wrapper that C++ will call (calls the exported Go function).
 // We declare it here so the C++ library can link against it.
 int go_invoke_callback(uintptr_t handle, int v, char*, void*, int, void*, int);
+int channel_go_invoke_callback(uintptr_t handle, void*, int, int);
 */
 import "C"
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -91,9 +94,72 @@ func GoInvokeCallback(h C.uintptr_t, p int, s string, a interface{}, b interface
 	return cb(p, s, a, b)
 }
 
-//export GoFreeCallback
 func GoFreeCallback(h C.uintptr_t) {
 	deleteHandle(uintptr(h))
+}
+
+type goChannelCallbackFn func(string, int) int
+
+var (
+	channelCbStore   sync.Map
+	channelCbCounter uint64
+)
+
+func channelNewHandle(cb goChannelCallbackFn) uintptr {
+	h := atomic.AddUint64(&channelCbCounter, 1)
+	channelCbStore.Store(uintptr(h), cb)
+	return uintptr(h)
+}
+
+func channelGetCallback(h uintptr) (goChannelCallbackFn, bool) {
+	v, ok := channelCbStore.Load(h)
+	if !ok {
+		return nil, false
+	}
+	return v.(goChannelCallbackFn), true
+}
+
+func channelDeleteHandle(h uintptr) {
+	channelCbStore.Delete(h)
+}
+
+func channelRegisterCallback(rf *Raft) C.uintptr_t {
+	cb := func(s string, i int) int {
+		// Don't hold any locks when making outgoing RPC calls
+		// This prevents deadlock when the RPC comes back to this same instance
+		var x interface{}
+		if y, err := strconv.Atoi(s); err == nil {
+            x = y
+        } else {
+            x = s
+        }
+		if rf.applyCh != nil {
+			rf.applyCh <- raftapi.ApplyMsg{
+				CommandValid: true,
+				Command:      x,
+				CommandIndex: i,
+			}
+//             fmt.Println("Go: ApplyMsg sent to applyCh:", s, i)
+			return 1
+		}
+		return 0
+	}
+	h := channelNewHandle(cb)
+	return C.uintptr_t(h)
+}
+
+//export ChannelGoInvokeCallback
+func ChannelGoInvokeCallback(h C.uintptr_t, s string, i int) int {
+	cb, ok := channelGetCallback(uintptr(h))
+	if !ok {
+		fmt.Printf("Go: invalid handle %d\n", uintptr(h))
+		return 0
+	}
+	return cb(s, i)
+}
+
+func ChannelGoFreeCallback(h C.uintptr_t) {
+	channelDeleteHandle(uintptr(h))
 }
 
 func go_invoke_request_vote(handle C.uintptr_t, p C.int, s string, args unsafe.Pointer, args_len C.int, reply unsafe.Pointer, reply_len C.int) C.int {
@@ -193,15 +259,26 @@ func go_invoke_callback(handle C.uintptr_t, p C.int, s *C.char, args unsafe.Poin
 	}
 }
 
+//export channel_go_invoke_callback
+func channel_go_invoke_callback(handle C.uintptr_t, s unsafe.Pointer, s_len C.int, i C.int) C.int {
+	if s == nil || s_len <= 0 {
+		return C.int(0)
+	}
+	str := C.GoStringN((*C.char)(s), s_len)
+	return C.int(ChannelGoInvokeCallback(handle, str, int(i)))
+}
+
 type Raft struct {
-	handle    *C.RaftHandle
-	mu        sync.Mutex
-	peers     []*labrpc.ClientEnd
-	me        int
-	dead      int32
-	persister *tester.Persister
-	applyCh   chan raftapi.ApplyMsg
-	cb        C.uintptr_t
+	handle     *C.RaftHandle
+	mu         sync.Mutex
+	peers      []*labrpc.ClientEnd
+	me         int
+	dead       int32
+	persister  *tester.Persister
+	applyCh    chan raftapi.ApplyMsg
+	cb         C.uintptr_t
+	channelCb  C.uintptr_t
+	followerCb C.uintptr_t
 }
 
 type LogEntry struct {
@@ -254,9 +331,46 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	if rf.handle == nil {
 		return 0, 0, false
 	}
+
+	// Convert command to string (similar to how it's handled in other parts of the code)
+	var commandStr string
+	if cmd, ok := command.(string); ok {
+		commandStr = cmd
+	} else {
+		// Convert to string representation if not already a string
+		commandStr = fmt.Sprintf("%v", command)
+	}
+	protoCommand := &proto_raft.Command{
+		Op: commandStr,
+	}
+
+	// Convert string to bytes
+	commandBytes, err := protobuf.Marshal(protoCommand)
+	if err != nil {
+		fmt.Println("Error: failed to marshal command")
+		return -1, -1, false
+	}
+
 	index := 0
 	term := 0
 	isLeader := true
+
+	var commandPtr unsafe.Pointer
+	var commandSize int
+
+	if len(commandBytes) > 0 {
+		commandPtr = unsafe.Pointer(&commandBytes[0])
+		commandSize = len(commandBytes)
+	} else {
+		commandPtr = nil
+		commandSize = 0
+	}
+
+	r := C.raft_start(rf.handle, commandPtr, C.int(commandSize), (*C.int)(unsafe.Pointer(&index)), (*C.int)(unsafe.Pointer(&term)), (*C.int)(unsafe.Pointer(&isLeader)))
+	if r == 0 {
+		// Could not start
+		return -1, -1, false
+	}
 	return index, term, isLeader
 }
 
@@ -273,6 +387,8 @@ func (rf *Raft) Kill() {
 
 	C.kill_raft(handle)
 	GoFreeCallback(rf.cb)
+	ChannelGoFreeCallback(rf.channelCb)
+    ChannelGoFreeCallback(rf.followerCb)
 	// fmt.Println("Go: Raft killed", rf.me)
 }
 
@@ -302,7 +418,6 @@ func (rf *Raft) RequestVote(args *RequestVoteArg, reply *RequestVoteReply) {
 		return
 	}
 
-	// Call C++ without holding any Go locks - C++ should handle its own synchronization
 	replyBuf := make([]byte, 1024)
 	n := C.handle_request_vote(rf.handle,
 		(*C.char)(unsafe.Pointer(&strArgs[0])), C.int(len(strArgs)),
@@ -378,7 +493,9 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	rf.persister = persister
 	rf.applyCh = applyCh
 	rf.cb = registerCallback(rf)
-	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), C.uintptr_t(rf.cb))
+	rf.channelCb = channelRegisterCallback(rf)
+	rf.followerCb = channelRegisterCallback(rf)
+	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), C.uintptr_t(rf.cb), C.uintptr_t(rf.channelCb), C.uintptr_t(rf.followerCb))
 	if rf.handle == nil {
 		// Avoid returning a half-initialized Raft
 		GoFreeCallback(rf.cb)
