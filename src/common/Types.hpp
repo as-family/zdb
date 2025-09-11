@@ -13,7 +13,6 @@
 #define TYPES_HPP
 
 #include <string>
-#include <cstdint>
 #include "proto/types.pb.h"
 #include "raft/StateMachine.hpp"
 #include <expected>
@@ -61,18 +60,27 @@ struct Value {
 };
 
 struct State : public raft::State {
-    Key key;
+    std::optional<Key> key;
     std::variant<
-        std::expected<std::optional<Value>, Error>,
-        std::expected<std::monostate, Error>,
-        std::expected<size_t, Error>
+        Error,
+        std::optional<Value>,
+        std::monostate,
+        size_t
     > u;
     State(const Key& k, const std::expected<std::optional<Value>, Error>& v)
-        : key(k), u{v} {}
+        : key{k}, u {std::nullopt} {}
     State(const Key& k, const std::expected<std::monostate, Error>& v)
+        : key{k}, u{std::monostate {}} {}
+    State(const Key& k, const std::expected<size_t, Error>& v)
+        : key{k}, u{0L} {}
+    State(const Key& k, const std::optional<Value>& v)
         : key(k), u{v} {}
-    explicit State(const std::expected<size_t, Error>& v)
-        : key(Key{""}), u{v} {}
+    State(const Key& k, const std::monostate v)
+        : key(k), u{v} {}
+    explicit State(const size_t v)
+        : key(std::nullopt), u{v} {}
+    explicit  State(const Error& error)
+        : key{std::nullopt}, u{error} {}
 };
 
 } // namespace zdb

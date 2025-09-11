@@ -12,19 +12,13 @@
 #ifndef KV_STORE_CLIENT_H
 #define KV_STORE_CLIENT_H
 
+#include <expected>
 #include <string>
-#include <memory>
-#include <expected>
-#include <optional>
 #include <vector>
-#include <expected>
-#include <optional>
-#include <vector>
-#include <unordered_map>
+#include <spdlog/spdlog.h>
+#include "client/Config.hpp"
 #include "common/Error.hpp"
 #include "common/RetryPolicy.hpp"
-#include "client/Config.hpp"
-#include <spdlog/spdlog.h>
 #include "common/Types.hpp"
 #include "common/Util.hpp"
 

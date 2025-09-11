@@ -19,13 +19,14 @@
 #include <functional>
 #include <optional>
 #include <mutex>
+#include <memory>
 
 namespace raft {
 
 struct LogEntry {
     uint64_t index;
     uint64_t term;
-    std::string command;
+    std::unique_ptr<Command> command;
     bool operator==(const LogEntry& other) const;
 };
 

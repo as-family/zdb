@@ -29,26 +29,24 @@
 #include <queue>
 
 namespace raft {
-
 template <typename Client>
 class RaftImpl : public Raft {
 public:
-    RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Channel& f, zdb::RetryPolicy r, std::function<Client&(std::string, zdb::RetryPolicy)> g);
+    RaftImpl(std::vector<std::string> p, const std::string& s, Channel& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g);
     void appendEntries(bool heartBeat) override;
     void requestVote() override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
     RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) override;
-    Start start(std::string command) override;
+    bool start(std::unique_ptr<Command> command) override;
     void kill() override;
     Log& log() override;
     void cleanUpThreads();
-    ~RaftImpl();
+    ~RaftImpl() override;
 private:
     void applyCommittedEntries(Channel& channel);
     std::mutex m{};
     std::atomic<std::chrono::steady_clock::rep> time {};
-    Channel& serviceChannel;
-    Channel& followerChannel;
+    Channel& stateMachine;
     zdb::RetryPolicy policy;
     zdb::FullJitter fullJitter;
     std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
@@ -65,6 +63,56 @@ private:
     std::mutex appendEntriesMutex{};
     std::mutex requestVoteMutex{};
 };
+
+template <typename Client>
+RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Channel& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g)
+: stateMachine {c},
+  policy {r} {
+    selfId = s;
+    clusterSize = p.size();
+    nextIndex = std::unordered_map<std::string, uint64_t>{};
+    matchIndex = std::unordered_map<std::string, uint64_t>{};
+    for (const auto& a : p) {
+        nextIndex[a] = 1;
+        matchIndex[a] = 0;
+    }
+    p.erase(std::ranges::remove(p, selfId).begin(), p.end());
+    for (const auto& peer : p) {
+        peers.emplace(peer, std::ref(g(peer, policy)));
+    }
+    heartbeatInterval = 5 * policy.rpcTimeout;
+    electionTimeout = 10 * heartbeatInterval;
+    threadsCleanupInterval = heartbeatInterval;
+    electionTimer.start(
+        [this] -> std::chrono::milliseconds {
+            auto t = electionTimeout +
+                   std::chrono::duration_cast<std::chrono::milliseconds>(fullJitter.jitter(
+                    std::chrono::duration_cast<std::chrono::microseconds>(electionTimeout)));
+            time = t.count();
+            return t;
+        },
+        [this] {
+            requestVote();
+        }
+    );
+    heartbeatTimer.start(
+        [this] -> std::chrono::milliseconds {
+            return heartbeatInterval;
+        },
+        [this] {
+            appendEntries(true);
+        }
+    );
+    threadsCleanupTimer.start(
+        [this] -> std::chrono::milliseconds {
+            return threadsCleanupInterval + std::chrono::duration_cast<std::chrono::milliseconds>(fullJitter.jitter(
+                    std::chrono::duration_cast<std::chrono::microseconds>(threadsCleanupInterval)));
+        },
+        [this] {
+            cleanUpThreads();
+        }
+    );
+}
 
 template <typename Client>
 RaftImpl<Client>::~RaftImpl() {
@@ -112,63 +160,6 @@ void RaftImpl<Client>::cleanUpThreads() {
             t.join();
         }
     }
-}
-
-template <typename Client>
-RaftImpl<Client>::RaftImpl(std::vector<std::string> p, std::string s, Channel& c, Channel& f, zdb::RetryPolicy r, std::function<Client&(std::string, zdb::RetryPolicy)> g)
-    : serviceChannel {c},
-      followerChannel {f},
-      policy {r},
-      fullJitter {},
-      lastHeartbeat {std::chrono::steady_clock::now()},
-      mainLog {},
-      electionTimer {},
-      heartbeatTimer {},
-      threadsCleanupTimer {} {
-    selfId = s;
-    clusterSize = p.size();
-    nextIndex = std::unordered_map<std::string, uint64_t>{};
-    matchIndex = std::unordered_map<std::string, uint64_t>{};
-    for (const auto& a : p) {
-        nextIndex[a] = 1;
-        matchIndex[a] = 0;
-    }
-    p.erase(std::remove(p.begin(), p.end(), selfId), p.end());
-    for (const auto& peer : p) {
-        peers.emplace(peer, std::ref(g(peer, policy)));
-    }
-    heartbeatInterval = 5 * policy.rpcTimeout;
-    electionTimeout = 10 * heartbeatInterval;
-    threadsCleanupInterval = heartbeatInterval;
-    electionTimer.start(
-        [this] -> std::chrono::milliseconds {
-            auto t = electionTimeout +
-                   std::chrono::duration_cast<std::chrono::milliseconds>(fullJitter.jitter(
-                    std::chrono::duration_cast<std::chrono::microseconds>(electionTimeout)));
-            time = t.count();
-            return t;
-        },
-        [this] {
-            requestVote();
-        }
-    );
-    heartbeatTimer.start(
-        [this] -> std::chrono::milliseconds {
-            return heartbeatInterval;
-        },
-        [this] {
-            appendEntries(true);
-        }
-    );
-    threadsCleanupTimer.start(
-        [this] -> std::chrono::milliseconds {
-            return threadsCleanupInterval + std::chrono::duration_cast<std::chrono::milliseconds>(fullJitter.jitter(
-                    std::chrono::duration_cast<std::chrono::microseconds>(threadsCleanupInterval)));
-        },
-        [this] {
-            cleanUpThreads();
-        }
-    );
 }
 
 template <typename Client>
@@ -231,7 +222,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         if (arg.leaderCommit > commitIndex) {
             commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
         }
-        applyCommittedEntries(serviceChannel);
+        applyCommittedEntries(stateMachine);
         reply.term = currentTerm;
         reply.success = true;
         return reply;
@@ -329,7 +320,7 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
                                     }
                                 }
                             }
-                            applyCommittedEntries(serviceChannel);
+                            applyCommittedEntries(stateMachine);
                         }
                     } else if (reply.term() > currentTerm) {
                         currentTerm = reply.term();
@@ -427,39 +418,22 @@ void RaftImpl<Client>::requestVote(){
 }
 
 template <typename Client>
-Start RaftImpl<Client>::start(std::string command) {
+bool RaftImpl<Client>::start(std::unique_ptr<Command> command) {
     if (killed.load()) {
-        return Start {
-            0,
-            currentTerm,
-            false
-        };
+        return false;
     }
     std::unique_lock lock{m};
     if (role != Role::Leader) {
-        return Start{
-            0,
-            currentTerm,
-            false
-        };
+        return false;
     }
-    zdb::proto::Command protoCommand;
-    if (!protoCommand.ParseFromString(command)) {
-        throw std::runtime_error("Failed to parse command");
-    }
-    protoCommand.set_index(mainLog.lastIndex() + 1);
     LogEntry e {
         mainLog.lastIndex() + 1,
         currentTerm,
-        protoCommand.SerializeAsString()
+        (std::move(command))
     };
     mainLog.append(e);
     appendEntries(false);
-    return {
-        e.index,
-        currentTerm,
-        true
-    };
+    return true;
 }
 
 template <typename Client>

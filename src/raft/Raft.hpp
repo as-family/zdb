@@ -15,12 +15,13 @@
 #include "raft/Log.hpp"
 #include "raft/Types.hpp"
 #include <optional>
-#include <vector>
 #include <cstdint>
 #include "raft/Command.hpp"
 #include <chrono>
 #include <string>
 #include <unordered_map>
+#include "raft/Command.hpp"
+#include <memory>
 
 namespace raft {
 
@@ -43,7 +44,7 @@ public:
     virtual RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) = 0;
     virtual void appendEntries(bool heartBeat) = 0;
     virtual void requestVote() = 0;
-    virtual Start start(std::string command) = 0;
+    virtual bool start(std::unique_ptr<Command> c) = 0;
     virtual Log& log() = 0;
     virtual void kill() = 0;
     virtual Role getRole() const { return role; }

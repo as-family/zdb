@@ -35,15 +35,12 @@ public:
     void consumeChannel() override;
     void snapshot() override;
     void restore(const std::string& snapshot) override;
-    std::unique_ptr<raft::State> handleGet(Get c, std::chrono::system_clock::time_point t);
-    std::unique_ptr<raft::State> handleSet(Set c, std::chrono::system_clock::time_point t);
-    std::unique_ptr<raft::State> handleErase(Erase c, std::chrono::system_clock::time_point t);
-    std::unique_ptr<raft::State> handleSize(Size c, std::chrono::system_clock::time_point t);
+    std::unique_ptr<raft::State> handle(std::unique_ptr<raft::Command>, std::chrono::system_clock::time_point t);
     State get(Key key);
     State set(Key key, Value value);
     State erase(Key key);
     State size();
-    ~KVStateMachine();
+    ~KVStateMachine() override;
 private:
     StorageEngine& storageEngine;
     raft::Channel& leader;
