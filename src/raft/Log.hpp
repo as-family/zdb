@@ -24,37 +24,12 @@
 namespace raft {
 
 struct LogEntry {
-    LogEntry(uint64_t idx, uint64_t t, std::unique_ptr<Command> cmd)
-    : index(idx), term(t), command(std::move(cmd)) {}
-
-    LogEntry(const LogEntry& other)
-    : index(other.index), term(other.term),
-      command(other.command ? other.command->clone() : nullptr) {}
-
-    LogEntry(LogEntry&& other) noexcept
-    : index(other.index), term(other.term), command(std::move(other.command)) {}
-
-    LogEntry& operator=(const LogEntry& other) {
-        if (this != &other) {
-            index = other.index;
-            term = other.term;
-            command = other.command ? other.command->clone() : nullptr;
-        }
-        return *this;
-    }
-
-    LogEntry& operator=(LogEntry&& other) noexcept {
-        if (this != &other) {
-            index = other.index;
-            term = other.term;
-            command = std::move(other.command);
-        }
-        return *this;
-    }
+    LogEntry(uint64_t idx, uint64_t t, std::shared_ptr<Command> cmd)
+    : index(idx), term(t), command(cmd) {}
 
     uint64_t index;
     uint64_t term;
-    std::unique_ptr<Command> command;
+    std::shared_ptr<Command> command;
     bool operator==(const LogEntry& other) const;
 };
 

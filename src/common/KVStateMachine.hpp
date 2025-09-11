@@ -26,7 +26,7 @@ namespace zdb {
 
 class KVStateMachine : public raft::StateMachine {
 public:
-    KVStateMachine(StorageEngine& s,  raft::Channel<std::unique_ptr<raft::Command>>& raftCh, raft::Raft& r);
+    KVStateMachine(StorageEngine& s,  raft::Channel<std::shared_ptr<raft::Command>>& raftCh, raft::Raft& r);
     KVStateMachine(const KVStateMachine&) = delete;
     KVStateMachine& operator=(const KVStateMachine&) = delete;
     KVStateMachine(KVStateMachine&&) = delete;
@@ -35,7 +35,7 @@ public:
     void consumeChannel() override;
     void snapshot() override;
     void restore(const std::string& snapshot) override;
-    std::unique_ptr<raft::State> handle(std::unique_ptr<raft::Command>, std::chrono::system_clock::time_point t);
+    std::unique_ptr<raft::State> handle(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t);
     State get(Key key);
     State set(Key key, Value value);
     State erase(Key key);
@@ -44,7 +44,7 @@ public:
 private:
     std::mutex m;
     StorageEngine& storageEngine;
-    raft::Channel<std::unique_ptr<raft::Command>>& raftChannel;
+    raft::Channel<std::shared_ptr<raft::Command>>& raftChannel;
     raft::Raft& raft;
     std::thread consumerThread;
 };

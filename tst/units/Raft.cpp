@@ -63,12 +63,12 @@ private:
 };
 
 // Mock Channel for testing
-class MockChannel final : public Channel<std::unique_ptr<raft::Command>> {
+class MockChannel final : public Channel<std::shared_ptr<raft::Command>> {
 public:
-    MOCK_METHOD(void, send, (std::unique_ptr<raft::Command> message), (override));
-    MOCK_METHOD(bool, sendUntil, (std::unique_ptr<raft::Command>, std::chrono::system_clock::time_point t), (override));
-    MOCK_METHOD(std::optional<std::unique_ptr<raft::Command>>, receive, (), (override));
-    MOCK_METHOD(std::optional<std::unique_ptr<raft::Command>>, receiveUntil, (std::chrono::system_clock::time_point t), (override));
+    MOCK_METHOD(void, send, (std::shared_ptr<raft::Command> message), (override));
+    MOCK_METHOD(bool, sendUntil, (std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t), (override));
+    MOCK_METHOD(std::optional<std::shared_ptr<raft::Command>>, receive, (), (override));
+    MOCK_METHOD(std::optional<std::shared_ptr<raft::Command>>, receiveUntil, (std::chrono::system_clock::time_point t), (override));
     MOCK_METHOD(void, close, (), (override));
     MOCK_METHOD(bool, isClosed, (), (override));
 };
@@ -570,7 +570,7 @@ protected:
             std::chrono::milliseconds{200L}
         };
         
-        serviceChannel = std::make_unique<raft::SyncChannel<std::unique_ptr<raft::Command>>>();
+        serviceChannel = std::make_unique<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
     }
     
     zdb::RetryPolicy policy{
@@ -581,7 +581,7 @@ protected:
         std::chrono::milliseconds{1000L},
         std::chrono::milliseconds{200L}
     };
-    std::unique_ptr<raft::SyncChannel<std::unique_ptr<raft::Command>>> serviceChannel;
+    std::unique_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> serviceChannel;
 };
 
 TEST_F(RaftImplIntegrationTest, BasicChannelInteraction) {

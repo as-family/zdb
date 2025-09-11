@@ -173,28 +173,28 @@ void RAFTTestFramework::connect(std::string id) {
     }
 }
 
-std::pair<int, std::unique_ptr<raft::Command>> RAFTTestFramework::nCommitted(uint64_t index) {
+std::pair<int, std::shared_ptr<raft::Command>> RAFTTestFramework::nCommitted(uint64_t index) {
     int count = 0;
-    std::unique_ptr<raft::Command> c = nullptr;
+    std::shared_ptr<raft::Command> c = nullptr;
     for (auto& [id, raft] : rafts) {
         if (raft.log().lastIndex() >= index) {
             auto entry = raft.log().at(index);
             if (entry.has_value()) {
                 count++;
                 if (c == nullptr) {
-                    c = std::move(entry.value().command);
+                    c = entry.value().command;
                 } else {
-                    if (c != entry.value().command) {
+                    if (*c != *entry.value().command) {
                         throw std::runtime_error{"Different commands committed at index " + std::to_string(index)};
                     }
                 }
             }
         }
     }
-    return {count, std::move(c)};
+    return {count, c};
 }
 
-int RAFTTestFramework::one(std::unique_ptr<raft::Command> c, int servers, bool retry) {
+int RAFTTestFramework::one(std::shared_ptr<raft::Command> c, int servers, bool retry) {
     auto start_time = std::chrono::steady_clock::now();
     size_t starts = 0;
     
@@ -216,7 +216,7 @@ int RAFTTestFramework::one(std::unique_ptr<raft::Command> c, int servers, bool r
             // Check if this server is connected
             if (proxies.at(server_id).getNetworkConfig().isConnected()) {
                 // Try to submit the command
-                if (raft.start(std::move(c))) {
+                if (raft.start(c)) {
                     // Command was accepted, get the index where it should be committed
                     index = raft.log().lastIndex();
                     break;
@@ -234,7 +234,7 @@ int RAFTTestFramework::one(std::unique_ptr<raft::Command> c, int servers, bool r
                 auto [nd, cmd1] = nCommitted(index);
                 if (nd > 0 && nd >= servers) {
                     // Committed by enough servers
-                    if (cmd1 == c) {
+                    if (*cmd1 == *c) {
                         // And it was the command we submitted
                         return index;
                     }

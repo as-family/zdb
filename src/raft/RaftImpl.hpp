@@ -32,12 +32,12 @@ namespace raft {
 template <typename Client>
 class RaftImpl : public Raft {
 public:
-    RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::unique_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g);
+    RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::shared_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g);
     void appendEntries(bool heartBeat) override;
     void requestVote() override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
     RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) override;
-    bool start(std::unique_ptr<Command> command) override;
+    bool start(std::shared_ptr<Command> command) override;
     void kill() override;
     Log& log() override;
     void cleanUpThreads();
@@ -46,7 +46,7 @@ private:
     void applyCommittedEntries();
     std::mutex m{};
     std::atomic<std::chrono::steady_clock::rep> time {};
-    Channel<std::unique_ptr<raft::Command>>& stateMachine;
+    Channel<std::shared_ptr<raft::Command>>& stateMachine;
     zdb::RetryPolicy policy;
     zdb::FullJitter fullJitter;
     std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
@@ -65,7 +65,7 @@ private:
 };
 
 template <typename Client>
-RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::unique_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g)
+RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::shared_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g)
 : stateMachine {c},
   policy {r} {
     selfId = s;
@@ -240,8 +240,7 @@ void RaftImpl<Client>::applyCommittedEntries() {
         auto c = mainLog.at(lastApplied);
         if (c.has_value()) {
             // Clone the command instead of moving it to preserve the original in mainLog
-            auto clonedCommand = c.value().command ? c.value().command->clone() : nullptr;
-            if (!stateMachine.sendUntil(std::move(clonedCommand), std::chrono::system_clock::now() + policy.rpcTimeout)) {
+            if (!stateMachine.sendUntil(c.value().command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
                 --lastApplied;
                 break;
             }
@@ -425,7 +424,7 @@ void RaftImpl<Client>::requestVote(){
 }
 
 template <typename Client>
-bool RaftImpl<Client>::start(std::unique_ptr<Command> command) {
+bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
     if (killed.load()) {
         return false;
     }
@@ -436,7 +435,7 @@ bool RaftImpl<Client>::start(std::unique_ptr<Command> command) {
     LogEntry e {
         mainLog.lastIndex() + 1,
         currentTerm,
-        (std::move(command))
+        command
     };
     mainLog.append(e);
     appendEntries(false);

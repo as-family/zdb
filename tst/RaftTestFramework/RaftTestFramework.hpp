@@ -57,13 +57,13 @@ public:
     void disconnect(std::string);
     void connect(std::string);
     void start();
-    std::pair<int, std::unique_ptr<raft::Command>> nCommitted(uint64_t index);
-    int one(std::unique_ptr<raft::Command> c, int servers, bool retry);
+    std::pair<int, std::shared_ptr<raft::Command>> nCommitted(uint64_t index);
+    int one(std::shared_ptr<raft::Command> c, int servers, bool retry);
 private:
     std::vector<EndPoints>& config;
     zdb::RetryPolicy policy;
     std::mt19937 gen;
-    zdb::LockedUnorderedMap<std::string, raft::SyncChannel<std::unique_ptr<raft::Command>>> leaders;
+    zdb::LockedUnorderedMap<std::string, raft::SyncChannel<std::shared_ptr<raft::Command>>> leaders;
     zdb::LockedUnorderedMap<std::string, raft::RaftImpl<Client>> rafts;
     zdb::LockedUnorderedMap<std::string, zdb::LockedUnorderedMap<std::string, Client>> clients;
     zdb::LockedUnorderedMap<std::string, raft::RaftServiceImpl> raftServices;

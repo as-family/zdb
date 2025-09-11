@@ -33,8 +33,6 @@ struct Get : public raft::Command {
     std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
     bool operator==(const raft::Command& other) const override;
     bool operator!=(const raft::Command& other) const override;
-    std::unique_ptr<raft::Command> clone() const override;
-
 };
 
 struct Set : public raft::Command {
@@ -50,7 +48,6 @@ struct Set : public raft::Command {
 
     bool operator==(const raft::Command& other) const override;
     bool operator!=(const raft::Command& other) const override;
-    std::unique_ptr<raft::Command> clone() const override;
 
 };
 
@@ -66,7 +63,6 @@ struct Erase : public raft::Command {
 
     bool operator==(const raft::Command& other) const override;
     bool operator!=(const raft::Command& other) const override;
-    std::unique_ptr<raft::Command> clone() const override;
 
 };
 
@@ -80,11 +76,9 @@ struct Size : public raft::Command {
 
     bool operator==(const raft::Command& other) const override;
     bool operator!=(const raft::Command& other) const override;
-    std::unique_ptr<raft::Command> clone() const override;
-
 };
 
-std::unique_ptr<raft::Command> commandFactory(const std::string& s);
+std::shared_ptr<raft::Command> commandFactory(const std::string& s);
 
 } // namespace zdb
 

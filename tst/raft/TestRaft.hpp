@@ -19,9 +19,9 @@
 #include "raft/Log.hpp"
 
 struct TestRaft : raft::Raft {
-    TestRaft(raft::Channel<std::unique_ptr<raft::Command>>& c) : channel {c}, mainLog{} {}
-    bool start(std::unique_ptr<raft::Command> cmd) override {
-        channel.send(std::move(cmd));
+    TestRaft(raft::Channel<std::shared_ptr<raft::Command>>& c) : channel {c}, mainLog{} {}
+    bool start(std::shared_ptr<raft::Command> cmd) override {
+        channel.send(cmd);
         return true;
     }
     raft::AppendEntriesReply appendEntriesHandler(const raft::AppendEntriesArg& arg) override {
@@ -41,7 +41,7 @@ struct TestRaft : raft::Raft {
     }
     void kill() override {
     }
-    raft::Channel<std::unique_ptr<raft::Command>>& channel;
+    raft::Channel<std::shared_ptr<raft::Command>>& channel;
 private:
     raft::Log mainLog;
 };

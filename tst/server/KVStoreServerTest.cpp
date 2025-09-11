@@ -46,7 +46,7 @@ const std::string SERVER_ADDR = "localhost:50051";
 class KVStoreServerTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    raft::SyncChannel<std::unique_ptr<raft::Command>> leader{};
+    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
     TestRaft raft{leader};
     zdb::KVStateMachine kvState {kvStore, leader, raft};
     KVStoreServiceImpl serviceImpl{kvState};

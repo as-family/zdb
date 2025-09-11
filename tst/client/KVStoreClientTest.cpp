@@ -44,7 +44,7 @@ const std::string SERVER_ADDR = "localhost:50052";
 class KVStoreClientTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    raft::SyncChannel<std::unique_ptr<raft::Command>> leader{};
+    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
     TestRaft raft{leader};
     zdb::KVStateMachine kvState {kvStore, leader, raft};
     KVStoreServiceImpl serviceImpl{kvState};
@@ -240,7 +240,7 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     // Set up additional server
     const std::string serverAddress2 = "localhost:50053";
     InMemoryKVStore kvStore2;
-    auto channel2 = raft::SyncChannel<std::unique_ptr<raft::Command>>{};
+    auto channel2 = raft::SyncChannel<std::shared_ptr<raft::Command>>{};
     TestRaft raft2{channel2};
     zdb::KVStateMachine kvState2 = zdb::KVStateMachine{kvStore2, channel2, raft2};
     KVStoreServiceImpl serviceImpl2{kvState2};
@@ -417,8 +417,8 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     const std::string serverAddress3 = "localhost:50055";
     
     InMemoryKVStore kvStore2, kvStore3;
-    auto channel2 = raft::SyncChannel<std::unique_ptr<raft::Command>>();
-    auto channel3 = raft::SyncChannel<std::unique_ptr<raft::Command>>();
+    auto channel2 = raft::SyncChannel<std::shared_ptr<raft::Command>>();
+    auto channel3 = raft::SyncChannel<std::shared_ptr<raft::Command>>();
     TestRaft raft2{channel2}, raft3{channel3};
     zdb::KVStateMachine kvState2 {kvStore2, channel2, raft2};
     zdb::KVStateMachine kvState3 {kvStore3, channel3, raft3};

@@ -67,7 +67,7 @@ void runClients(int nClients, bool reliable) {
     NetworkConfig networkConfig {reliable, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    raft::SyncChannel<std::unique_ptr<raft::Command>> leader{};
+    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
@@ -111,7 +111,7 @@ TEST(LockTest, AcquireLock) {
     NetworkConfig networkConfig {true, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    raft::SyncChannel<std::unique_ptr<raft::Command>> leader{};
+    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
@@ -143,7 +143,7 @@ TEST(LockTest, ReleaseLock) {
     NetworkConfig networkConfig {true, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    raft::SyncChannel<std::unique_ptr<raft::Command>> leader{};
+    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},

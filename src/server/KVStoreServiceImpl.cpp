@@ -35,8 +35,8 @@ grpc::Status KVStoreServiceImpl::get(
     kvStore::GetReply *reply) {
     const Key key{request->key().data()};
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
-    std::unique_ptr<raft::Command> g = std::make_unique<Get>(uuid, key);
-    auto p = kvStateMachine.handle(std::move(g), context->deadline());
+    std::shared_ptr<raft::Command> g = std::make_shared<Get>(uuid, key);
+    auto p = kvStateMachine.handle(g, context->deadline());
     const auto state = static_cast<State*>(p.get());
     if (std::holds_alternative<Error>(state->u)) {
         return toGrpcStatus(std::get<Error>(state->u));
@@ -58,8 +58,8 @@ grpc::Status KVStoreServiceImpl::set(
     const Key key{request->key().data()};
     const Value value{request->value().data(), request->value().version()};
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
-    std::unique_ptr<raft::Command> s = std::make_unique<Set>(uuid, key, value);
-    auto p = kvStateMachine.handle(std::move(s), context->deadline());
+    std::shared_ptr<raft::Command> s = std::make_shared<Set>(uuid, key, value);
+    auto p = kvStateMachine.handle(s, context->deadline());
     const auto state = static_cast<State*>(p.get());
     if (std::holds_alternative<Error>(state->u)) {
         return toGrpcStatus(std::get<Error>(state->u));
@@ -73,8 +73,8 @@ grpc::Status KVStoreServiceImpl::erase(
     kvStore::EraseReply* reply) {
     const Key key{request->key().data()};
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
-    std::unique_ptr<raft::Command> e = std::make_unique<Erase>(uuid, key);
-    auto p = kvStateMachine.handle(std::move(e), context->deadline());
+    std::shared_ptr<raft::Command> e = std::make_shared<Erase>(uuid, key);
+    auto p = kvStateMachine.handle(e, context->deadline());
     const auto state = static_cast<State*>(p.get());
     if (std::holds_alternative<Error>(state->u)) {
         return toGrpcStatus(std::get<Error>(state->u));
@@ -93,7 +93,7 @@ grpc::Status KVStoreServiceImpl::size(
     const kvStore::SizeRequest *request,
     kvStore::SizeReply *reply) {
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
-    std::unique_ptr<raft::Command> sz = std::make_unique<Size>(uuid);
+    std::shared_ptr<raft::Command> sz = std::make_shared<Size>(uuid);
     auto p = kvStateMachine.handle(std::move(sz), context->deadline());
     const auto state = static_cast<State*>(p.get());
     if (std::holds_alternative<Error>(state->u)) {

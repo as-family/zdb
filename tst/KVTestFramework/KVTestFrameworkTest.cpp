@@ -24,7 +24,7 @@ TEST(KVTestFrameworkTest, SpawnClientsAndWaitCoordinatesResults) {
     NetworkConfig networkConfig {true, 0, 0};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    raft::SyncChannel<std::unique_ptr<raft::Command>> leader{};
+    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},

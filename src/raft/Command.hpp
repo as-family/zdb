@@ -27,7 +27,6 @@ struct Command {
     virtual std::unique_ptr<State> apply(raft::StateMachine& stateMachine) = 0;
     virtual bool operator==(const Command& other) const = 0;
     virtual bool operator!=(const Command& other) const = 0;
-    virtual std::unique_ptr<Command> clone() const = 0;
     virtual UUIDV7 getUUID() const {
         return uuid;
     };

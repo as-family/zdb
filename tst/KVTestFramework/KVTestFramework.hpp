@@ -43,7 +43,7 @@ public:
         int nMaybe;
     };
     Porcupine porcupine;
-    KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel<std::unique_ptr<raft::Command>>& l, raft::Raft& r, zdb::RetryPolicy p);
+    KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel<std::shared_ptr<raft::Command>>& l, raft::Raft& r, zdb::RetryPolicy p);
     std::vector<ClientResult> spawnClientsAndWait(
         int nClients,
         std::chrono::seconds timeout,
@@ -77,7 +77,7 @@ private:
     std::string targetServerAddr;
     NetworkConfig& networkConfig;
     zdb::InMemoryKVStore mem;
-    raft::Channel<std::unique_ptr<raft::Command>>& leader;
+    raft::Channel<std::shared_ptr<raft::Command>>& leader;
     raft::Raft& raft;
     zdb::KVStateMachine kvState;
     zdb::KVStoreServiceImpl targetService;

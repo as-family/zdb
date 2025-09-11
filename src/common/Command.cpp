@@ -18,22 +18,22 @@
 namespace zdb
 {
 
-std::unique_ptr<raft::Command> commandFactory(const std::string& s) {
+std::shared_ptr<raft::Command> commandFactory(const std::string& s) {
     auto cmd = zdb::proto::Command {};
     if (!cmd.ParseFromString(s)) {
         throw std::invalid_argument{"commandFactory: deserialization failed"};
     }
     if (cmd.op() == "get") {
-        return std::make_unique<Get>(cmd);
+        return std::make_shared<Get>(cmd);
     }
     if (cmd.op() == "set") {
-        return std::make_unique<Set>(cmd);
+        return std::make_shared<Set>(cmd);
     }
     if (cmd.op() == "erase") {
-        return std::make_unique<Erase>(cmd);
+        return std::make_shared<Erase>(cmd);
     }
     if (cmd.op() == "size") {
-        return std::make_unique<Size>(cmd);
+        return std::make_shared<Size>(cmd);
     }
     throw std::invalid_argument{"commandFactory: unknown op: " + cmd.op()};
 }
@@ -75,10 +75,6 @@ bool Get::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
-std::unique_ptr<raft::Command> Get::clone() const {
-    return std::make_unique<Get>(*this);
-}
-
 Set::Set(UUIDV7& u, const Key& k, const Value& v) : key(k), value(v) {
     uuid = u;
 }
@@ -117,10 +113,6 @@ bool Set::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
-std::unique_ptr<raft::Command> Set::clone() const {
-    return std::make_unique<Set>(*this);
-}
-
 Erase::Erase(UUIDV7& u, const Key& k) : key(k) {
     uuid = u;
 }
@@ -157,10 +149,6 @@ bool Erase::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
-std::unique_ptr<raft::Command> Erase::clone() const {
-    return std::make_unique<Erase>(*this);
-}
-
 Size::Size(UUIDV7& u) {
     uuid = u;
 }
@@ -194,10 +182,6 @@ bool Size::operator==(const raft::Command& other) const {
 
 bool Size::operator!=(const raft::Command& other) const {
     return !(*this == other);
-}
-
-std::unique_ptr<raft::Command> Size::clone() const {
-    return std::make_unique<Size>(*this);
 }
 
 } // namespace zdb

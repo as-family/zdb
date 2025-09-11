@@ -67,7 +67,7 @@ public:
     }
 private:
     InMemoryKVStore kvStore;
-    raft::SyncChannel<std::unique_ptr<raft::Command>> leader;
+    raft::SyncChannel<std::shared_ptr<raft::Command>> leader;
     TestRaft raft;
     zdb::KVStateMachine kvState;
     KVStoreServiceImpl serviceImpl;
