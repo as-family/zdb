@@ -51,11 +51,8 @@ using zdb::kvStore::SizeReply;
 class TestKVServer {
 public:
     explicit TestKVServer(std::string addr)
-        : kvStore{},
-          leader{},
-          follower{},
-          raft{leader},
-          kvState{kvStore, leader, follower, raft},
+        : raft{leader},
+          kvState{kvStore, leader, raft},
           serviceImpl{kvState},
           address{std::move(addr)} {
         grpc::ServerBuilder builder;
@@ -70,8 +67,7 @@ public:
     }
 private:
     InMemoryKVStore kvStore;
-    raft::SyncChannel leader;
-    raft::SyncChannel follower;
+    raft::SyncChannel<std::unique_ptr<raft::Command>> leader;
     TestRaft raft;
     zdb::KVStateMachine kvState;
     KVStoreServiceImpl serviceImpl;

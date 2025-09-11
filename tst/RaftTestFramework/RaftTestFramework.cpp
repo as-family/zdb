@@ -45,8 +45,7 @@ RAFTTestFramework::RAFTTestFramework(
     for (auto& e : config) {
         threads.emplace_back([this, &e, ps] {
             leaders.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
-            followers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
-            rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, leaders.at(e.raftTarget), followers.at(e.raftTarget), policy, [this, &e](const std::string addr, zdb::RetryPolicy) -> Client& {
+            rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, leaders.at(e.raftTarget), policy, [this, &e](const std::string addr, zdb::RetryPolicy) -> Client& {
                 clients[e.raftTarget].emplace(std::piecewise_construct, std::forward_as_tuple(addr), std::forward_as_tuple(addr, e.raftNetworkConfig, policy, getDefaultRaftProxyFunctions()));
                 return clients[e.raftTarget].at(addr);
             }));
@@ -55,7 +54,7 @@ RAFTTestFramework::RAFTTestFramework(
             proxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, e.raftNetworkConfig, policy, getDefaultRaftProxyFunctions()));
             raftProxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(proxies.at(e.raftTarget)));
             raftProxyServers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftProxy, raftProxies.at(e.raftTarget)));
-            kvTests.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.kvProxy, e.kvTarget, e.kvNetworkConfig, leaders.at(e.raftTarget), followers.at(e.raftTarget), rafts.at(e.raftTarget), policy));
+            kvTests.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.kvProxy, e.kvTarget, e.kvNetworkConfig, leaders.at(e.raftTarget), rafts.at(e.raftTarget), policy));
         });
     }
     for (auto& t : threads) {
@@ -174,16 +173,16 @@ void RAFTTestFramework::connect(std::string id) {
     }
 }
 
-std::pair<int, std::string> RAFTTestFramework::nCommitted(uint64_t index) {
+std::pair<int, std::unique_ptr<raft::Command>> RAFTTestFramework::nCommitted(uint64_t index) {
     int count = 0;
-    std::string c = "";
+    std::unique_ptr<raft::Command> c = nullptr;
     for (auto& [id, raft] : rafts) {
         if (raft.log().lastIndex() >= index) {
             auto entry = raft.log().at(index);
             if (entry.has_value()) {
                 count++;
-                if (c == "") {
-                    c = entry.value().command;
+                if (c == nullptr) {
+                    c = std::move(entry.value().command);
                 } else {
                     if (c != entry.value().command) {
                         throw std::runtime_error{"Different commands committed at index " + std::to_string(index)};

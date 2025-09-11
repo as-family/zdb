@@ -10,6 +10,8 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "raft/Types.hpp"
+
+#include "common/Command.hpp"
 #include "raft/Log.hpp"
 
 namespace raft {
@@ -19,10 +21,10 @@ AppendEntriesArg::AppendEntriesArg(const proto::AppendEntriesArg& arg)
       term(arg.term()),
       prevLogIndex(arg.prevlogindex()),
       prevLogTerm(arg.prevlogterm()),
-      leaderCommit(arg.leadercommit()), 
-      entries{} {
+      leaderCommit(arg.leadercommit()) {
     for (const auto& entry : arg.entries()) {
-        entries.append(entry);
+        auto e = LogEntry {entry.index(), entry.term(), zdb::commandFactory(entry.command())};
+        entries.append(e);
     }
 }
 

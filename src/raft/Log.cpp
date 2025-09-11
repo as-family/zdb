@@ -28,15 +28,6 @@ Log::Log()
 Log::Log(std::vector<LogEntry> es)
     : entries{es} {}
 
-void Log::append(const proto::LogEntry& entry) {
-    std::lock_guard g{m};
-    entries.emplace_back(LogEntry {
-        entry.index(),
-        entry.term(),
-        entry.command()
-    });
-}
-
 void Log::append(const LogEntry& entry) {
     std::lock_guard g{m};
     entries.push_back(entry);

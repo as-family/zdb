@@ -16,10 +16,9 @@
 
 namespace zdb {
 
-KVStateMachine::KVStateMachine(StorageEngine& s, raft::Channel& leaderChannel, raft::Channel& followerChannel, raft::Raft& r)
+KVStateMachine::KVStateMachine(StorageEngine& s, raft::Channel<std::unique_ptr<raft::Command>>& raftCh, raft::Raft& r)
     : storageEngine(s),
-      leader(leaderChannel),
-      follower(followerChannel),
+      raftChannel(raftCh),
       raft {r},
       consumerThread {std::thread(&KVStateMachine::consumeChannel, this)} {}
 
@@ -28,14 +27,12 @@ std::unique_ptr<raft::State> KVStateMachine::applyCommand(raft::Command& command
 }
 
 void KVStateMachine::consumeChannel() {
-    
-    while (!follower.isClosed()) {
-        std::string s = follower.receive();
-        if (s == "") {
+    while (!raftChannel.isClosed()) {
+        auto c = raftChannel.receive();
+        if (!c.has_value()) {
             break;
         }
-        auto command = commandFactory(s);
-        command->apply(*this);
+        c.value()->apply(*this);
     }
 }
 
@@ -73,21 +70,19 @@ std::unique_ptr<raft::State> KVStateMachine::handle(std::unique_ptr<raft::Comman
         return std::make_unique<State>(State{Error{ErrorCode::NotLeader, "not the leader"}});
     }
     while (true) {
-        auto r = leader.receiveUntil(t);
+        auto r = raftChannel.receiveUntil(t);
         if (!r.has_value()) {
             return std::make_unique<State>(State{Error{ErrorCode::Timeout, "request timed out"}});
         }
-        auto cc = commandFactory(r.value());
-        auto s = applyCommand(*cc);
-        if (cc->getUUID() == c->getUUID()) {
+        auto s = applyCommand(*r.value());
+        if (r.value()->getUUID() == c->getUUID()) {
             return s;
         }
     }
 }
 
 KVStateMachine::~KVStateMachine() {
-    follower.close();
-    leader.close();
+    raftChannel.close();
     if (consumerThread.joinable()) {
         consumerThread.join();
     }

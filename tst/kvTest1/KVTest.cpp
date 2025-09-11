@@ -26,8 +26,7 @@ TEST(KVTest, TestReliablePut) {
     NetworkConfig networkConfig {true, 0, 0};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    raft::SyncChannel leader{};
-    raft::SyncChannel follower{};
+    raft::SyncChannel<std::unique_ptr<raft::Command>> leader{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
@@ -38,7 +37,7 @@ TEST(KVTest, TestReliablePut) {
         std::chrono::milliseconds{20L},
         std::chrono::milliseconds{20L}
     };
-    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
+    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, raft, proxyPolicy};
     zdb::Config config{{proxyAddress}, zdb::RetryPolicy{
         std::chrono::milliseconds{20L},
         std::chrono::milliseconds{150L},
@@ -76,8 +75,7 @@ TEST(KVTest, TestPutConcurrentReliable) {
     NetworkConfig networkConfig {true, 0, 0};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    raft::SyncChannel leader{};
-    raft::SyncChannel follower{};
+    raft::SyncChannel<std::unique_ptr<raft::Command>> leader{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
@@ -88,7 +86,7 @@ TEST(KVTest, TestPutConcurrentReliable) {
         std::chrono::milliseconds{10L},
         std::chrono::milliseconds{20L}
     };
-    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
+    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, raft, proxyPolicy};
     zdb::RetryPolicy policy{
         std::chrono::milliseconds{20L},
         std::chrono::milliseconds{500L},
@@ -113,8 +111,7 @@ TEST(KVTest, TestUnreliableNet) {
     NetworkConfig networkConfig {false, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    raft::SyncChannel leader{};
-    raft::SyncChannel follower{};
+    raft::SyncChannel<std::unique_ptr<raft::Command>> leader{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
@@ -125,7 +122,7 @@ TEST(KVTest, TestUnreliableNet) {
         std::chrono::milliseconds{10L},
         std::chrono::milliseconds{20L}
     };
-    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
+    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, raft, proxyPolicy};
     zdb::RetryPolicy policy{
         std::chrono::microseconds{100L},
         std::chrono::microseconds{1000L},

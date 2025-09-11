@@ -24,6 +24,34 @@
 namespace raft {
 
 struct LogEntry {
+    LogEntry(uint64_t idx, uint64_t t, std::unique_ptr<Command> cmd)
+    : index(idx), term(t), command(std::move(cmd)) {}
+
+    LogEntry(const LogEntry& other)
+    : index(other.index), term(other.term),
+      command(other.command ? other.command->clone() : nullptr) {}
+
+    LogEntry(LogEntry&& other) noexcept
+    : index(other.index), term(other.term), command(std::move(other.command)) {}
+
+    LogEntry& operator=(const LogEntry& other) {
+        if (this != &other) {
+            index = other.index;
+            term = other.term;
+            command = other.command ? other.command->clone() : nullptr;
+        }
+        return *this;
+    }
+
+    LogEntry& operator=(LogEntry&& other) noexcept {
+        if (this != &other) {
+            index = other.index;
+            term = other.term;
+            command = std::move(other.command);
+        }
+        return *this;
+    }
+
     uint64_t index;
     uint64_t term;
     std::unique_ptr<Command> command;
@@ -38,13 +66,11 @@ public:
     uint64_t lastTerm() const;
     uint64_t firstIndex() const;
     uint64_t firstTerm() const;
-    void append(const proto::LogEntry& entry);
     void append(const LogEntry& entry);
     void merge(const Log& other);
     std::optional<LogEntry> at(uint64_t index) const;
     Log suffix(uint64_t start) const;
     std::vector<LogEntry> data() const;
-
  private:
     mutable std::mutex m{};
     std::vector<LogEntry> entries;

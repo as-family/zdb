@@ -68,11 +68,29 @@ struct State : public raft::State {
         size_t
     > u;
     State(const Key& k, const std::expected<std::optional<Value>, Error>& v)
-        : key{k}, u {std::nullopt} {}
+        : key{k}, u {std::nullopt} {
+        if (v.has_value()) {
+            u = v.value();
+        } else {
+            u = v.error();
+        }
+    }
     State(const Key& k, const std::expected<std::monostate, Error>& v)
-        : key{k}, u{std::monostate {}} {}
+        : key{k}, u{std::monostate {}} {
+        if (v.has_value()) {
+            u = v.value();
+        } else {
+            u = v.error();
+        }
+    }
     State(const Key& k, const std::expected<size_t, Error>& v)
-        : key{k}, u{0L} {}
+        : key{k}, u{static_cast<size_t>(0)} {
+        if (v.has_value()) {
+            u = v.value();
+        } else {
+            u = v.error();
+        }
+    }
     State(const Key& k, const std::optional<Value>& v)
         : key(k), u{v} {}
     State(const Key& k, const std::monostate v)

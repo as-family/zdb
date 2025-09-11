@@ -32,7 +32,7 @@ namespace raft {
 template <typename Client>
 class RaftImpl : public Raft {
 public:
-    RaftImpl(std::vector<std::string> p, const std::string& s, Channel& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g);
+    RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::unique_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g);
     void appendEntries(bool heartBeat) override;
     void requestVote() override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
@@ -43,10 +43,10 @@ public:
     void cleanUpThreads();
     ~RaftImpl() override;
 private:
-    void applyCommittedEntries(Channel& channel);
+    void applyCommittedEntries();
     std::mutex m{};
     std::atomic<std::chrono::steady_clock::rep> time {};
-    Channel& stateMachine;
+    Channel<std::unique_ptr<raft::Command>>& stateMachine;
     zdb::RetryPolicy policy;
     zdb::FullJitter fullJitter;
     std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
@@ -65,7 +65,7 @@ private:
 };
 
 template <typename Client>
-RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Channel& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g)
+RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::unique_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g)
 : stateMachine {c},
   policy {r} {
     selfId = s;
@@ -234,11 +234,11 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
 }
 
 template <typename Client>
-void RaftImpl<Client>::applyCommittedEntries(Channel& channel) {
+void RaftImpl<Client>::applyCommittedEntries() {
     while (lastApplied < commitIndex) {
         ++lastApplied;
         auto c = mainLog.at(lastApplied);
-        if (!channel.sendUntil(c.value().command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
+        if (!stateMachine.sendUntil(std::move(c.value().command), std::chrono::system_clock::now() + policy.rpcTimeout)) {
             --lastApplied;
             break;
         }

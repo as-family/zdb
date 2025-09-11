@@ -75,6 +75,10 @@ bool Get::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
+std::unique_ptr<raft::Command> Get::clone() const {
+    return std::make_unique<Get>(*this);
+}
+
 Set::Set(UUIDV7& u, const Key& k, const Value& v) : key(k), value(v) {
     uuid = u;
 }
@@ -113,6 +117,10 @@ bool Set::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
+std::unique_ptr<raft::Command> Set::clone() const {
+    return std::make_unique<Set>(*this);
+}
+
 Erase::Erase(UUIDV7& u, const Key& k) : key(k) {
     uuid = u;
 }
@@ -149,6 +157,10 @@ bool Erase::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
+std::unique_ptr<raft::Command> Erase::clone() const {
+    return std::make_unique<Erase>(*this);
+}
+
 Size::Size(UUIDV7& u) {
     uuid = u;
 }
@@ -182,6 +194,10 @@ bool Size::operator==(const raft::Command& other) const {
 
 bool Size::operator!=(const raft::Command& other) const {
     return !(*this == other);
+}
+
+std::unique_ptr<raft::Command> Size::clone() const {
+    return std::make_unique<Size>(*this);
 }
 
 } // namespace zdb

@@ -44,10 +44,9 @@ const std::string SERVER_ADDR = "localhost:50052";
 class KVStoreClientTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    raft::SyncChannel leader{};
-    raft::SyncChannel follower;
+    raft::SyncChannel<std::unique_ptr<raft::Command>> leader{};
     TestRaft raft{leader};
-    zdb::KVStateMachine kvState {kvStore, leader, follower, raft};
+    zdb::KVStateMachine kvState {kvStore, leader, raft};
     KVStoreServiceImpl serviceImpl{kvState};
     std::unique_ptr<KVStoreServer> server;
     const RetryPolicy policy{std::chrono::milliseconds{100L}, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{5000L}, 3, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
@@ -241,10 +240,9 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     // Set up additional server
     const std::string serverAddress2 = "localhost:50053";
     InMemoryKVStore kvStore2;
-    auto channel2 = raft::SyncChannel{};
-    auto channel22 = raft::SyncChannel{};
+    auto channel2 = raft::SyncChannel<std::unique_ptr<raft::Command>>{};
     TestRaft raft2{channel2};
-    zdb::KVStateMachine kvState2 = zdb::KVStateMachine{kvStore2, channel2, channel22, raft2};
+    zdb::KVStateMachine kvState2 = zdb::KVStateMachine{kvStore2, channel2, raft2};
     KVStoreServiceImpl serviceImpl2{kvState2};
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread2;
@@ -419,13 +417,11 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     const std::string serverAddress3 = "localhost:50055";
     
     InMemoryKVStore kvStore2, kvStore3;
-    auto channel2 = raft::SyncChannel();
-    auto channel3 = raft::SyncChannel();
-    auto channel22 = raft::SyncChannel();
-    auto channel33 = raft::SyncChannel();
+    auto channel2 = raft::SyncChannel<std::unique_ptr<raft::Command>>();
+    auto channel3 = raft::SyncChannel<std::unique_ptr<raft::Command>>();
     TestRaft raft2{channel2}, raft3{channel3};
-    zdb::KVStateMachine kvState2 {kvStore2, channel2, channel22, raft2};
-    zdb::KVStateMachine kvState3 {kvStore3, channel3, channel33, raft3};
+    zdb::KVStateMachine kvState2 {kvStore2, channel2, raft2};
+    zdb::KVStateMachine kvState3 {kvStore3, channel3, raft3};
     KVStoreServiceImpl serviceImpl2{kvState2}, serviceImpl3{kvState3};
     std::unique_ptr<KVStoreServer> server2, server3;
     std::thread serverThread2, serverThread3;

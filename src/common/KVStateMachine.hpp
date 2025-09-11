@@ -26,7 +26,7 @@ namespace zdb {
 
 class KVStateMachine : public raft::StateMachine {
 public:
-    KVStateMachine(StorageEngine& s,  raft::Channel& leaderChannel, raft::Channel& followerChannel, raft::Raft& r);
+    KVStateMachine(StorageEngine& s,  raft::Channel<std::unique_ptr<raft::Command>>& raftCh, raft::Raft& r);
     KVStateMachine(const KVStateMachine&) = delete;
     KVStateMachine& operator=(const KVStateMachine&) = delete;
     KVStateMachine(KVStateMachine&&) = delete;
@@ -43,8 +43,7 @@ public:
     ~KVStateMachine() override;
 private:
     StorageEngine& storageEngine;
-    raft::Channel& leader;
-    raft::Channel& follower;
+    raft::Channel<std::unique_ptr<raft::Command>>& raftChannel;
     raft::Raft& raft;
     std::thread consumerThread;
 };
