@@ -58,7 +58,7 @@ public:
     void connect(std::string);
     void start();
     std::pair<int, std::unique_ptr<raft::Command>> nCommitted(uint64_t index);
-    int one(std::string c, int servers, bool retry);
+    int one(std::unique_ptr<raft::Command> c, int servers, bool retry);
 private:
     std::vector<EndPoints>& config;
     zdb::RetryPolicy policy;

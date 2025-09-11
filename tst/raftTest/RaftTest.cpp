@@ -232,10 +232,10 @@ TEST(Raft, BasicAgree) {
     EXPECT_NO_THROW(framework.check1Leader());
     for (int i = 1; i <= 3; ++i) {
         auto uuid = generate_uuid_v7();
-        auto c = zdb::Get{uuid, zdb::Key{"key"}};
+        std::unique_ptr<raft::Command> c = std::make_unique<zdb::Get>(uuid, zdb::Key{"key"});
         auto nd = framework.nCommitted(i).first;
         ASSERT_EQ(nd, 0);
-        auto xi = framework.one(c.serialize(), 3, false);
+        auto xi = framework.one(std::move(c), 3, false);
         ASSERT_EQ(xi, i);
     }
 }

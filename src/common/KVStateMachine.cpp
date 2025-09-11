@@ -66,6 +66,7 @@ State KVStateMachine::size() {
 }
 
 std::unique_ptr<raft::State> KVStateMachine::handle(std::unique_ptr<raft::Command> c, std::chrono::system_clock::time_point t) {
+    const auto u = c->getUUID();
     if (!raft.start(std::move(c))) {
         return std::make_unique<State>(State{Error{ErrorCode::NotLeader, "not the leader"}});
     }
@@ -75,7 +76,7 @@ std::unique_ptr<raft::State> KVStateMachine::handle(std::unique_ptr<raft::Comman
             return std::make_unique<State>(State{Error{ErrorCode::Timeout, "request timed out"}});
         }
         auto s = applyCommand(*r.value());
-        if (r.value()->getUUID() == c->getUUID()) {
+        if (r.value()->getUUID() == u) {
             return s;
         }
     }

@@ -222,7 +222,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         if (arg.leaderCommit > commitIndex) {
             commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
         }
-        applyCommittedEntries(stateMachine);
+        applyCommittedEntries();
         reply.term = currentTerm;
         reply.success = true;
         return reply;
@@ -284,7 +284,7 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
                     auto e = arg.add_entries();
                     e->set_index(eg.index);
                     e->set_term(eg.term);
-                    e->set_command(eg.command);
+                    e->set_command(eg.command->serialize());
                 }
                 proto::AppendEntriesReply reply;
                 auto status = peer.call(
@@ -320,7 +320,7 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
                                     }
                                 }
                             }
-                            applyCommittedEntries(stateMachine);
+                            applyCommittedEntries();
                         }
                     } else if (reply.term() > currentTerm) {
                         currentTerm = reply.term();

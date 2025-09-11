@@ -191,10 +191,10 @@ std::pair<int, std::unique_ptr<raft::Command>> RAFTTestFramework::nCommitted(uin
             }
         }
     }
-    return {count, c};
+    return {count, std::move(c)};
 }
 
-int RAFTTestFramework::one(std::string c, int servers, bool retry) {
+int RAFTTestFramework::one(std::unique_ptr<raft::Command> c, int servers, bool retry) {
     auto start_time = std::chrono::steady_clock::now();
     size_t starts = 0;
     
@@ -216,7 +216,7 @@ int RAFTTestFramework::one(std::string c, int servers, bool retry) {
             // Check if this server is connected
             if (proxies.at(server_id).getNetworkConfig().isConnected()) {
                 // Try to submit the command
-                if (raft.start(c).isLeader) {
+                if (raft.start(std::move(c))) {
                     // Command was accepted, get the index where it should be committed
                     index = raft.log().lastIndex();
                     break;
@@ -244,7 +244,7 @@ int RAFTTestFramework::one(std::string c, int servers, bool retry) {
             
             if (!retry) {
                 // Not retrying, so fail if we didn't get agreement
-                throw std::runtime_error{"Failed to reach agreement for command: " + c};
+                throw std::runtime_error{"Failed to reach agreement for command: " + c->serialize()};
             }
         } else {
             // No leader found, wait a bit before trying again
@@ -253,5 +253,5 @@ int RAFTTestFramework::one(std::string c, int servers, bool retry) {
     }
     
     // Timeout reached
-    throw std::runtime_error{"Timeout: failed to reach agreement for command: " + c};
+    throw std::runtime_error{"Timeout: failed to reach agreement for command: " + c->serialize()};
 }

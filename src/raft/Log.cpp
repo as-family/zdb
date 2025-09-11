@@ -79,7 +79,12 @@ Log Log::suffix(uint64_t start) const {
     if (i == entries.end()) {
         return Log {};
     }
-    auto es = std::vector<LogEntry>(i, entries.end());
+    // Explicitly copy each entry to ensure deep copying of Command objects
+    std::vector<LogEntry> es;
+    es.reserve(std::distance(i, entries.end()));
+    for (auto it = i; it != entries.end(); ++it) {
+        es.push_back(*it); // This triggers copy constructor with clone()
+    }
     return Log {es};
 }
 
@@ -89,12 +94,18 @@ std::optional<LogEntry> Log::at(uint64_t index) const {
     if (i == entries.end()) {
         return std::nullopt;
     }
-    return *i;
+    return *i; // Copy constructor will be called
 }
 
 std::vector<LogEntry> Log::data() const {
     std::lock_guard g{m};
-    return entries;
+    // Explicitly copy each entry to ensure deep copying of Command objects
+    std::vector<LogEntry> result;
+    result.reserve(entries.size());
+    for (const auto& entry : entries) {
+        result.push_back(entry); // This triggers copy constructor with clone()
+    }
+    return result;
 }
 
 } // namespace raft
