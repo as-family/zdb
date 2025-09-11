@@ -238,7 +238,14 @@ void RaftImpl<Client>::applyCommittedEntries() {
     while (lastApplied < commitIndex) {
         ++lastApplied;
         auto c = mainLog.at(lastApplied);
-        if (!stateMachine.sendUntil(std::move(c.value().command), std::chrono::system_clock::now() + policy.rpcTimeout)) {
+        if (c.has_value()) {
+            // Clone the command instead of moving it to preserve the original in mainLog
+            auto clonedCommand = c.value().command ? c.value().command->clone() : nullptr;
+            if (!stateMachine.sendUntil(std::move(clonedCommand), std::chrono::system_clock::now() + policy.rpcTimeout)) {
+                --lastApplied;
+                break;
+            }
+        } else {
             --lastApplied;
             break;
         }

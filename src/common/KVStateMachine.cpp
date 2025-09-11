@@ -13,6 +13,7 @@
 #include "raft/StateMachine.hpp"
 #include "raft/Command.hpp"
 #include "common/Command.hpp"
+#include <mutex>
 
 namespace zdb {
 
@@ -28,7 +29,8 @@ std::unique_ptr<raft::State> KVStateMachine::applyCommand(raft::Command& command
 
 void KVStateMachine::consumeChannel() {
     while (!raftChannel.isClosed()) {
-        auto c = raftChannel.receive();
+        std::lock_guard lock{m};
+        auto c = raftChannel.receiveUntil(std::chrono::system_clock::now() + std::chrono::milliseconds{1L});
         if (!c.has_value()) {
             break;
         }
@@ -66,6 +68,7 @@ State KVStateMachine::size() {
 }
 
 std::unique_ptr<raft::State> KVStateMachine::handle(std::unique_ptr<raft::Command> c, std::chrono::system_clock::time_point t) {
+    std::lock_guard lock{m};
     const auto u = c->getUUID();
     if (!raft.start(std::move(c))) {
         return std::make_unique<State>(State{Error{ErrorCode::NotLeader, "not the leader"}});

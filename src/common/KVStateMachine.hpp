@@ -19,8 +19,8 @@
 #include "interface/StorageEngine.hpp"
 #include "raft/Raft.hpp"
 #include <chrono>
-#include "common/Command.hpp"
 #include <memory>
+#include <mutex>
 
 namespace zdb {
 
@@ -42,6 +42,7 @@ public:
     State size();
     ~KVStateMachine() override;
 private:
+    std::mutex m;
     StorageEngine& storageEngine;
     raft::Channel<std::unique_ptr<raft::Command>>& raftChannel;
     raft::Raft& raft;

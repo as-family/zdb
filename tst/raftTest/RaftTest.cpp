@@ -13,7 +13,6 @@
 #include <gtest/gtest.h>
 #include "raft/Raft.hpp"
 #include "raft/RaftImpl.hpp"
-#include "raft/Channel.hpp"
 #include <string>
 #include <vector>
 #include <thread>
@@ -21,6 +20,7 @@
 #include "common/Types.hpp"
 #include "RaftTestFramework/RaftTestFramework.hpp"
 #include <random>
+#include "common/Command.hpp"
 
 std::vector<EndPoints> makeConfig(int n) {
     std::vector<EndPoints> config;
