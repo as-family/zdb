@@ -38,19 +38,21 @@ AppendEntriesArg::AppendEntriesArg(std::string l, uint64_t t, uint64_t pi, uint6
       entries{g.data()} {}
 
 AppendEntriesArg::operator google::protobuf::Message&() {
-    auto *arg = new proto::AppendEntriesArg;
-    arg->set_leaderid(leaderId);
-    arg->set_term(term);
-    arg->set_prevlogindex(prevLogIndex);
-    arg->set_prevlogterm(prevLogTerm);
-    arg->set_leadercommit(leaderCommit);
+    if (!protoArg) {
+        protoArg = std::make_shared<proto::AppendEntriesArg>();
+    }
+    protoArg->set_leaderid(leaderId);
+    protoArg->set_term(term);
+    protoArg->set_prevlogindex(prevLogIndex);
+    protoArg->set_prevlogterm(prevLogTerm);
+    protoArg->set_leadercommit(leaderCommit);
     for (const auto& e : entries.data()) {
-        auto *entry = arg->add_entries();
+        auto *entry = protoArg->add_entries();
         entry->set_index(e.index);
         entry->set_term(e.term);
         entry->set_command(e.command->serialize());
     }
-    return *arg;
+    return *protoArg;
 }
 
 AppendEntriesArg::operator const google::protobuf::Message&() const {
@@ -61,11 +63,22 @@ AppendEntriesReply::AppendEntriesReply(bool cond, uint64_t t)
     : success{cond},
       term{t} {}
 
+AppendEntriesReply::AppendEntriesReply(const google::protobuf::Message& m) {
+    auto *reply = dynamic_cast<const proto::AppendEntriesReply*>(&m);
+    if (!reply) {
+        throw std::runtime_error("Invalid message type");
+    }
+    success = reply->success();
+    term = reply->term();
+}
+
 AppendEntriesReply::operator google::protobuf::Message&() {
-    auto *reply = new proto::AppendEntriesReply;
-    reply->set_success(success);
-    reply->set_term(term);
-    return *reply;
+    if (!protoReply) {
+        protoReply = std::make_shared<proto::AppendEntriesReply>();
+    }
+    protoReply->set_success(success);
+    protoReply->set_term(term);
+    return *protoReply;
 }
 
 AppendEntriesReply::operator const google::protobuf::Message&() const {
@@ -79,12 +92,14 @@ RequestVoteArg::RequestVoteArg(const proto::RequestVoteArg& arg)
       lastLogTerm(arg.lastlogterm()) {}
 
 RequestVoteArg::operator google::protobuf::Message&() {
-    auto *arg = new proto::RequestVoteArg;
-    arg->set_candidateid(candidateId);
-    arg->set_term(term);
-    arg->set_lastlogindex(lastLogIndex);
-    arg->set_lastlogterm(lastLogTerm);
-    return *arg;
+    if (!protoArg) {
+        protoArg = std::make_shared<proto::RequestVoteArg>();
+    }
+    protoArg->set_candidateid(candidateId);
+    protoArg->set_term(term);
+    protoArg->set_lastlogindex(lastLogIndex);
+    protoArg->set_lastlogterm(lastLogTerm);
+    return *protoArg;
 }
 
 RequestVoteArg::operator const google::protobuf::Message&() const {
@@ -96,11 +111,22 @@ RequestVoteReply::RequestVoteReply(bool cond, uint64_t t)
     : voteGranted{cond},
       term{t} {}
 
+RequestVoteReply::RequestVoteReply(const google::protobuf::Message& m) {
+    auto *reply = dynamic_cast<const proto::RequestVoteReply*>(&m);
+    if (!reply) {
+        throw std::runtime_error("Invalid message type");
+    }
+    voteGranted = reply->votegranted();
+    term = reply->term();
+}
+
 RequestVoteReply::operator google::protobuf::Message&() {
-    auto *reply = new proto::RequestVoteReply;
-    reply->set_votegranted(voteGranted);
-    reply->set_term(term);
-    return *reply;
+    if (!protoReply) {
+        protoReply = std::make_shared<proto::RequestVoteReply>();
+    }
+    protoReply->set_votegranted(voteGranted);
+    protoReply->set_term(term);
+    return *protoReply;
 }
 
 RequestVoteReply::operator const google::protobuf::Message&() const {

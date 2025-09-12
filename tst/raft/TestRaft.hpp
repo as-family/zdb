@@ -26,11 +26,11 @@ struct TestRaft : raft::Raft {
     }
     raft::AppendEntriesReply appendEntriesHandler(const raft::AppendEntriesArg& arg) override {
         std::ignore = arg;
-        return {};
+        return raft::AppendEntriesReply{false, 0};
     }
     raft::RequestVoteReply requestVoteHandler(const raft::RequestVoteArg& arg) override {
         std::ignore = arg;
-        return {};
+        return raft::RequestVoteReply{false, 0};
     }
     void appendEntries(bool /*heartBeat*/) override {
     }

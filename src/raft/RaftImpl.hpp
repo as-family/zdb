@@ -251,7 +251,7 @@ void RaftImpl<Client>::applyCommittedEntries() {
 }
 
 template <typename Client>
-void RaftImpl<Client>::appendEntries(bool heartBeat){
+void RaftImpl<Client>::appendEntries(const bool heartBeat){
     if (killed.load()) {
         return;
     }

@@ -34,7 +34,7 @@ std::expected<Value, Error> KVStoreClient::get(const Key& key) const {
         reply
     );
     if (t.has_value()) {
-        return reply.value();
+        return t.value().value();
     } else {
         return std::unexpected {t.error().back()};
     }
@@ -74,7 +74,7 @@ std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
         reply
     );
     if (t.has_value()) {
-        return reply.value();
+        return t.value().value();
     } else {
         return std::unexpected {t.error().back()};
     }
@@ -89,7 +89,7 @@ std::expected<size_t, Error> KVStoreClient::size() const {
         reply
     );
     if (t.has_value()) {
-        return reply.size();
+        return t.value().size();
     } else {
         return std::unexpected {t.error().back()};
     }

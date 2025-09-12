@@ -39,7 +39,7 @@ public:
     Value waitGet(Key key, uint64_t version);
 private:
     template<typename Req, typename Rep>
-    std::expected<std::monostate, std::vector<Error>> call(
+    std::expected<Rep, std::vector<Error>> call(
         const std::string& op,
         Req& request,
         Rep& reply) const {

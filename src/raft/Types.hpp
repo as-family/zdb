@@ -44,16 +44,20 @@ struct AppendEntriesArg : Arg {
     operator google::protobuf::Message&() override;
     operator const google::protobuf::Message&() const override;
     ~AppendEntriesArg() override = default;
+private:
+    std::shared_ptr<proto::AppendEntriesArg> protoArg;
 };
 
 struct AppendEntriesReply : Reply {
     bool success;
     uint64_t term;
-    AppendEntriesReply() = default;
     AppendEntriesReply(bool cond, uint64_t uint64);
+    AppendEntriesReply(const google::protobuf::Message& m);
     operator google::protobuf::Message&() override;
     operator const google::protobuf::Message&() const override;
     ~AppendEntriesReply() override = default;
+private:
+    std::shared_ptr<proto::AppendEntriesReply> protoReply;
 };
 
 struct RequestVoteArg : Arg {
@@ -65,16 +69,20 @@ struct RequestVoteArg : Arg {
     operator google::protobuf::Message&() override;
     operator const google::protobuf::Message&() const override;
     ~RequestVoteArg() override = default;
+private:
+    std::shared_ptr<proto::RequestVoteArg> protoArg;
 };
 
 struct RequestVoteReply : Reply {
     bool voteGranted;
     uint64_t term;
-    RequestVoteReply() = default;
     RequestVoteReply(bool cond, uint64_t uint64);
+    RequestVoteReply(const google::protobuf::Message& m);
     operator google::protobuf::Message&() override;
     operator const google::protobuf::Message&() const override;
     ~RequestVoteReply() override = default;
+private:
+    std::shared_ptr<proto::RequestVoteReply> protoReply;
 };
 
 } // namespace raft

@@ -19,9 +19,7 @@
 #include <vector>
 #include "common/Error.hpp"
 #include <thread>
-#include <vector>
 #include <string>
-#include "common/Error.hpp"
 #include "common/ErrorConverter.hpp"
 #include <mutex>
 #include <condition_variable>
@@ -35,6 +33,7 @@
 #include <functional>
 #include <chrono>
 #include "raft/Types.hpp"
+#include <type_traits>
 
 inline std::unordered_map<std::string, typename zdb::RPCService<zdb::kvStore::KVStoreService>::function_t> getDefaultKVProxyFunctions() {
     return {
@@ -140,7 +139,7 @@ public:
       policy {p} {}
 
     template<typename Req, typename Rep>
-    std::expected<std::monostate, std::vector<zdb::Error>> call(
+    std::expected<Rep, std::vector<zdb::Error>> call(
         std::string op,
         const Req& request,
         Rep& reply) {
@@ -162,7 +161,11 @@ public:
         if (networkConfig.isReliable()) {
             auto status = funcIt->second(stub.get(), &c, reqMsg, &repMsg);
             if (status.ok()) {
-                return {};
+                if constexpr (std::is_base_of_v<raft::Reply, Rep>) {
+                    return Rep{repMsg};
+                } else {
+                    return reply;
+                }
             } else {
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(status)});
             }
@@ -178,7 +181,11 @@ public:
                 std::this_thread::sleep_for(networkConfig.delayTime());
             }
             if (status.ok()) {
-                return {};
+                if constexpr (std::is_base_of_v<raft::Reply, Rep>) {
+                    return Rep{repMsg};
+                } else {
+                    return reply;
+                }
             } else {
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(status)});
             }

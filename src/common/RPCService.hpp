@@ -40,7 +40,7 @@ public:
     RPCService& operator=(const RPCService&) = delete;
     std::expected<std::monostate, Error> connect();
     template<typename Req, typename Rep>
-    std::expected<std::monostate, std::vector<Error>> call(
+    std::expected<Rep, std::vector<Error>> call(
         const std::string& op,
         const Req& request,
         Rep& reply) {
@@ -67,7 +67,11 @@ public:
         };
         auto statuses = circuitBreaker.call(op, bound);
         if (statuses.back().ok()) {
-            return {};
+            if constexpr (std::is_base_of_v<raft::Reply, Rep>) {
+                return Rep{repMsg};
+            } else {
+                return reply;
+            }
         } else {
             std::vector<Error> errors(statuses.size(), Error(ErrorCode::Unknown, "Unknown error"));
             std::transform(statuses.begin(), statuses.end(), errors.begin(), [](const grpc::Status& s) {
