@@ -13,6 +13,7 @@
 
 #include "common/Command.hpp"
 #include "raft/Log.hpp"
+#include <memory>
 
 namespace raft {
 
@@ -36,10 +37,75 @@ AppendEntriesArg::AppendEntriesArg(std::string l, uint64_t t, uint64_t pi, uint6
       leaderCommit {c},
       entries{g.data()} {}
 
+AppendEntriesArg::operator google::protobuf::Message&() {
+    auto *arg = new proto::AppendEntriesArg;
+    arg->set_leaderid(leaderId);
+    arg->set_term(term);
+    arg->set_prevlogindex(prevLogIndex);
+    arg->set_prevlogterm(prevLogTerm);
+    arg->set_leadercommit(leaderCommit);
+    for (const auto& e : entries.data()) {
+        auto *entry = arg->add_entries();
+        entry->set_index(e.index);
+        entry->set_term(e.term);
+        entry->set_command(e.command->serialize());
+    }
+    return *arg;
+}
+
+AppendEntriesArg::operator const google::protobuf::Message&() const {
+    return const_cast<AppendEntriesArg*>(this)->operator google::protobuf::Message&();
+}
+
+AppendEntriesReply::AppendEntriesReply(bool cond, uint64_t t)
+    : success{cond},
+      term{t} {}
+
+AppendEntriesReply::operator google::protobuf::Message&() {
+    auto *reply = new proto::AppendEntriesReply;
+    reply->set_success(success);
+    reply->set_term(term);
+    return *reply;
+}
+
+AppendEntriesReply::operator const google::protobuf::Message&() const {
+    return const_cast<AppendEntriesReply*>(this)->operator google::protobuf::Message&();
+}
+
 RequestVoteArg::RequestVoteArg(const proto::RequestVoteArg& arg)
     : candidateId(arg.candidateid()),
       term(arg.term()),
       lastLogIndex(arg.lastlogindex()),
       lastLogTerm(arg.lastlogterm()) {}
+
+RequestVoteArg::operator google::protobuf::Message&() {
+    auto *arg = new proto::RequestVoteArg;
+    arg->set_candidateid(candidateId);
+    arg->set_term(term);
+    arg->set_lastlogindex(lastLogIndex);
+    arg->set_lastlogterm(lastLogTerm);
+    return *arg;
+}
+
+RequestVoteArg::operator const google::protobuf::Message&() const {
+    return const_cast<RequestVoteArg*>(this)->operator google::protobuf::Message&();
+}
+
+
+RequestVoteReply::RequestVoteReply(bool cond, uint64_t t)
+    : voteGranted{cond},
+      term{t} {}
+
+RequestVoteReply::operator google::protobuf::Message&() {
+    auto *reply = new proto::RequestVoteReply;
+    reply->set_votegranted(voteGranted);
+    reply->set_term(term);
+    return *reply;
+}
+
+RequestVoteReply::operator const google::protobuf::Message&() const {
+    return const_cast<RequestVoteReply*>(this)->operator google::protobuf::Message&();
+}
+
 
 } // namespace raft

@@ -148,16 +148,16 @@ This is an excellent idea for accountability and managing such an ambitious plan
 **Week 4: Refactor**
 *   **Day 6: Plan**
     *   [ ] **Project:** Refactor RaftImpl to remove all dependency on protobuf
-      * [ ] take a raft Command in start
+      * [x] take a raft Command in start
     *   [ ] **Project:** Invert relation between circuit breaker and repeater
-    *   [ ] **Project:** Generalize raft::Channel to a template accepting any type
-    *   [ ] **Project:** Refactor KVStateMachine handle functions to one template function
+    *   [x] **Project:** Generalize raft::Channel to a template accepting any type
+    *   [x] **Project:** Refactor KVStateMachine handle functions to one template function
     *   [ ] **Project:** Create a new abstraction EndPoint that knows how to connect to a peer and has a repeater and circuit breaker
       * [ ] create a concrete GRPCEndPoint
-    *   [ ] **Project:** Make the Key in raft::State optional
+    *   [x] **Project:** Make the Key in raft::State optional
     *   [ ] **Project:** Organize into better nested namespaces
     *   [ ] **Project:** Make Raft::Client stoppable
-    *   [ ] **Project:** Use one channel in RaftImpl
+    *   [x] **Project:** Use one channel in RaftImpl
     *   [ ] **Project:** relax the time requirements in RaftImpl (currently too many RPCs to reach agreement)
     *   [ ] **Project:** Fix the whole "Many threads in each call" issues!
       * [ ] appendEntries need to use `>= clusterSize/2 + 1`

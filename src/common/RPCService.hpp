@@ -23,10 +23,10 @@
 #include <chrono>
 #include <algorithm>
 #include <string>
-#include <thread>
 #include <mutex>
 #include <unordered_map>
 #include "proto/kvStore.pb.h"
+#include "raft/Types.hpp"
 
 namespace zdb {
 
@@ -58,10 +58,12 @@ public:
             f = it->second;
             stubLocal = stub.get();
         }
-        auto bound = [stubLocal, f, &request, &reply, timeout = policy.rpcTimeout] {
+        auto& reqMsg = static_cast<const google::protobuf::Message&>(request);
+        auto& repMsg = static_cast<google::protobuf::Message&>(reply);
+        auto bound = [stubLocal, f, &reqMsg, &repMsg, timeout = policy.rpcTimeout] {
             grpc::ClientContext c {};
             c.set_deadline(std::chrono::system_clock::now() + timeout);
-            return f(stubLocal, &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
+            return f(stubLocal, &c, reqMsg, &repMsg);
         };
         auto statuses = circuitBreaker.call(op, bound);
         if (statuses.back().ok()) {

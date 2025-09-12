@@ -23,7 +23,6 @@
 #include <unordered_map>
 #include "raft/AsyncTimer.hpp"
 #include <atomic>
-#include "proto/types.pb.h"
 #include <functional>
 #include "common/FullJitter.hpp"
 #include <queue>
@@ -239,12 +238,12 @@ void RaftImpl<Client>::applyCommittedEntries() {
         ++lastApplied;
         auto c = mainLog.at(lastApplied);
         if (c.has_value()) {
-            // Clone the command instead of moving it to preserve the original in mainLog
             if (!stateMachine.sendUntil(c.value().command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
                 --lastApplied;
                 break;
             }
         } else {
+            // TODO: Can this happen?
             --lastApplied;
             break;
         }
@@ -273,26 +272,16 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
                 auto n = nextIndex.at(peerId);
                 auto v = mainLog.at(n);
                 auto g = mainLog.suffix(v.has_value()? v.value().index : mainLog.lastIndex());
-                proto::AppendEntriesArg arg;
-                arg.set_term(currentTerm);
-                arg.set_leaderid(selfId);
                 auto prevLogIndex = n == 0? 0 : n - 1;
-                if (prevLogIndex == 0) {
-                    arg.set_prevlogindex(0);
-                    arg.set_prevlogterm(0);
-                } else {
-                    arg.set_prevlogindex(prevLogIndex);
-                    auto t = mainLog.at(prevLogIndex);
-                    arg.set_prevlogterm(t.value().term);
-                }
-                arg.set_leadercommit(commitIndex);
-                for (const auto& eg : g.data()) {
-                    auto e = arg.add_entries();
-                    e->set_index(eg.index);
-                    e->set_term(eg.term);
-                    e->set_command(eg.command->serialize());
-                }
-                proto::AppendEntriesReply reply;
+                AppendEntriesArg arg {
+                    selfId,
+                    currentTerm,
+                    prevLogIndex,
+                    prevLogIndex == 0? 0 : mainLog.at(prevLogIndex).value().term,
+                    commitIndex,
+                    g
+                };
+                AppendEntriesReply reply;
                 auto status = peer.call(
                     "appendEntries",
                     arg,
@@ -306,11 +295,11 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
                 }
                 std::lock_guard l{appendEntriesMutex};
                 if (status.has_value()) {
-                    if (reply.success()) {
+                    if (reply.success) {
                         nextIndex[peerId] = g.lastIndex() + 1;
                         matchIndex[peerId] = g.lastIndex();
                         ++successCount;
-                        if (successCount == clusterSize / 2 + 1) {
+                        if (successCount >= clusterSize / 2 + 1) {
                             auto n = mainLog.lastIndex();
                             for (; n > commitIndex; --n) {
                                 if (mainLog.at(n).has_value() && mainLog.at(n).value().term == currentTerm) {
@@ -328,8 +317,8 @@ void RaftImpl<Client>::appendEntries(bool heartBeat){
                             }
                             applyCommittedEntries();
                         }
-                    } else if (reply.term() > currentTerm) {
-                        currentTerm = reply.term();
+                    } else if (reply.term > currentTerm) {
+                        currentTerm = reply.term;
                         role = Role::Follower;
                     } else if (nextIndex[peerId] > 1) {
                         --nextIndex[peerId];

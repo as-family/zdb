@@ -20,7 +20,19 @@
 
 namespace raft {
 
-struct AppendEntriesArg {
+struct Arg {
+    virtual operator google::protobuf::Message&() = 0;
+    virtual operator const google::protobuf::Message&() const = 0;
+    virtual ~Arg() = default;
+};
+
+struct Reply {
+    virtual operator google::protobuf::Message&() = 0;
+    virtual operator const google::protobuf::Message&() const = 0;
+    virtual ~Reply() = default;
+};
+
+struct AppendEntriesArg : Arg {
     std::string leaderId;
     uint64_t term;
     uint64_t prevLogIndex;
@@ -29,24 +41,40 @@ struct AppendEntriesArg {
     Log entries;
     AppendEntriesArg(std::string, uint64_t, uint64_t, uint64_t, uint64_t, const Log&);
     AppendEntriesArg(const proto::AppendEntriesArg& arg);
+    operator google::protobuf::Message&() override;
+    operator const google::protobuf::Message&() const override;
+    ~AppendEntriesArg() override = default;
 };
 
-struct AppendEntriesReply {
+struct AppendEntriesReply : Reply {
     bool success;
     uint64_t term;
+    AppendEntriesReply() = default;
+    AppendEntriesReply(bool cond, uint64_t uint64);
+    operator google::protobuf::Message&() override;
+    operator const google::protobuf::Message&() const override;
+    ~AppendEntriesReply() override = default;
 };
 
-struct RequestVoteArg {
+struct RequestVoteArg : Arg {
     std::string candidateId;
     uint64_t term;
     uint64_t lastLogIndex;
     uint64_t lastLogTerm;
     RequestVoteArg(const proto::RequestVoteArg& arg);
+    operator google::protobuf::Message&() override;
+    operator const google::protobuf::Message&() const override;
+    ~RequestVoteArg() override = default;
 };
 
-struct RequestVoteReply {
+struct RequestVoteReply : Reply {
     bool voteGranted;
     uint64_t term;
+    RequestVoteReply() = default;
+    RequestVoteReply(bool cond, uint64_t uint64);
+    operator google::protobuf::Message&() override;
+    operator const google::protobuf::Message&() const override;
+    ~RequestVoteReply() override = default;
 };
 
 } // namespace raft

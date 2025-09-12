@@ -34,6 +34,7 @@
 #include <unordered_map>
 #include <functional>
 #include <chrono>
+#include "raft/Types.hpp"
 
 inline std::unordered_map<std::string, typename zdb::RPCService<zdb::kvStore::KVStoreService>::function_t> getDefaultKVProxyFunctions() {
     return {
@@ -156,8 +157,10 @@ public:
         }
         grpc::ClientContext c;
         c.set_deadline(std::chrono::system_clock::now() + policy.rpcTimeout);
+        auto& reqMsg = static_cast<const google::protobuf::Message&>(request);
+        auto& repMsg = static_cast<google::protobuf::Message&>(reply);
         if (networkConfig.isReliable()) {
-            auto status = funcIt->second(stub.get(), &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
+            auto status = funcIt->second(stub.get(), &c, reqMsg, &repMsg);
             if (status.ok()) {
                 return {};
             } else {
@@ -167,7 +170,7 @@ public:
             if (networkConfig.shouldDrop()) {
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
-            auto status = funcIt->second(stub.get(), &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
+            auto status = funcIt->second(stub.get(), &c, reqMsg, &repMsg);
             if (networkConfig.shouldDrop()) {
                return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
