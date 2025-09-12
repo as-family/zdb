@@ -51,6 +51,7 @@ private:
 struct AppendEntriesReply : Reply {
     bool success;
     uint64_t term;
+    AppendEntriesReply() = default;
     AppendEntriesReply(bool cond, uint64_t uint64);
     AppendEntriesReply(const google::protobuf::Message& m);
     operator google::protobuf::Message&() override;
@@ -65,6 +66,7 @@ struct RequestVoteArg : Arg {
     uint64_t term;
     uint64_t lastLogIndex;
     uint64_t lastLogTerm;
+    RequestVoteArg(std::string, uint64_t, uint64_t, uint64_t);
     RequestVoteArg(const proto::RequestVoteArg& arg);
     operator google::protobuf::Message&() override;
     operator const google::protobuf::Message&() const override;
@@ -76,6 +78,7 @@ private:
 struct RequestVoteReply : Reply {
     bool voteGranted;
     uint64_t term;
+    RequestVoteReply() = default;
     RequestVoteReply(bool cond, uint64_t uint64);
     RequestVoteReply(const google::protobuf::Message& m);
     operator google::protobuf::Message&() override;

@@ -281,11 +281,9 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                     commitIndex,
                     g
                 };
-                AppendEntriesReply reply;
-                auto status = peer.call(
+                auto reply = peer.call(
                     "appendEntries",
-                    arg,
-                    reply
+                    arg
                 );
                 if (killed.load()) {
                     return;
@@ -294,8 +292,8 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                     return;
                 }
                 std::lock_guard l{appendEntriesMutex};
-                if (status.has_value()) {
-                    if (reply.success) {
+                if (reply.has_value()) {
+                    if (reply.value().success) {
                         nextIndex[peerId] = g.lastIndex() + 1;
                         matchIndex[peerId] = g.lastIndex();
                         ++successCount;
@@ -317,8 +315,8 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                             }
                             applyCommittedEntries();
                         }
-                    } else if (reply.term > currentTerm) {
-                        currentTerm = reply.term;
+                    } else if (reply.value().term > currentTerm) {
+                        currentTerm = reply.value().term;
                         role = Role::Follower;
                     } else if (nextIndex[peerId] > 1) {
                         --nextIndex[peerId];
@@ -361,16 +359,15 @@ void RaftImpl<Client>::requestVote(){
         threads.emplace_back(
             [this, peerId] {
                 auto& peer = peers.at(peerId).get();
-                proto::RequestVoteArg arg;
-                arg.set_term(currentTerm);
-                arg.set_candidateid(selfId);
-                arg.set_lastlogindex(mainLog.lastIndex());
-                arg.set_lastlogterm(mainLog.lastTerm());
-                proto::RequestVoteReply reply;
-                auto status = peer.call(
+                RequestVoteArg arg{
+                    selfId,
+                    currentTerm,
+                    mainLog.lastIndex(),
+                    mainLog.lastTerm()
+                };
+                auto reply = peer.call(
                     "requestVote",
-                    arg,
-                    reply
+                    arg
                 );
                 std::lock_guard l{requestVoteMutex};
                 if (killed.load()) {
@@ -379,8 +376,8 @@ void RaftImpl<Client>::requestVote(){
                 if (role != Role::Candidate) {
                     return;
                 }
-                if (status.has_value()) {
-                    if (reply.votegranted()) {
+                if (reply.has_value()) {
+                    if (reply.value().voteGranted) {
                         ++votesGranted;
                         if (votesGranted == clusterSize / 2 + 1) {
                             role = Role::Leader;
@@ -391,8 +388,8 @@ void RaftImpl<Client>::requestVote(){
                             }
                             appendEntries(false);
                         }
-                    } else if (reply.term() > currentTerm) {
-                        currentTerm = reply.term();
+                    } else if (reply.value().term > currentTerm) {
+                        currentTerm = reply.value().term;
                         role = Role::Follower;
                         votedFor.reset();
                         lastHeartbeat = std::chrono::steady_clock::now();

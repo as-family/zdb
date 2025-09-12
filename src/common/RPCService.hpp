@@ -27,6 +27,7 @@
 #include <unordered_map>
 #include "proto/kvStore.pb.h"
 #include "raft/Types.hpp"
+#include "common/TypesMap.hpp"
 
 namespace zdb {
 
@@ -39,11 +40,10 @@ public:
     RPCService(const RPCService&) = delete;
     RPCService& operator=(const RPCService&) = delete;
     std::expected<std::monostate, Error> connect();
-    template<typename Req, typename Rep>
+    template<typename Req, typename Rep = map_to_t<Req>>
     std::expected<Rep, std::vector<Error>> call(
         const std::string& op,
-        const Req& request,
-        Rep& reply) {
+        const Req& request) {
         Stub* stubLocal = nullptr;
         function_t f;
         {
@@ -59,6 +59,7 @@ public:
             stubLocal = stub.get();
         }
         auto& reqMsg = static_cast<const google::protobuf::Message&>(request);
+        auto reply = Rep{};
         auto& repMsg = static_cast<google::protobuf::Message&>(reply);
         auto bound = [stubLocal, f, &reqMsg, &repMsg, timeout = policy.rpcTimeout] {
             grpc::ClientContext c {};

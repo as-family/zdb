@@ -147,7 +147,7 @@ This is an excellent idea for accountability and managing such an ambitious plan
 #### **Phase 2: Core Distributed Systems(week 6-13)**
 **Week 4: Refactor**
 *   **Day 6: Plan**
-    *   [ ] **Project:** Refactor RaftImpl to remove all dependency on protobuf
+    *   [x] **Project:** Refactor RaftImpl to remove all dependency on protobuf
       * [x] take a raft Command in start
     *   [ ] **Project:** Invert relation between circuit breaker and repeater
     *   [x] **Project:** Generalize raft::Channel to a template accepting any type

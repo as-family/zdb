@@ -85,6 +85,12 @@ AppendEntriesReply::operator const google::protobuf::Message&() const {
     return const_cast<AppendEntriesReply*>(this)->operator google::protobuf::Message&();
 }
 
+RequestVoteArg::RequestVoteArg(std::string c, uint64_t t, uint64_t li, uint64_t lt)
+    : candidateId {c},
+      term{t},
+      lastLogIndex{li},
+      lastLogTerm{lt} {}
+
 RequestVoteArg::RequestVoteArg(const proto::RequestVoteArg& arg)
     : candidateId(arg.candidateid()),
       term(arg.term()),

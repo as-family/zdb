@@ -41,15 +41,14 @@ private:
     template<typename Req, typename Rep>
     std::expected<Rep, std::vector<Error>> call(
         const std::string& op,
-        Req& request,
-        Rep& reply) const {
+        Req& request) const {
         request.mutable_requestid()->set_uuid(uuid_v7_to_string(generate_uuid_v7()));
         for (int i = 0; i < config.policy.servicesToTry; ++i) {
             auto serviceResult = config.nextService();
             if (serviceResult.has_value()) {
-                auto callResult = serviceResult.value()->call(op, request, reply);
+                auto callResult = serviceResult.value()->call<Req, Rep>(op, request);
                 if (callResult.has_value()) {
-                    return {};
+                    return callResult;
                 } else {
                     if (callResult.error().back().code == ErrorCode::NotLeader) {
                         serviceResult = config.randomService();

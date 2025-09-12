@@ -117,8 +117,8 @@ TEST_F(KVRPCServiceTest, availableReflectsCircuitBreaker) {
     testServer->shutdown(); // Simulate server failure
     GetRequest req;
     req.mutable_key()->set_data("key");
-    GetReply rep;
-    EXPECT_FALSE(service.call("get", req, rep).has_value());
+    auto t = service.call<GetRequest, GetReply>("get", req).has_value();
+    EXPECT_FALSE(t);
     EXPECT_FALSE(service.available());
 }
 
@@ -131,13 +131,12 @@ TEST_F(KVRPCServiceTest, CallGetSuccess) {
     setReq.mutable_value()->set_data("bar");
     SetReply setRep;
     EXPECT_TRUE(
-        service.call("set", setReq, setRep).has_value());
+        service.call("set", setReq).has_value());
     GetRequest req;
     req.mutable_key()->set_data("foo");
-    GetReply rep;
-    auto result = service.call("get", req, rep);
+    auto result = service.call("get", req);
     EXPECT_TRUE(result.has_value());
-    EXPECT_EQ(rep.value().data(), "bar");
+    EXPECT_EQ(result.value().value().data(), "bar");
 }
 
 
@@ -148,7 +147,7 @@ TEST_F(KVRPCServiceTest, CallSetSuccess) {
     req.mutable_key()->set_data("foo");
     req.mutable_value()->set_data("bar");
     SetReply rep;
-    auto result = service.call("set", req, rep);
+    auto result = service.call("set", req);
     EXPECT_TRUE(result.has_value());
 }
 
@@ -160,13 +159,12 @@ TEST_F(KVRPCServiceTest, CallEraseSuccess) {
     setReq.mutable_key()->set_data("foo");
     setReq.mutable_value()->set_data("bar");
     SetReply setRep;
-    EXPECT_TRUE(service.call("set", setReq, setRep).has_value());
+    EXPECT_TRUE(service.call("set", setReq).has_value());
     EraseRequest req;
     req.mutable_key()->set_data("foo");
-    EraseReply rep;
-    auto result = service.call("erase", req, rep);
+    auto result = service.call("erase", req);
     EXPECT_TRUE(result.has_value());
-    EXPECT_EQ(rep.value().data(), "bar");
+    EXPECT_EQ(result.value().value().data(), "bar");
 }
 
 
@@ -177,12 +175,11 @@ TEST_F(KVRPCServiceTest, CallSizeSuccess) {
     setReq.mutable_key()->set_data("foo");
     setReq.mutable_value()->set_data("bar");
     SetReply setRep;
-    EXPECT_TRUE(service.call("set", setReq, setRep).has_value());
+    EXPECT_TRUE(service.call("set", setReq).has_value());
     const SizeRequest req;
-    SizeReply rep;
-    auto result = service.call("size", req, rep);
+    auto result = service.call("size", req);
     EXPECT_TRUE(result.has_value());
-    EXPECT_GE(rep.size(), 1);
+    EXPECT_GE(result.value().size(), 1);
 }
 
 
@@ -192,7 +189,7 @@ TEST_F(KVRPCServiceTest, CallFailureReturnsError) {
     GetRequest req;
     req.mutable_key()->set_data("notfound");
     GetReply rep;
-    auto result = service.call("get", req, rep);
+    auto result = service.call("get", req);
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error().back().code, ErrorCode::KeyNotFound);
 }
@@ -241,7 +238,7 @@ TEST_F(KVRPCServiceTest, AvailableReturnsFalseWhenCircuitBreakerOpen) {
     GetRequest req;
     req.mutable_key()->set_data("test");
     GetReply rep;
-    auto result = service.call("get", req, rep);
+    auto result = service.call("get", req);
     EXPECT_FALSE(result.has_value());
     
     // available() should now return false due to circuit breaker
@@ -269,7 +266,7 @@ TEST_F(KVRPCServiceTest, ConnectedReflectsChannelState) {
     GetRequest req;
     req.mutable_key()->set_data("test");
     GetReply rep;
-    EXPECT_FALSE(service.call("get", req, rep).has_value()); // This will fail and potentially update channel state
+    EXPECT_FALSE(service.call("get", req).has_value()); // This will fail and potentially update channel state
 }
 
 // Test connection reuse with IDLE channel state
@@ -349,7 +346,7 @@ TEST_F(KVRPCServiceTest, ConnectCreatesStubWhenMissing) {
     req.mutable_key()->set_data("test");
     req.mutable_value()->set_data("value");
     SetReply rep;
-    auto result = service.call("set", req, rep);
+    auto result = service.call("set", req);
     EXPECT_TRUE(result.has_value());
 }
 
@@ -368,7 +365,7 @@ TEST_F(KVRPCServiceTest, CircuitBreakerIntegrationWithAvailable) {
     GetRequest req;
     req.mutable_key()->set_data("test");
     GetReply rep;
-    EXPECT_FALSE(service.call("get", req, rep).has_value());
+    EXPECT_FALSE(service.call("get", req).has_value());
 
     // available() should return false when circuit breaker is open
     EXPECT_FALSE(service.available());

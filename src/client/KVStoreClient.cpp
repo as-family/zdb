@@ -27,11 +27,9 @@ KVStoreClient::KVStoreClient(Config& c) : config(c) {}
 std::expected<Value, Error> KVStoreClient::get(const Key& key) const {
     kvStore::GetRequest request;
     request.mutable_key()->set_data(key.data);
-    kvStore::GetReply reply;
-    auto t = call(
+    auto t = call<kvStore::GetRequest, kvStore::GetReply>(
         "get",
-        request,
-        reply
+        request
     );
     if (t.has_value()) {
         return t.value().value();
@@ -45,12 +43,9 @@ std::expected<std::monostate, Error> KVStoreClient::set(const Key& key, const Va
     request.mutable_key()->set_data(key.data);
     request.mutable_value()->set_data(value.data);
     request.mutable_value()->set_version(value.version);
-    kvStore::SetReply reply;
-
-    auto t = call(
+    auto t = call<kvStore::SetRequest, kvStore::SetReply>(
         "set",
-        request,
-        reply
+        request
     );
 
     if (t.has_value()) {
@@ -67,11 +62,9 @@ std::expected<std::monostate, Error> KVStoreClient::set(const Key& key, const Va
 std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
     kvStore::EraseRequest request;
     request.mutable_key()->set_data(key.data);
-    kvStore::EraseReply reply;
-    auto t = call(
+    auto t = call<kvStore::EraseRequest, kvStore::EraseReply>(
         "erase",
-        request,
-        reply
+        request
     );
     if (t.has_value()) {
         return t.value().value();
@@ -82,11 +75,9 @@ std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
 
 std::expected<size_t, Error> KVStoreClient::size() const {
     kvStore::SizeRequest request;
-    kvStore::SizeReply reply;
-    auto t = call(
+    auto t = call<kvStore::SizeRequest, kvStore::SizeReply>(
         "size",
-        request,
-        reply
+        request
     );
     if (t.has_value()) {
         return t.value().size();

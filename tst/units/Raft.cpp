@@ -26,11 +26,10 @@
 #include <optional>
 #include <functional>
 #include <unordered_map>
-#include <variant>
 #include <type_traits>
 #include <tuple>
-
 #include "common/Command.hpp"
+#include "common/TypesMap.hpp"
 
 using namespace raft;
 using namespace testing;
@@ -42,19 +41,20 @@ public:
         : address(addr), policy(retryPolicy) {}
     
     // Mock for call method - returns success result with optional wrapping
-    template<typename Req, typename Rep>
-    std::optional<std::monostate> call(const std::string& /* op */, 
-                       const Req& /* request */, 
-                       Rep& reply) {
-        // Default successful response
-        if constexpr (std::is_same_v<Rep, proto::RequestVoteReply>) {
-            reply.set_votegranted(true);
-            reply.set_term(1);
-        } else if constexpr (std::is_same_v<Rep, proto::AppendEntriesReply>) {
-            reply.set_success(true);
-            reply.set_term(1);
+    template<typename Req, typename Rep = zdb::map_to_t<Req>>
+    std::optional<Rep> call(const std::string& /* op */,
+                       const Req& /* request */) {
+        if constexpr (std::is_same_v<Rep, RequestVoteReply>) {
+            Rep reply;
+            reply.voteGranted = true;
+            reply.term = 1;
+            return reply;
+        } else if constexpr (std::is_same_v<Rep, AppendEntriesReply>) {
+            Rep reply;
+            reply.success = true;
+            reply.term = 1;
+            return reply;
         }
-        return std::optional<std::monostate>{std::monostate{}};
     }
 
 private:
