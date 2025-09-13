@@ -23,8 +23,9 @@
 
 namespace zdb {
 
-Repeater::Repeater(const RetryPolicy p)
-    : backoff {p} {}
+Repeater::Repeater(const RetryPolicy p, std::atomic<bool>& sc)
+    : backoff {p},
+      stopped{sc} {}
 
 std::vector<grpc::Status> Repeater::attempt(const std::string& op, const std::function<grpc::Status()>& rpc) {
     std::vector<grpc::Status> statuses;

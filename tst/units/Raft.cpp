@@ -94,7 +94,7 @@ protected:
         // Setup expectations for channels to not be used in basic constructor tests
         EXPECT_CALL(*serviceChannel, isClosed()).WillRepeatedly(Return(false));
 
-        clientFactory = [this](const std::string& addr, const zdb::RetryPolicy& retryPolicy) -> MockClient& {
+        clientFactory = [this](const std::string& addr, const zdb::RetryPolicy& retryPolicy, std::atomic<bool>& sc) -> MockClient& {
             auto client = std::make_unique<MockClient>(addr, retryPolicy);
             MockClient* clientPtr = client.get();
             mockClients[addr] = std::move(client);
@@ -113,7 +113,7 @@ protected:
         std::chrono::milliseconds{200L}
     };
     std::unique_ptr<MockChannel> serviceChannel;
-    std::function<MockClient&(const std::string&, const zdb::RetryPolicy&)> clientFactory;
+    std::function<MockClient&(const std::string&, const zdb::RetryPolicy&, std::atomic<bool>& sc)> clientFactory;
     std::unordered_map<std::string, std::unique_ptr<MockClient>> mockClients;
 };
 
@@ -588,7 +588,7 @@ TEST_F(RaftImplIntegrationTest, BasicChannelInteraction) {
     std::vector<std::string> peers = {"peer1"};
     std::string selfId = "self";
     
-    auto clientFactory = [](const std::string& addr, const zdb::RetryPolicy& retryPolicy) -> MockClient& {
+    auto clientFactory = [](const std::string& addr, const zdb::RetryPolicy& retryPolicy, std::atomic<bool>&) -> MockClient& {
         static MockClient client(addr, retryPolicy);
         return client;
     };
@@ -615,7 +615,7 @@ TEST_F(RaftImplIntegrationTest, StateTransitions) {
     std::vector<std::string> peers = {};  // Single node cluster
     std::string selfId = "self";
     
-    auto clientFactory = [](const std::string& addr, const zdb::RetryPolicy& retryPolicy) -> MockClient& {
+    auto clientFactory = [](const std::string& addr, const zdb::RetryPolicy& retryPolicy, std::atomic<bool>&) -> MockClient& {
         static MockClient client(addr, retryPolicy);
         return client;
     };

@@ -31,7 +31,7 @@ namespace raft {
 template <typename Client>
 class RaftImpl : public Raft {
 public:
-    RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::shared_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g);
+    RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::shared_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g);
     void appendEntries(bool heartBeat) override;
     void requestVote() override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
@@ -61,10 +61,11 @@ private:
     std::queue<std::thread> activeThreads{};
     std::mutex appendEntriesMutex{};
     std::mutex requestVoteMutex{};
+    std::atomic<bool> stopCalls{false};
 };
 
 template <typename Client>
-RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::shared_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy)> g)
+RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::shared_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g)
 : stateMachine {c},
   policy {r} {
     selfId = s;
@@ -77,7 +78,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Cha
     }
     p.erase(std::ranges::remove(p, selfId).begin(), p.end());
     for (const auto& peer : p) {
-        peers.emplace(peer, std::ref(g(peer, policy)));
+        peers.emplace(peer, std::ref(g(peer, policy, stopCalls)));
     }
     heartbeatInterval = 5 * policy.rpcTimeout;
     electionTimeout = 10 * heartbeatInterval;
@@ -237,13 +238,7 @@ void RaftImpl<Client>::applyCommittedEntries() {
     while (lastApplied < commitIndex) {
         ++lastApplied;
         auto c = mainLog.at(lastApplied);
-        if (c.has_value()) {
-            if (!stateMachine.sendUntil(c.value().command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
-                --lastApplied;
-                break;
-            }
-        } else {
-            // TODO: Can this happen?
+        if (!stateMachine.sendUntil(c.value().command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
             --lastApplied;
             break;
         }
@@ -262,6 +257,7 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
     if (role != Role::Leader) {
         return;
     }
+    stopCalls = false;
     std::vector<std::thread> threads;
     successCount = 1;
     // std::cerr << selfId << " is sending AppendEntries for term " << currentTerm << " (commitIndex: " << commitIndex << ", lastIndex: " << mainLog.lastIndex() << ")\n";
@@ -285,10 +281,8 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                     "appendEntries",
                     arg
                 );
-                if (killed.load()) {
-                    return;
-                }
-                if (role != Role::Leader) {
+                if (killed.load() || role != Role::Leader) {
+                    stopCalls = true;
                     return;
                 }
                 std::lock_guard l{appendEntriesMutex};
@@ -318,6 +312,7 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                     } else if (reply.value().term > currentTerm) {
                         currentTerm = reply.value().term;
                         role = Role::Follower;
+                        stopCalls = true;
                     } else if (nextIndex[peerId] > 1) {
                         --nextIndex[peerId];
                     }
@@ -329,10 +324,6 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
         if(t.joinable()) {
             activeThreads.push(std::move(t));
         }
-    }
-    if(heartBeat && activeThreads.size() > clusterSize * 10) {
-        lock.unlock();
-        cleanUpThreads();
     }
 }
 
@@ -353,6 +344,7 @@ void RaftImpl<Client>::requestVote(){
     votedFor = selfId;
     lastHeartbeat = std::chrono::steady_clock::now();
     votesGranted = 1;
+    stopCalls = false;
     // std::cerr << selfId << " is starting election for term " << currentTerm << "\n";
     std::vector<std::thread> threads;
     for (auto& [peerId, _] : peers) {
@@ -370,10 +362,8 @@ void RaftImpl<Client>::requestVote(){
                     arg
                 );
                 std::lock_guard l{requestVoteMutex};
-                if (killed.load()) {
-                    return;
-                }
-                if (role != Role::Candidate) {
+                if (killed.load() || role != Role::Candidate) {
+                    stopCalls = true;
                     return;
                 }
                 if (reply.has_value()) {
@@ -392,6 +382,7 @@ void RaftImpl<Client>::requestVote(){
                         currentTerm = reply.value().term;
                         role = Role::Follower;
                         votedFor.reset();
+                        stopCalls = true;
                         lastHeartbeat = std::chrono::steady_clock::now();
                     }
                 }
@@ -403,19 +394,17 @@ void RaftImpl<Client>::requestVote(){
             activeThreads.push(std::move(t));
         }
     }
-    if (activeThreads.size() > clusterSize * 10) {
-        lock.unlock();
-        cleanUpThreads();
-    }
 }
 
 template <typename Client>
 bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
     if (killed.load()) {
+        stopCalls = true;
         return false;
     }
     std::unique_lock lock{m};
     if (role != Role::Leader) {
+        stopCalls = true;
         return false;
     }
     LogEntry e {
@@ -431,6 +420,7 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
 template <typename Client>
 void RaftImpl<Client>::kill(){
     killed = true;
+    stopCalls = true;
 }
 
 template <typename Client>

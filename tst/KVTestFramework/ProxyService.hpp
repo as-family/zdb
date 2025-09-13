@@ -139,6 +139,12 @@ public:
       networkConfig {c},
       policy {p} {}
 
+    ProxyService(const std::string& original, NetworkConfig& c, zdb::RetryPolicy p, std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t> f, std::atomic<bool>& sc)
+        : originalAddress {original},
+          functions {std::move(f)},
+          networkConfig {c},
+          policy {p} {}
+
     template<typename Req, typename Rep = zdb::map_to_t<Req>>
     std::expected<Rep, std::vector<zdb::Error>> call(
         std::string op,

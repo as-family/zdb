@@ -29,7 +29,7 @@ public:
         Closed,
         HalfOpen
     };
-    explicit CircuitBreaker(const RetryPolicy p);
+    CircuitBreaker(const RetryPolicy p, std::atomic<bool>& sc);
     std::vector<grpc::Status> call(const std::string& op, const std::function<grpc::Status()>& rpc);
     [[nodiscard]] bool open();
     void stop();
@@ -38,6 +38,7 @@ private:
     RetryPolicy policy;
     Repeater repeater;
     std::chrono::steady_clock::time_point lastFailureTime;
+    std::atomic<bool>& stopCalls;
 };
 
 } // namespace zdb

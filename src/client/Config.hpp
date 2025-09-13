@@ -105,6 +105,7 @@ private:
     std::default_random_engine rng;
     std::uniform_int_distribution<std::size_t> dist;
     std::mutex m;
+    std::atomic<bool> stopCalls {false};
 };
 } // namespace zdb
 
