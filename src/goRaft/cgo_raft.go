@@ -73,8 +73,6 @@ func deleteHandle(h uintptr) {
 
 func registerCallback(rf *Raft) C.uintptr_t {
 	cb := func(p int, s string, a interface{}, b interface{}) int {
-		// Don't hold any locks when making outgoing RPC calls
-		// This prevents deadlock when the RPC comes back to this same instance
 		if rf.peers[p].Call(s, a, b) {
 			return 1
 		}
@@ -125,21 +123,23 @@ func channelDeleteHandle(h uintptr) {
 
 func channelRegisterCallback(rf *Raft) C.uintptr_t {
 	cb := func(s string, i int) int {
-		// Don't hold any locks when making outgoing RPC calls
-		// This prevents deadlock when the RPC comes back to this same instance
-		var x interface{}
-		if y, err := strconv.Atoi(s); err == nil {
-            x = y
-        } else {
-            x = s
+		protoC := &proto_raft.Command{}
+        err := protobuf.Unmarshal([]byte(s), protoC)
+        if err != nil {
+            panic("could not unmarshal Command")
         }
+        x, err := strconv.Atoi(protoC.Key.Data)
+        if err != nil {
+            panic("could not convert Command Key to int")
+        }
+        fmt.Println("Go: channel callback invoked:", x)
 		if rf.applyCh != nil {
 			rf.applyCh <- raftapi.ApplyMsg{
 				CommandValid: true,
 				Command:      x,
 				CommandIndex: i,
 			}
-//             fmt.Println("Go: ApplyMsg sent to applyCh:", s, i)
+            fmt.Println("Go: command sent to applyCh:", x)
 			return 1
 		}
 		return 0
@@ -278,7 +278,6 @@ type Raft struct {
 	applyCh    chan raftapi.ApplyMsg
 	cb         C.uintptr_t
 	channelCb  C.uintptr_t
-	followerCb C.uintptr_t
 }
 
 type LogEntry struct {
@@ -340,24 +339,13 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		// Convert to string representation if not already a string
 		commandStr = fmt.Sprintf("%v", command)
 	}
-	protoCommand := &proto_raft.Command{
-		Op: commandStr,
-	}
-
-	// Convert string to bytes
-	commandBytes, err := protobuf.Marshal(protoCommand)
-	if err != nil {
-		fmt.Println("Error: failed to marshal command")
-		return -1, -1, false
-	}
-
 	index := 0
 	term := 0
 	isLeader := true
 
 	var commandPtr unsafe.Pointer
 	var commandSize int
-
+    commandBytes := []byte(commandStr)
 	if len(commandBytes) > 0 {
 		commandPtr = unsafe.Pointer(&commandBytes[0])
 		commandSize = len(commandBytes)
@@ -388,7 +376,6 @@ func (rf *Raft) Kill() {
 	C.kill_raft(handle)
 	GoFreeCallback(rf.cb)
 	ChannelGoFreeCallback(rf.channelCb)
-    ChannelGoFreeCallback(rf.followerCb)
 	// fmt.Println("Go: Raft killed", rf.me)
 }
 
@@ -494,8 +481,7 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	rf.applyCh = applyCh
 	rf.cb = registerCallback(rf)
 	rf.channelCb = channelRegisterCallback(rf)
-	rf.followerCb = channelRegisterCallback(rf)
-	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), C.uintptr_t(rf.cb), C.uintptr_t(rf.channelCb), C.uintptr_t(rf.followerCb))
+	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), C.uintptr_t(rf.cb), C.uintptr_t(rf.channelCb))
 	if rf.handle == nil {
 		// Avoid returning a half-initialized Raft
 		GoFreeCallback(rf.cb)

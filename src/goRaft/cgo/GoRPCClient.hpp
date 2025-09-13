@@ -36,10 +36,8 @@ public:
         } else {
             throw std::invalid_argument{"Unknown function " + name};
         }
-        std::string r;
-        if (!request.SerializeToString(&r)) {
-            throw std::runtime_error("failed to serialize request");
-        }
+        auto& reqMsg = static_cast<google::protobuf::Message&>(request);
+        auto r = reqMsg.SerializeAsString();
         auto p = std::string{};
         p.resize(1024);
         auto len = 0;
@@ -62,9 +60,15 @@ public:
             return std::nullopt;
         }
         p.resize(len);
-        auto reply = Rep{};
-        if (reply.ParseFromString(p)) {
-            return reply;
+        if constexpr (std::is_same_v<Rep, raft::RequestVoteReply>) {
+            auto reply = raft::proto::RequestVoteReply{};
+            reply.ParseFromString(p);
+            return raft::RequestVoteReply{reply};
+        } else {
+            auto reply = raft::proto::AppendEntriesReply{};
+            reply.ParseFromString(p);
+            std::cerr << "reply: " << reply.DebugString() << "\n";
+            return raft::AppendEntriesReply{reply};
         }
         return std::nullopt;
     }

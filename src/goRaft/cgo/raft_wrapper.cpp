@@ -25,7 +25,6 @@
 #include <queue>
 #include <unordered_map>
 #include <common/Command.hpp>
-
 #include "GoChannel.hpp"
 #include "RaftHandle.hpp"
 
@@ -64,7 +63,7 @@ void kill_raft(RaftHandle* h) {
     }
 }
 
-RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, uintptr_t followerChannel) {
+RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb) {
     std::vector<std::string> peers;
     std::unordered_map<std::string, int> ids;
     std::string selfId = "peer_" + std::to_string(id);

@@ -242,7 +242,7 @@ func (ts *Test) one(cmd any, expectedServers int, retry bool) int {
 				ts.srvs[starts].mu.Unlock()
 			}
 			if rf != nil {
-				//log.Printf("peer %d Start %v", starts, cmd)
+				fmt.Printf("peer %d Start %v\n", starts, cmd)
 				index1, _, ok := rf.Start(cmd)
 				if ok {
 					index = index1
@@ -254,15 +254,17 @@ func (ts *Test) one(cmd any, expectedServers int, retry bool) int {
 		if index != -1 {
 			// somebody claimed to be the leader and to have
 			// submitted our command; wait a while for agreement.
+			fmt.Println("leader found, index =", index)
 			t1 := time.Now()
 			for time.Since(t1).Seconds() < 2 {
 				nd, cmd1 := ts.nCommitted(index)
+				fmt.Println("nCommitted")
 				if nd > 0 && nd >= expectedServers {
-// 				    fmt.Println("nd:", nd, "expectedServers:", expectedServers)
-// 				    fmt.Printf("cmd1:*%v* cmd:*%v*\n", cmd1, cmd)
+					fmt.Println("nd:", nd, "expectedServers:", expectedServers)
+					fmt.Printf("cmd1:*%v* cmd:*%v*\n", cmd1, cmd)
 					// committed
 					if cmd1 == cmd {
-// 					    fmt.Println("what!!!")
+						fmt.Println("what!!!")
 						// and it was the command we submitted.
 						desp := fmt.Sprintf("agreement of %.8s reached", textcmd)
 						tester.AnnotateCheckerSuccess(desp, "OK")

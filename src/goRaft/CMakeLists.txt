@@ -68,6 +68,9 @@ add_library(zdb_raft SHARED
   ${CMAKE_SOURCE_DIR}/src/common/Error.cpp
   ${CMAKE_SOURCE_DIR}/src/common/ErrorConverter.cpp
   ${CMAKE_SOURCE_DIR}/src/common/Repeater.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/KVStateMachine.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/Command.cpp
+  ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
   ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoChannel.cpp
 )
 
