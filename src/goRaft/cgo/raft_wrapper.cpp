@@ -24,26 +24,10 @@
 #include <cstdint>
 #include <queue>
 #include <unordered_map>
-#include "GoChannel.hpp"
+#include <common/Command.hpp>
 
-struct RaftHandle {
-    int id;
-    int servers;
-    std::string selfId;
-    std::unordered_map<std::string, std::queue<uint64_t>> commands;
-    std::vector<std::string> peers;
-    raft::Channel* serviceChannel;
-    raft::Channel* followerChannel;
-    zdb::RetryPolicy policy;
-    uintptr_t callback;
-    uintptr_t channelCallback;
-    uintptr_t followerChannelCallback;
-    std::unique_ptr<raft::Channel> goChannel;
-    std::unique_ptr<raft::Channel> followerGoChannel;
-    std::unordered_map<std::string, int> peerIds;
-    std::unordered_map<std::string, std::unique_ptr<GoRPCClient>> clients;
-    std::unique_ptr<raft::RaftImpl<GoRPCClient>> raft;
-};
+#include "GoChannel.hpp"
+#include "RaftHandle.hpp"
 
 extern "C" {
 
@@ -73,24 +57,10 @@ void kill_raft(RaftHandle* h) {
     }
     
     // std::cerr << "C++: Raft instance killed\n";
-    if (h->serviceChannel) {
-        h->serviceChannel->close();
-        delete h->serviceChannel;
-        h->serviceChannel = nullptr;
-    }
     // std::cerr << "C++: Service channel closed\n";
-    if (h->followerChannel) {
-        h->followerChannel->close();
-        delete h->followerChannel;
-        h->followerChannel = nullptr;
-    }
     if (h->goChannel) {
         h->goChannel->close();
         h->goChannel.reset();
-    }
-    if (h->followerGoChannel) {
-        h->followerGoChannel->close();
-        h->followerGoChannel.reset();
     }
 }
 
@@ -107,10 +77,7 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, 
         id,
         servers,
         selfId,
-        {},
         peers,
-        new raft::SyncChannel(),
-        new raft::SyncChannel(),
         zdb::RetryPolicy(
             std::chrono::milliseconds{2L},
             std::chrono::milliseconds{10L},
@@ -122,23 +89,19 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, 
         ),
         cb,
         channelCb,
-        followerChannel,
-        nullptr,
         nullptr,
         ids,
         {},
         nullptr
     };
     handle->goChannel = std::make_unique<GoChannel>(handle->channelCallback, handle);
-    handle->followerGoChannel = std::make_unique<GoChannel>(handle->followerChannelCallback, handle);
     handle->raft = std::make_unique<raft::RaftImpl<GoRPCClient>>(
         peers,
         selfId,
         *handle->goChannel,
-        *handle->followerGoChannel,
         handle->policy,
-        [handle, cb](std::string address, zdb::RetryPolicy p) -> GoRPCClient& {
-            handle->clients[address] = std::make_unique<GoRPCClient>(handle->peerIds.at(address), address, p, cb);
+        [handle, cb](std::string address, zdb::RetryPolicy p, std::atomic<bool>& sc) -> GoRPCClient& {
+            handle->clients[address] = std::make_unique<GoRPCClient>(handle->peerIds.at(address), address, p, cb, sc);
             return *(handle->clients[address]);
         }
     );
@@ -211,13 +174,11 @@ int raft_start(RaftHandle* handle, void* command, int command_size, int* index, 
         return 0;
     }
     std::string command_str{static_cast<const char*>(command), static_cast<size_t>(command_size)};
-    raft::Start r = handle->raft->start(command_str);
-    *index = r.index;
-    *term = r.term;
-    *is_leader = r.isLeader;
-    if (r.isLeader) {
-        handle->commands[command_str].push(r.index);
-    }
+    auto u = generate_uuid_v7();
+    auto c = std::make_shared<zdb::Get>(u, zdb::Key{command_str});
+    *is_leader = handle->raft->start(c);
+    *index = c->index;
+    *term = c->term;
     return 1;
 }
 

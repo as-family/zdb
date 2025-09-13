@@ -407,6 +407,8 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
         stopCalls = true;
         return false;
     }
+    command->term = currentTerm;
+    command->index = mainLog.lastIndex() + 1;
     LogEntry e {
         mainLog.lastIndex() + 1,
         currentTerm,

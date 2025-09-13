@@ -30,6 +30,8 @@ struct Command {
     virtual UUIDV7 getUUID() const {
         return uuid;
     };
+    uint64_t term = 0;
+    uint64_t index = 0;
 protected:
     UUIDV7 uuid{};
 };

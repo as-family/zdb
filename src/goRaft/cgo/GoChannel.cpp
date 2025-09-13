@@ -11,34 +11,12 @@
  */
 
 #include "goRaft/cgo/GoChannel.hpp"
-#include "GoRPCClient.hpp"
-#include <queue>
 #include "raft/RaftImpl.hpp"
-#include <unordered_map>
 #include <string>
-#include "raft/Channel.hpp"
-#include <memory>
-#include "common/RetryPolicy.hpp"
 #include <chrono>
 #include <optional>
 #include "proto/types.pb.h"
-
-struct RaftHandle {
-    int id;
-    int servers;
-    std::string selfId;
-    std::unordered_map<std::string, std::queue<uint64_t>> commands;
-    std::vector<std::string> peers;
-    raft::Channel* serviceChannel;
-    raft::Channel* followerChannel;
-    zdb::RetryPolicy policy;
-    uintptr_t callback;
-    uintptr_t channelCallback;
-    std::unique_ptr<raft::Channel> goChannel;
-    std::unordered_map<std::string, int> peerIds;
-    std::unordered_map<std::string, std::unique_ptr<GoRPCClient>> clients;
-    std::unique_ptr<raft::RaftImpl<GoRPCClient>> raft;
-};
+#include "RaftHandle.hpp"
 
 extern "C" int channel_go_invoke_callback(uintptr_t handle, void *cmd, int cmd_size, int index);
 
@@ -48,30 +26,21 @@ GoChannel::GoChannel(uintptr_t h, RaftHandle* r)
 GoChannel::~GoChannel() {
 }
 
-void GoChannel::send(std::string) {
+void GoChannel::send(std::shared_ptr<raft::Command>) {
 }
 
-bool GoChannel::sendUntil(std::string command, std::chrono::system_clock::time_point t) {
-    // std::cerr << "C++ command: " << command;
-    // for (;!raftHandle->commands.at(command).empty(); raftHandle->commands.at(command).pop()) {
-    //     std::cerr << raftHandle->commands.at(command).front() << " ";
-    // }
-    // std::cerr << "\n";
-    zdb::proto::Command protoCommand;
-    if (!protoCommand.ParseFromString(command)) {
-        throw std::runtime_error("GoChannel::sendUntil: failed to parse command");
-    }
-    channel_go_invoke_callback(handle, (void*)protoCommand.op().data(), protoCommand.op().size(), protoCommand.index());
-    // std::cerr << raftHandle->selfId << " C++: Sent command to Go, command=" << command << " index=" << protoCommand.index() << "\n";
+bool GoChannel::sendUntil(std::shared_ptr<raft::Command> command, std::chrono::system_clock::time_point t) {
+    auto c = command->serialize();
+    channel_go_invoke_callback(handle, (void*)c.data(), c.size(), 0);
     return true;
 }
 
-std::string GoChannel::receive() {
+std::optional<std::shared_ptr<raft::Command>> GoChannel::receive() {
     // TODO: Implement Go channel receive
-    return "";
+    return std::nullopt;
 }
 
-std::optional<std::string> GoChannel::receiveUntil(std::chrono::system_clock::time_point t) {
+std::optional<std::shared_ptr<raft::Command>> GoChannel::receiveUntil(std::chrono::system_clock::time_point t) {
     // TODO: Implement Go channel receive with timeout
     std::ignore = t;
     return std::nullopt;

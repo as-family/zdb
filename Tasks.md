@@ -156,13 +156,13 @@ This is an excellent idea for accountability and managing such an ambitious plan
       * [ ] create a concrete GRPCEndPoint
     *   [x] **Project:** Make the Key in raft::State optional
     *   [ ] **Project:** Organize into better nested namespaces
-    *   [ ] **Project:** Make Raft::Client stoppable
+    *   [x] **Project:** Make Raft::Client stoppable
     *   [x] **Project:** Use one channel in RaftImpl
     *   [ ] **Project:** relax the time requirements in RaftImpl (currently too many RPCs to reach agreement)
     *   [ ] **Project:** Fix the whole "Many threads in each call" issues!
-      * [ ] appendEntries need to use `>= clusterSize/2 + 1`
-      * [ ] More aggressive thread cleanup
-      * [ ] Somehow notify threads when raft state changes and cancell them!
+      * [x] appendEntries need to use `>= clusterSize/2 + 1`
+      * [x] More aggressive thread cleanup
+      * [x] Somehow notify threads when raft state changes and cancell them!
     *   [ ] Refactor cgo_raft handle creation and deletion into a single set of generic functions
     *   [ ] find a way to keep RaftImpl interface intact while adhering to go tests interfaces (like in start)
     *   [ ] FIX raftImpl destruction when called from go! (it is too slow)

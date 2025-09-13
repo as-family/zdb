@@ -15,16 +15,18 @@
 
 #include "raft/Channel.hpp"
 #include <string>
+#include <raft/Command.hpp>
+
 #include "raft_wrapper.hpp"
 
-class GoChannel : public raft::Channel {
+class GoChannel : public raft::Channel<std::shared_ptr<raft::Command>> {
 public:
     GoChannel(uintptr_t h, RaftHandle* r);
     ~GoChannel() override;
-    void send(std::string) override;
-    bool sendUntil(std::string, std::chrono::system_clock::time_point t) override;
-    std::string receive() override;
-    std::optional<std::string> receiveUntil(std::chrono::system_clock::time_point t) override;
+    void send(std::shared_ptr<raft::Command>) override;
+    bool sendUntil(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t) override;
+    std::optional<std::shared_ptr<raft::Command>> receive() override;
+    std::optional<std::shared_ptr<raft::Command>> receiveUntil(std::chrono::system_clock::time_point t) override;
     void close() override;
     bool isClosed() override;
 private:
