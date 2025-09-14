@@ -24,7 +24,7 @@
 #include <cstdint>
 #include <queue>
 #include <unordered_map>
-#include <common/Command.hpp>
+#include "common/Command.hpp"
 #include "GoChannel.hpp"
 #include "RaftHandle.hpp"
 
@@ -174,7 +174,7 @@ int raft_start(RaftHandle* handle, void* command, int command_size, int* index, 
     }
     std::string command_str{static_cast<const char*>(command), static_cast<size_t>(command_size)};
     auto u = generate_uuid_v7();
-    auto c = std::make_shared<zdb::Get>(u, zdb::Key{command_str});
+    auto c = std::make_shared<zdb::TestCommand>(command_str);
     *is_leader = handle->raft->start(c);
     *index = c->index;
     *term = c->term;

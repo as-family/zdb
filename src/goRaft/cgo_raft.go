@@ -126,20 +126,21 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
 		protoC := &proto_raft.Command{}
         err := protobuf.Unmarshal([]byte(s), protoC)
         if err != nil {
-            panic("could not unmarshal Command")
+//             panic("could not unmarshal Command")
         }
-        x, err := strconv.Atoi(protoC.Key.Data)
+        var x interface{}
+        x, err = strconv.Atoi(protoC.Op)
         if err != nil {
-            panic("could not convert Command Key to int")
+            x = protoC.Op
         }
-        fmt.Println("Go: channel callback invoked:", x)
+//         fmt.Println("Go: channel callback invoked:", x)
 		if rf.applyCh != nil {
 			rf.applyCh <- raftapi.ApplyMsg{
 				CommandValid: true,
 				Command:      x,
 				CommandIndex: i,
 			}
-            fmt.Println("Go: command sent to applyCh:", x)
+//             fmt.Println("Go: command sent to applyCh:", x)
 			return 1
 		}
 		return 0

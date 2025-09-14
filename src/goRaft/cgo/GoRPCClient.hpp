@@ -67,7 +67,7 @@ public:
         } else {
             auto reply = raft::proto::AppendEntriesReply{};
             reply.ParseFromString(p);
-            std::cerr << "reply: " << reply.DebugString() << "\n";
+            // std::cerr << "reply: " << reply.DebugString() << "\n";
             return raft::AppendEntriesReply{reply};
         }
         return std::nullopt;

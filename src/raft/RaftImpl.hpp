@@ -80,8 +80,8 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Cha
     for (const auto& peer : p) {
         peers.emplace(peer, std::ref(g(peer, policy, stopCalls)));
     }
-    heartbeatInterval = 5 * policy.rpcTimeout;
-    electionTimeout = 10 * heartbeatInterval;
+    heartbeatInterval = 30 * policy.rpcTimeout;
+    electionTimeout = 2 * heartbeatInterval;
     threadsCleanupInterval = heartbeatInterval;
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
