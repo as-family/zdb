@@ -677,6 +677,116 @@ TEST_F(RaftImplTest, EmptyPeersList) {
     // (This behavior depends on implementation - test actual behavior)
 }
 
+// Test that previously applied entries are not re-sent when new entries are added
+TEST_F(RaftImplTest, DoesNotResendPreviouslyAppliedEntries) {
+    auto raft = std::make_unique<RaftImpl<MockClient>>(
+        peers, selfId, *serviceChannel, policy, clientFactory);
+    
+    // First append - should apply entry 1
+    Log firstBatch;
+    auto u1 = generate_uuid_v7();
+    LogEntry entry1{1, 1, std::make_unique<zdb::Get>(u1, zdb::Key{"command1"})};
+    firstBatch.append(entry1);
+    
+    // Expect exactly one sendUntil call for the first entry
+    EXPECT_CALL(*serviceChannel, sendUntil(_, _))
+        .Times(1)
+        .WillOnce(Return(true));
+    
+    AppendEntriesArg firstArg{"leader1", 1, 0, 0, 1, firstBatch};
+    AppendEntriesReply firstReply = raft->appendEntriesHandler(firstArg);
+    EXPECT_TRUE(firstReply.success);
+    
+    // Verify that entry was applied (Mock::VerifyAndClearExpectations clears call history)
+    Mock::VerifyAndClearExpectations(serviceChannel.get());
+    
+    // Second append - should only apply entry 2, NOT re-apply entry 1
+    Log secondBatch;
+    auto u2 = generate_uuid_v7();
+    LogEntry entry2{2, 1, std::make_unique<zdb::Set>(u2, zdb::Key{"command2"}, zdb::Value{"value2"})};
+    secondBatch.append(entry2);
+    
+    // Critical test: expect exactly ONE sendUntil call for only the new entry
+    // If the implementation incorrectly re-applies entry 1, this test will fail
+    EXPECT_CALL(*serviceChannel, sendUntil(_, _))
+        .Times(1)  // Should be exactly 1, not 2
+        .WillOnce(Return(true));
+    
+    // Send second batch with prevLogIndex=1 (building on first entry)
+    AppendEntriesArg secondArg{"leader1", 1, 1, 1, 2, secondBatch};
+    AppendEntriesReply secondReply = raft->appendEntriesHandler(secondArg);
+    EXPECT_TRUE(secondReply.success);
+    
+    // Verify log state
+    EXPECT_EQ(raft->log().lastIndex(), 2);
+    
+    Mock::VerifyAndClearExpectations(serviceChannel.get());
+    
+    // Third append - add multiple entries but should only apply new ones
+    Log thirdBatch;
+    auto u3 = generate_uuid_v7();
+    auto u4 = generate_uuid_v7();
+    LogEntry entry3{3, 2, std::make_unique<zdb::Erase>(u3, zdb::Key{"command3"})};
+    LogEntry entry4{4, 2, std::make_unique<zdb::Size>(u4)};
+    thirdBatch.append(entry3);
+    thirdBatch.append(entry4);
+    
+    // Should apply exactly 2 new entries (3 and 4), not re-apply 1 and 2
+    EXPECT_CALL(*serviceChannel, sendUntil(_, _))
+        .Times(2)  // Exactly 2 calls for the 2 new entries
+        .WillRepeatedly(Return(true));
+    
+    AppendEntriesArg thirdArg{"leader1", 2, 2, 1, 4, thirdBatch};
+    AppendEntriesReply thirdReply = raft->appendEntriesHandler(thirdArg);
+    EXPECT_TRUE(thirdReply.success);
+    
+    EXPECT_EQ(raft->log().lastIndex(), 4);
+}
+
+// Test edge case: commit index moves but no new entries to apply
+TEST_F(RaftImplTest, CommitIndexAdvanceWithoutNewEntries) {
+    auto raft = std::make_unique<RaftImpl<MockClient>>(
+        peers, selfId, *serviceChannel, policy, clientFactory);
+    
+    // Add entries but don't commit them initially
+    Log entriesLog;
+    auto u1 = generate_uuid_v7();
+    auto u2 = generate_uuid_v7();
+    LogEntry entry1{1, 1, std::make_unique<zdb::Get>(u1, zdb::Key{"command1"})};
+    LogEntry entry2{2, 1, std::make_unique<zdb::Set>(u2, zdb::Key{"command2"}, zdb::Value{"value2"})};
+    entriesLog.append(entry1);
+    entriesLog.append(entry2);
+    
+    // First append with leaderCommit=0 (no commits yet)
+    EXPECT_CALL(*serviceChannel, sendUntil(_, _))
+        .Times(0);  // No entries should be applied yet
+    
+    AppendEntriesArg firstArg{"leader1", 1, 0, 0, 0, entriesLog};
+    AppendEntriesReply firstReply = raft->appendEntriesHandler(firstArg);
+    EXPECT_TRUE(firstReply.success);
+    
+    Mock::VerifyAndClearExpectations(serviceChannel.get());
+    
+    // Second append with same entries but leaderCommit=2 (commit both)
+    EXPECT_CALL(*serviceChannel, sendUntil(_, _))
+        .Times(2)  // Both entries should be applied now
+        .WillRepeatedly(Return(true));
+    
+    AppendEntriesArg secondArg{"leader1", 1, 0, 0, 2, entriesLog};
+    AppendEntriesReply secondReply = raft->appendEntriesHandler(secondArg);
+    EXPECT_TRUE(secondReply.success);
+    
+    Mock::VerifyAndClearExpectations(serviceChannel.get());
+    
+    // Third append with same commit index - should not re-apply anything
+    EXPECT_CALL(*serviceChannel, sendUntil(_, _))
+        .Times(0);  // No additional applications
+    
+    AppendEntriesArg thirdArg{"leader1", 1, 0, 0, 2, entriesLog};
+    AppendEntriesReply thirdReply = raft->appendEntriesHandler(thirdArg);
+    EXPECT_TRUE(thirdReply.success);
+}
+
 // Performance and stress tests
 TEST_F(RaftImplTest, MultipleVoteRequests) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
