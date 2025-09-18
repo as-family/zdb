@@ -164,8 +164,8 @@ This is an excellent idea for accountability and managing such an ambitious plan
       * [x] More aggressive thread cleanup
       * [x] Somehow notify threads when raft state changes and cancell them!
     *   [ ] Refactor cgo_raft handle creation and deletion into a single set of generic functions
-    *   [ ] find a way to keep RaftImpl interface intact while adhering to go tests interfaces (like in start)
-    *   [ ] FIX raftImpl destruction when called from go! (it is too slow)
+    *   [x] find a way to keep RaftImpl interface intact while adhering to go tests interfaces (like in start)
+    *   [x] FIX raftImpl destruction when called from go! (it is too slow)
     *   [ ] Minimize the number of conversions between C++, protobuf, and go types
     *   [ ] Cleanup raft_wrapper RaftHandle
     *   [ ] Complete the GoRPCClient implementation (make it stoppable)

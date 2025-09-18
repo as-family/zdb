@@ -39,20 +39,40 @@ void Log::merge(const Log& other) {
     if (other.entries.empty()) {
         return;
     }
-    const auto i = other.entries.front().index;
-    auto cut = std::ranges::find_if(entries, [i](const LogEntry& e) { return e.index >= i; });
-    if (cut == entries.end()) {
+
+    // Find where to start merging - first entry in other log
+    const auto start_index = other.entries.front().index;
+    auto our_it = std::ranges::find_if(entries, [start_index](const LogEntry& e) {
+        return e.index >= start_index;
+    });
+
+    // If we don't have any entries at or after start_index, just append everything
+    if (our_it == entries.end()) {
         entries.insert(entries.end(), other.entries.begin(), other.entries.end());
         return;
     }
-    if (cut->index == i && cut->term == other.entries.front().term) {
-        ++cut;
-        entries.erase(cut, entries.end());
-        entries.insert(entries.end(), std::next(other.entries.begin()), other.entries.end());
-        return;
+
+    // Compare entries one by one to find first conflict
+    auto other_it = other.entries.begin();
+    auto conflict_point = our_it;
+
+    while (our_it != entries.end() && other_it != other.entries.end() &&
+           our_it->index == other_it->index) {
+
+        // If terms differ, we have a conflict - truncate from here
+        if (our_it->term != other_it->term) {
+            break;
+        }
+
+        // Terms match, move to next entry
+        ++our_it;
+        ++other_it;
+        conflict_point = our_it;
     }
-    entries.erase(cut, entries.end());
-    entries.insert(entries.end(), other.entries.begin(), other.entries.end()); 
+
+    // Truncate our log from the conflict point and append remaining other entries
+    entries.erase(conflict_point, entries.end());
+    entries.insert(entries.end(), other_it, other.entries.end());
 }
 
 uint64_t Log::lastIndex() const {

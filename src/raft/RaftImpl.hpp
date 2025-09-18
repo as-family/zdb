@@ -16,6 +16,7 @@
 #include "raft/Types.hpp"
 #include "raft/Channel.hpp"
 #include "raft/Log.hpp"
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -80,8 +81,8 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Cha
     for (const auto& peer : p) {
         peers.emplace(peer, std::ref(g(peer, policy, stopCalls)));
     }
-    heartbeatInterval = 30 * policy.rpcTimeout;
-    electionTimeout = 2 * heartbeatInterval;
+    heartbeatInterval = 40 * policy.rpcTimeout;
+    electionTimeout = 3 * heartbeatInterval;
     threadsCleanupInterval = heartbeatInterval;
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
@@ -253,10 +254,14 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
     std::unique_lock lock{m, std::defer_lock};
     if (heartBeat) {
         lock.lock();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - lastHeartbeat) < heartbeatInterval) {
+            return;
+        }
     }
     if (role != Role::Leader) {
         return;
     }
+    lastHeartbeat = std::chrono::steady_clock::now();
     stopCalls = false;
     std::vector<std::thread> threads;
     successCount = 1;
@@ -266,8 +271,7 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
         [this, peerId] {
                 auto& peer = peers.at(peerId).get();
                 auto n = nextIndex.at(peerId);
-                auto v = mainLog.at(n);
-                auto g = mainLog.suffix(v.has_value()? v.value().index : mainLog.lastIndex());
+                auto g = mainLog.suffix(n);
                 auto prevLogIndex = n == 0? 0 : n - 1;
                 AppendEntriesArg arg {
                     selfId,
@@ -288,8 +292,8 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                 std::lock_guard l{appendEntriesMutex};
                 if (reply.has_value()) {
                     if (reply.value().success) {
-                        nextIndex[peerId] = g.lastIndex() + 1;
-                        matchIndex[peerId] = g.lastIndex();
+                        nextIndex[peerId] = std::max(nextIndex[peerId], g.lastIndex() + 1);
+                        matchIndex[peerId] = std::max(matchIndex[peerId], g.lastIndex());
                         ++successCount;
                         if (successCount >= clusterSize / 2 + 1) {
                             auto n = mainLog.lastIndex();
