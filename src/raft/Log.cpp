@@ -93,6 +93,15 @@ uint64_t Log::firstTerm() const {
     return entries.empty() ? 0 : entries.front().term;
 }
 
+uint64_t Log::termFirstIndex(uint64_t term) const {
+    std::lock_guard g{m};
+    auto i = std::ranges::find_if(entries, [term](const LogEntry& e) { return e.term == term; });
+    if (i == entries.end()) {
+        return 0;
+    }
+    return i->index;
+}
+
 Log Log::suffix(uint64_t start) const {
     std::lock_guard g{m};
     auto i = std::ranges::find_if(entries, [start](const LogEntry& e) { return e.index == start; });

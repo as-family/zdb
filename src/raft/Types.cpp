@@ -70,6 +70,8 @@ AppendEntriesReply::AppendEntriesReply(const google::protobuf::Message& m) {
     }
     success = reply->success();
     term = reply->term();
+    conflictTerm = reply->conflictterm();
+    conflictIndex = reply->conflictindex();
 }
 
 AppendEntriesReply::operator google::protobuf::Message&() {
@@ -78,6 +80,8 @@ AppendEntriesReply::operator google::protobuf::Message&() {
     }
     protoReply->set_success(success);
     protoReply->set_term(term);
+    protoReply->set_conflictterm(conflictTerm);
+    protoReply->set_conflictindex(conflictIndex);
     return *protoReply;
 }
 

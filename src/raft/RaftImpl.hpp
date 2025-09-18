@@ -230,6 +230,8 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
     } else {
         reply.term = currentTerm;
         reply.success = false;
+        reply.conflictIndex = e.has_value()? e.value().index : mainLog.lastIndex();
+        reply.conflictTerm = e.has_value()? e.value().term : mainLog.lastTerm();
         return reply;
     }
 }
@@ -318,7 +320,11 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                         role = Role::Follower;
                         stopCalls = true;
                     } else if (nextIndex[peerId] > 1) {
-                        --nextIndex[peerId];
+                        if (reply.value().conflictIndex < nextIndex[peerId]) {
+                            nextIndex[peerId] = reply.value().conflictIndex;
+                        } else {
+                            nextIndex[peerId] = mainLog.termFirstIndex(reply.value().conflictTerm);
+                        }
                     }
                 }
             }

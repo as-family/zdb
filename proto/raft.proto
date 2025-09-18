@@ -38,6 +38,9 @@ message AppendEntriesArg {
 message AppendEntriesReply {
     bool success = 1;
     uint64 term = 2;
+    // Fast backup fields for conflict resolution
+    uint64 conflictTerm = 3;      // Term of conflicting entry (if any)
+    uint64 conflictIndex = 4;     // First index of conflicting term
 }
 
 message RequestVoteArg {
