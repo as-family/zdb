@@ -231,6 +231,8 @@ func go_invoke_append_entries(handle C.uintptr_t, p C.int, s string, args unsafe
 	protoReply := &proto_raft.AppendEntriesReply{
 		Success: rep.Success,
 		Term:    rep.Term,
+		ConflictIndex: rep.ConflictIndex,
+        ConflictTerm:  rep.ConflictTerm,
 	}
 	replyBytes, err := protobuf.Marshal(protoReply)
 	if err != nil {
@@ -299,8 +301,10 @@ type AppendEntriesArg struct {
 }
 
 type AppendEntriesReply struct {
-	Success bool
-	Term    uint64
+	Success       bool
+	Term          uint64
+	ConflictIndex uint64
+	ConflictTerm  uint64
 }
 
 type RequestVoteArg struct {
@@ -472,6 +476,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArg, reply *AppendEntriesReply)
 	}
 	reply.Success = protoReply.Success
 	reply.Term = protoReply.Term
+	reply.ConflictIndex = protoReply.ConflictIndex
+	reply.ConflictTerm = protoReply.ConflictTerm
 }
 
 func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyCh chan raftapi.ApplyMsg) raftapi.Raft {

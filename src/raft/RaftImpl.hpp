@@ -81,7 +81,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Cha
     for (const auto& peer : p) {
         peers.emplace(peer, std::ref(g(peer, policy, stopCalls)));
     }
-    heartbeatInterval = 40 * policy.rpcTimeout;
+    heartbeatInterval = 30 * policy.rpcTimeout;
     electionTimeout = 3 * heartbeatInterval;
     threadsCleanupInterval = heartbeatInterval;
     electionTimer.start(
@@ -119,6 +119,7 @@ template <typename Client>
 RaftImpl<Client>::~RaftImpl() {
     // std::cerr << selfId << " is being destroyed\n";
     killed = true;
+    stopCalls = true;
     threadsCleanupTimer.stop();
     electionTimer.stop();
     // std::cerr << selfId << " election timer stopped\n";
@@ -222,16 +223,24 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         mainLog.merge(arg.entries);
         if (arg.leaderCommit > commitIndex) {
             commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
+            applyCommittedEntries();
         }
-        applyCommittedEntries();
         reply.term = currentTerm;
         reply.success = true;
         return reply;
     } else {
         reply.term = currentTerm;
         reply.success = false;
-        reply.conflictIndex = e.has_value()? e.value().index : mainLog.lastIndex();
-        reply.conflictTerm = e.has_value()? e.value().term : mainLog.lastTerm();
+        if (e.has_value()) {
+            reply.conflictIndex = e.value().index;
+            reply.conflictTerm = e.value().term;
+        } else if (mainLog.lastIndex() > 0) {
+            reply.conflictIndex = mainLog.lastIndex();
+            reply.conflictTerm = mainLog.lastTerm();
+        } else {
+            reply.conflictIndex = 1;
+            reply.conflictTerm = 1;
+        }
         return reply;
     }
 }
@@ -239,12 +248,12 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
 template <typename Client>
 void RaftImpl<Client>::applyCommittedEntries() {
     while (lastApplied < commitIndex) {
-        ++lastApplied;
-        auto c = mainLog.at(lastApplied);
+        int i = lastApplied + 1;
+        auto c = mainLog.at(i);
         if (!stateMachine.sendUntil(c.value().command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
-            --lastApplied;
             break;
         }
+        lastApplied = i;
     }
 }
 
@@ -294,21 +303,22 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                 std::lock_guard l{appendEntriesMutex};
                 if (reply.has_value()) {
                     if (reply.value().success) {
-                        nextIndex[peerId] = std::max(nextIndex[peerId], g.lastIndex() + 1);
-                        matchIndex[peerId] = std::max(matchIndex[peerId], g.lastIndex());
+                        if (g.lastIndex() != 0) {
+                            nextIndex[peerId] = g.lastIndex() + 1;
+                            matchIndex[peerId] = g.lastIndex();
+                        }
                         ++successCount;
                         if (successCount >= clusterSize / 2 + 1) {
-                            auto n = mainLog.lastIndex();
-                            for (; n > commitIndex; --n) {
-                                if (mainLog.at(n).has_value() && mainLog.at(n).value().term == currentTerm) {
-                                    auto matches = 0;
-                                    for (auto& [peerId, index] : matchIndex) {
-                                        if (index >= n) {
+                            for (auto i = mainLog.lastIndex(); i > commitIndex; --i) {
+                                if (mainLog.at(i).value().term == currentTerm) {
+                                    auto matches = 1;
+                                    for (auto& index : matchIndex | std::views::values) {
+                                        if (index >= i) {
                                             ++matches;
                                         }
                                     }
-                                    if (matches + 1 > clusterSize / 2) {
-                                        commitIndex = n;
+                                    if (matches >= clusterSize / 2 + 1) {
+                                        commitIndex = i;
                                         break;
                                     }
                                 }
@@ -319,12 +329,8 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                         currentTerm = reply.value().term;
                         role = Role::Follower;
                         stopCalls = true;
-                    } else if (nextIndex[peerId] > 1) {
-                        if (reply.value().conflictIndex < nextIndex[peerId]) {
-                            nextIndex[peerId] = reply.value().conflictIndex;
-                        } else {
-                            nextIndex[peerId] = mainLog.termFirstIndex(reply.value().conflictTerm);
-                        }
+                    } else {
+                        nextIndex[peerId] = mainLog.termFirstIndex(reply.value().conflictTerm);
                     }
                 }
             }

@@ -52,8 +52,8 @@ struct AppendEntriesReply : Reply {
     bool success;
     uint64_t term;
     // Fast backup fields for conflict resolution
-    uint64_t conflictTerm = 0;   // Term of conflicting entry (if any)
-    uint64_t conflictIndex = 0;  // First index of conflicting term
+    uint64_t conflictTerm;   // Term of conflicting entry (if any)
+    uint64_t conflictIndex;  // First index of conflicting term
 
     AppendEntriesReply() = default;
     AppendEntriesReply(bool cond, uint64_t uint64);

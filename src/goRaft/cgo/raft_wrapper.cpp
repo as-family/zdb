@@ -141,6 +141,8 @@ int handle_append_entries(RaftHandle* h, char* args, int args_size, char* reply)
     raft::proto::AppendEntriesReply protoReply{};
     protoReply.set_success(r.success);
     protoReply.set_term(r.term);
+    protoReply.set_conflictterm(r.conflictTerm);
+    protoReply.set_conflictindex(r.conflictIndex);
     std::string reply_str;
     if (!protoReply.SerializeToString(&reply_str)) {
         return 0;
