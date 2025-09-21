@@ -49,7 +49,6 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/common/Util.cpp
     ${CMAKE_SOURCE_DIR}/src/common/Command.cpp
     ${CMAKE_SOURCE_DIR}/src/common/KVStateMachine.cpp
-    ${CMAKE_SOURCE_DIR}/src/raft/SyncChannel.cpp
     ${CMAKE_SOURCE_DIR}/tst/server/InMemoryKVStoreTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/ExponentialBackoffTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/RetryPolicyTest.cpp

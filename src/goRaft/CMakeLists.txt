@@ -57,7 +57,6 @@ add_library(zdb_raft SHARED
   ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoRPCClient.cpp
   ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/raft_wrapper.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/Log.cpp
-  ${CMAKE_SOURCE_DIR}/src/raft/SyncChannel.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/AsyncTimer.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/Types.cpp
   ${CMAKE_SOURCE_DIR}/src/common/FullJitter.cpp

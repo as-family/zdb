@@ -65,7 +65,6 @@ target_sources(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src/common/Util.cpp
   ${CMAKE_SOURCE_DIR}/src/common/Command.cpp
   ${CMAKE_SOURCE_DIR}/src/common/KVStateMachine.cpp
-  ${CMAKE_SOURCE_DIR}/src/raft/SyncChannel.cpp
 )
 
 target_link_libraries(zdb PRIVATE
