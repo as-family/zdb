@@ -46,6 +46,7 @@ AppendEntriesArg::operator google::protobuf::Message&() {
     protoArg->set_prevlogindex(prevLogIndex);
     protoArg->set_prevlogterm(prevLogTerm);
     protoArg->set_leadercommit(leaderCommit);
+    protoArg->clear_entries();
     for (const auto& e : entries.data()) {
         auto *entry = protoArg->add_entries();
         entry->set_index(e.index);

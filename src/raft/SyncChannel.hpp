@@ -17,7 +17,6 @@
 #include <optional>
 #include <condition_variable>
 #include "raft/Channel.hpp"
-#include <nlohmann/detail/input/parser.hpp>
 
 namespace raft {
 

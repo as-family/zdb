@@ -29,12 +29,12 @@ std::unique_ptr<raft::State> KVStateMachine::applyCommand(raft::Command& command
 
 void KVStateMachine::consumeChannel() {
     while (!raftChannel.isClosed()) {
-        std::lock_guard lock{m};
+        std::unique_lock lock{m};
         auto c = raftChannel.receiveUntil(std::chrono::system_clock::now() + std::chrono::milliseconds{1L});
-        if (!c.has_value()) {
-            break;
+        if (c.has_value()) {
+            c.value()->apply(*this);
         }
-        c.value()->apply(*this);
+        lock.unlock();
     }
 }
 
@@ -68,11 +68,11 @@ State KVStateMachine::size() {
 }
 
 std::unique_ptr<raft::State> KVStateMachine::handle(std::shared_ptr<raft::Command> c, std::chrono::system_clock::time_point t) {
-    std::lock_guard lock{m};
+    std::unique_lock lock{m};
     if (!raft.start(c)) {
         return std::make_unique<State>(State{Error{ErrorCode::NotLeader, "not the leader"}});
     }
-    while (true) {
+    while (!raftChannel.isClosed()) {
         auto r = raftChannel.receiveUntil(t);
         if (!r.has_value()) {
             return std::make_unique<State>(State{Error{ErrorCode::Timeout, "request timed out"}});

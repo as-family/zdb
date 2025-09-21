@@ -20,7 +20,6 @@ namespace raft {
 AsyncTimer::AsyncTimer() : running(false), mtx{}, cv{} {}
 
 void AsyncTimer::start(std::function<std::chrono::milliseconds()> intervalProvider, std::function<void()> callback) {
-    stop();
     {
         std::lock_guard<std::mutex> lock(mtx);
         running = true;
@@ -46,13 +45,13 @@ void AsyncTimer::stop() {
         running = false;
     }
     cv.notify_all();
+    if (worker.joinable()) worker.join();
 }
 
 AsyncTimer::~AsyncTimer() {
     if (running) {
         stop();
     }
-    if (worker.joinable()) worker.join();
 }
 
 } // namespace raft

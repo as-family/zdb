@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <string>
 #include <vector>
-#include <cstdint>
 #include "common/RetryPolicy.hpp"
 #include <unordered_map>
 #include "raft/AsyncTimer.hpp"
@@ -27,6 +26,7 @@
 #include <functional>
 #include "common/FullJitter.hpp"
 #include <queue>
+#include <ranges>
 
 namespace raft {
 template <typename Client>
@@ -330,7 +330,11 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                         role = Role::Follower;
                         stopCalls = true;
                     } else {
-                        nextIndex[peerId] = mainLog.termFirstIndex(reply.value().conflictTerm);
+                        if (mainLog.termFirstIndex(reply.value().conflictTerm) == 0) {
+                            nextIndex[peerId] = reply.value().conflictIndex;
+                        } else {
+                            nextIndex[peerId] = mainLog.termFirstIndex(reply.value().conflictTerm);
+                        }
                     }
                 }
             }
