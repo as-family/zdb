@@ -238,8 +238,8 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
             reply.conflictIndex = mainLog.lastIndex();
             reply.conflictTerm = mainLog.lastTerm();
         } else {
-            reply.conflictIndex = 1;
-            reply.conflictTerm = 1;
+            reply.conflictIndex = 0;
+            reply.conflictTerm = 0;
         }
         return reply;
     }
@@ -284,6 +284,9 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                 auto n = nextIndex.at(peerId);
                 auto g = mainLog.suffix(n);
                 auto prevLogIndex = n == 0? 0 : n - 1;
+                if (!mainLog.at(prevLogIndex).has_value() && prevLogIndex != 0) {
+                    std::cerr << selfId << " appendEntries ERROR " << peerId << " prevLogIndex " << prevLogIndex << " not found " << mainLog.lastIndex() << "\n";
+                }
                 AppendEntriesArg arg {
                     selfId,
                     currentTerm,
@@ -331,7 +334,7 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                         stopCalls = true;
                     } else {
                         if (mainLog.termFirstIndex(reply.value().conflictTerm) == 0) {
-                            nextIndex[peerId] = reply.value().conflictIndex;
+                            nextIndex[peerId] = std::max(reply.value().conflictIndex, static_cast<uint64_t>(1));
                         } else {
                             nextIndex[peerId] = mainLog.termFirstIndex(reply.value().conflictTerm);
                         }

@@ -73,6 +73,28 @@ add_library(zdb_raft SHARED
   ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoChannel.cpp
 )
 
+target_compile_options(zdb_raft PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+
+    -Wconversion
+    -Wsign-conversion
+    -Wcast-align
+    -Wunused
+    -Wshadow
+    -Wold-style-cast
+    -Woverloaded-virtual
+    -Wnon-virtual-dtor
+    -Wduplicated-cond
+    -Wduplicated-branches
+    -Wlogical-op
+    -Wnull-dereference
+
+    -g
+    -Og
+)
+
 target_include_directories(zdb_raft PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_BINARY_DIR}
