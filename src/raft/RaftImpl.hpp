@@ -220,7 +220,15 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
     }
     auto e = mainLog.at(arg.prevLogIndex);
     if (arg.prevLogIndex == 0 || (e.has_value() && e.value().term == arg.prevLogTerm)) {
-        mainLog.merge(arg.entries);
+        bool mergeSuccess = mainLog.merge(arg.entries);
+        if (!mergeSuccess) {
+            // Merge failed due to gap in log - inform leader where to start next
+            reply.term = currentTerm;
+            reply.success = false;
+            reply.conflictIndex = mainLog.lastIndex() + 1;
+            reply.conflictTerm = 0; // No term for non-existent entry
+            return reply;
+        }
         if (arg.leaderCommit > commitIndex) {
             commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
             applyCommittedEntries();
@@ -338,6 +346,8 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                         } else {
                             nextIndex[peerId] = mainLog.termFirstIndex(reply.value().conflictTerm);
                         }
+                        // Clamp nextIndex to [1, mainLog.lastIndex() + 1] to prevent corruption
+                        nextIndex[peerId] = std::clamp(nextIndex[peerId], static_cast<uint64_t>(1), mainLog.lastIndex() + 1);
                     }
                 }
             }

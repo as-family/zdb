@@ -43,7 +43,7 @@ public:
     uint64_t firstTerm() const;
     uint64_t termFirstIndex(uint64_t term) const;
     void append(const LogEntry& entry);
-    void merge(const Log& other);
+    bool merge(const Log& other);
     std::optional<LogEntry> at(uint64_t index) const;
     Log suffix(uint64_t start) const;
     std::vector<LogEntry> data() const;

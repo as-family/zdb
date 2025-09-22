@@ -33,15 +33,24 @@ void Log::append(const LogEntry& entry) {
     entries.push_back(entry);
 }
 
-void Log::merge(const Log& other) {
-    if (this == &other) return;
+bool Log::merge(const Log& other) {
+    if (this == &other) return true;
     std::scoped_lock lk(m, other.m);
     if (other.entries.empty()) {
-        return;
+        return true;
     }
 
     // Find where to start merging - first entry in other log
     const auto start_index = other.entries.front().index;
+
+    // Safety check: don't allow gaps in the log
+    // The other log should start at or before our lastIndex + 1
+    const auto our_last = entries.empty() ? 0 : entries.back().index;
+    if (start_index > our_last + 1) {
+        // This would create a gap in the log - reject the merge
+        return false;
+    }
+
     auto our_it = std::ranges::find_if(entries, [start_index](const LogEntry& e) {
         return e.index >= start_index;
     });
@@ -49,7 +58,7 @@ void Log::merge(const Log& other) {
     // If we don't have any entries at or after start_index, just append everything
     if (our_it == entries.end()) {
         entries.insert(entries.end(), other.entries.begin(), other.entries.end());
-        return;
+        return true;
     }
 
     // Compare entries one by one to find first conflict
@@ -73,6 +82,7 @@ void Log::merge(const Log& other) {
     // Truncate our log from the conflict point and append remaining other entries
     entries.erase(conflict_point, entries.end());
     entries.insert(entries.end(), other_it, other.entries.end());
+    return true;
 }
 
 uint64_t Log::lastIndex() const {
