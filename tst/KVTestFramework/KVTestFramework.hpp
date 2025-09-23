@@ -18,16 +18,13 @@
 #include <string>
 #include "server/KVStoreServiceImpl.hpp"
 #include "client/KVStoreClient.hpp"
-#include "client/Config.hpp"
 #include <vector>
 #include <functional>
 #include <atomic>
-#include "common/Types.hpp"
 #include <expected>
 #include "Porcupine.hpp"
 #include "raft/Raft.hpp"
 #include "raft/Channel.hpp"
-#include "raft/TestRaft.hpp"
 #include "storage/InMemoryKVStore.hpp"
 #include "common/KVStateMachine.hpp"
 #include "common/RetryPolicy.hpp"
@@ -35,6 +32,7 @@
 #include <variant>
 #include "server/RPCServer.hpp"
 #include "KVTestFramework/NetworkConfig.hpp"
+#include <memory>
 
 class KVTestFramework {
 public:
@@ -77,7 +75,6 @@ private:
     std::string targetServerAddr;
     NetworkConfig& networkConfig;
     zdb::InMemoryKVStore mem;
-    raft::Channel<std::shared_ptr<raft::Command>>& leader;
     raft::Raft& raft;
     zdb::KVStateMachine kvState;
     zdb::KVStoreServiceImpl targetService;

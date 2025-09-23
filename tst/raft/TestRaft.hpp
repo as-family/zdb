@@ -21,7 +21,10 @@
 struct TestRaft : raft::Raft {
     TestRaft(raft::Channel<std::shared_ptr<raft::Command>>& c) : channel {c}, mainLog{} {}
     bool start(std::shared_ptr<raft::Command> cmd) override {
-        channel.send(cmd);
+        auto t = std::chrono::system_clock::now() + std::chrono::milliseconds{100L};
+        if (!channel.sendUntil(cmd, t)) {
+            throw std::runtime_error{"Failed to send command"};
+        }
         return true;
     }
     raft::AppendEntriesReply appendEntriesHandler(const raft::AppendEntriesArg& arg) override {

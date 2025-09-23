@@ -122,11 +122,12 @@ add_custom_command(TARGET zdb_raft POST_BUILD
 
 if(${BUILD_TESTING})
   add_custom_target(raft_tests
-    DEPENDS zdb_raft ${CMAKE_CURRENT_SOURCE_DIR}/go.mod ${PROTO_BUILD_DIR}/raft.pb.go
+    DEPENDS zdb_raft ${CMAKE_CURRENT_SOURCE_DIR}/go.mod ${PROTO_BUILD_DIR}/raft.pb.go ${PROTO_BUILD_DIR}/types.pb.go ${PROTO_BUILD_DIR}/go.mod
     # Clean and build goRaft module first
     COMMAND ${CMAKE_COMMAND} -E echo "Cleaning and building goRaft module..."
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/src/goRaft
       go clean -cache
+    COMMAND ${CMAKE_COMMAND} -E echo "replace github.com/as-family/zdb/proto => ${PROTO_BUILD_DIR}" >> ${CMAKE_SOURCE_DIR}/src/goRaft/go.mod
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/src/goRaft
       ${CMAKE_COMMAND} -E env
       "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
@@ -135,6 +136,7 @@ if(${BUILD_TESTING})
     COMMAND ${CMAKE_COMMAND} -E echo "Cleaning and building 6.5840 modules..."
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/6.5840/src
       go clean -cache
+    COMMAND ${CMAKE_COMMAND} -E echo "replace github.com/as-family/zdb/proto => ${PROTO_BUILD_DIR}" >> ${CMAKE_SOURCE_DIR}/6.5840/src/go.mod
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/6.5840/src
       go build -a ./raft1/ ./raftapi/ ./tester1/ ./labrpc/ ./labgob/
     COMMENT "Building Go modules"

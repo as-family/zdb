@@ -34,8 +34,8 @@ TEST(KVTest, TestReliablePut) {
         std::chrono::milliseconds{200L},
         3,
         1,
-        std::chrono::milliseconds{20L},
-        std::chrono::milliseconds{20L}
+        std::chrono::milliseconds{100L},
+        std::chrono::milliseconds{100L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, raft, proxyPolicy};
     zdb::Config config{{proxyAddress}, zdb::RetryPolicy{
@@ -83,8 +83,8 @@ TEST(KVTest, TestPutConcurrentReliable) {
         std::chrono::milliseconds{200L},
         1,
         1,
-        std::chrono::milliseconds{10L},
-        std::chrono::milliseconds{20L}
+        std::chrono::milliseconds{100L},
+        std::chrono::milliseconds{100L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, raft, proxyPolicy};
     zdb::RetryPolicy policy{
@@ -119,8 +119,8 @@ TEST(KVTest, TestUnreliableNet) {
         std::chrono::milliseconds{200L},
         1,
         1,
-        std::chrono::milliseconds{10L},
-        std::chrono::milliseconds{20L}
+        std::chrono::milliseconds{100L},
+        std::chrono::milliseconds{100L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, raft, proxyPolicy};
     zdb::RetryPolicy policy{

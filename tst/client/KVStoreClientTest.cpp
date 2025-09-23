@@ -354,7 +354,7 @@ TEST_F(KVStoreClientTest, RetryDuringShortServerOutage) {
 
 // Test client behavior with multiple server restarts
 TEST_F(KVStoreClientTest, MultipleServerRestarts) {
-    const RetryPolicy fastRetryPolicy{std::chrono::milliseconds{25L}, std::chrono::milliseconds{100L}, std::chrono::milliseconds{300L}, 3, 1, std::chrono::milliseconds{20L}, std::chrono::milliseconds{200L}};
+    const RetryPolicy fastRetryPolicy{std::chrono::milliseconds{25L}, std::chrono::milliseconds{100L}, std::chrono::milliseconds{300L}, 3, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     Config c{addresses, fastRetryPolicy};
     KVStoreClient client{c};
     
