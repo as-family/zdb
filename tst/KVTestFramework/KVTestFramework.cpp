@@ -91,6 +91,7 @@ KVTestFramework::ClientResult KVTestFramework::oneClientSet(
         if (ok) {
             result.nOK++;
         } else {
+            std::cerr << clientId << " oneSet failed for key " << key.data << std::endl;
             result.nMaybe++;
         }
         versions[key] = version;

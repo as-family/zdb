@@ -34,7 +34,10 @@ std::shared_ptr<raft::Command> commandFactory(const std::string& s) {
     if (cmd.op() == "size") {
         return std::make_shared<Size>(cmd);
     }
-    return std::make_shared<TestCommand>(cmd);
+    if (cmd.op() == "t") {
+        return std::make_shared<TestCommand>(cmd);
+    }
+    throw std::invalid_argument{"commandFactory: unknown command"};
 }
 
 
@@ -191,20 +194,22 @@ bool Size::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
-TestCommand::TestCommand(std::string d) :data(d) {}
-
-TestCommand::TestCommand(UUIDV7& u, uint64_t i) {
+TestCommand::TestCommand(UUIDV7& u, std::string d) :data{d} {
+    uuid = u;
 }
 
 TestCommand::TestCommand(const zdb::proto::Command& cmd) {
-    data = cmd.op();
+    data = cmd.key().data();
     index = cmd.index();
+    uuid = string_to_uuid_v7(cmd.requestid().uuid());
 }
 
 std::string TestCommand::serialize() const {
     auto c = zdb::proto::Command {};
-    c.set_op(data);
+    c.set_op("t");
+    c.mutable_key()->set_data(data);
     c.set_index(index);
+    c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
     std::string s;
     if (!c.SerializeToString(&s)) {
         throw std::runtime_error("failed to serialize TestCommand command");
@@ -218,7 +223,7 @@ std::unique_ptr<raft::State> TestCommand::apply(raft::StateMachine& stateMachine
 
 bool TestCommand::operator==(const raft::Command& other) const {
     if (const auto o = dynamic_cast<const TestCommand*>(&other)) {
-        return index == o->index && data == o->data;
+        return data == o->data;
     }
     return false;
 }

@@ -81,7 +81,7 @@ TEST(KVTest, TestPutConcurrentReliable) {
         std::chrono::milliseconds{20L},
         std::chrono::milliseconds{150L},
         std::chrono::milliseconds{200L},
-        1,
+        10,
         1,
         std::chrono::milliseconds{100L},
         std::chrono::milliseconds{100L}
@@ -92,7 +92,7 @@ TEST(KVTest, TestPutConcurrentReliable) {
         std::chrono::milliseconds{500L},
         std::chrono::milliseconds{600L},
         100,
-        2,
+        1,
         std::chrono::milliseconds{1000L},
         std::chrono::milliseconds{200L}
     };
@@ -103,6 +103,9 @@ TEST(KVTest, TestPutConcurrentReliable) {
     });
     zdb::Config config {{proxyAddress}, policy};
     auto client = zdb::KVStoreClient {config};
+    for (auto& result : results) {
+        std::cerr << "result " << result.nOK << " " << result.nMaybe << std::endl;
+    }
     ASSERT_TRUE(kvTest.checkSetConcurrent(client, zdb::Key{"k"}, results));
     ASSERT_TRUE(kvTest.porcupine.check(10));
 }

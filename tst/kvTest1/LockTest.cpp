@@ -36,8 +36,9 @@ KVTestFramework::ClientResult oneClient(int clientId, zdb::KVStoreClient& client
     }
     int i = 0;
     for (; !done.load(); ++i) {
+        std::cerr << clientId << " i:" << i << std::endl;
         lock.acquire();
-
+        std::cerr << clientId << " i:" << i << " acquired" << std::endl;
         auto v = client.get(zdb::Key{"testKey"});
         if(!v.has_value())  {
             throw std::runtime_error("Failed to get value for testKey");
@@ -57,8 +58,9 @@ KVTestFramework::ClientResult oneClient(int clientId, zdb::KVStoreClient& client
         if(!v3.has_value() && v3.error().code != zdb::ErrorCode::Maybe) {
             throw std::runtime_error("Failed to set value for testKey i:" + std::to_string(i) + " v3:" + (v3.has_value() ? "OK" : v3.error().what));
         }
-
+        std::cerr << clientId << " i:" << i << " releasing" << std::endl;
         lock.release();
+        std::cerr << clientId << " i:" << i << " released" << std::endl;
     }
     return KVTestFramework::ClientResult{i, 0};
 }
@@ -73,7 +75,7 @@ void runClients(int nClients, bool reliable) {
         std::chrono::milliseconds{20L},
         std::chrono::milliseconds{150L},
         std::chrono::milliseconds{200L},
-        1,
+        10,
         1,
         std::chrono::milliseconds{10L},
         std::chrono::milliseconds{20L}

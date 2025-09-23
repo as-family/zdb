@@ -36,7 +36,7 @@ grpc::Status KVStoreServiceImpl::get(
     const Key key{request->key().data()};
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
     std::shared_ptr<raft::Command> g = std::make_shared<Get>(uuid, key);
-    auto p = kvStateMachine.handle(g, context->deadline());
+    auto p = kvStateMachine.handle(g, std::min(context->deadline(), std::chrono::system_clock::now() + std::chrono::milliseconds{100L}));
     const auto state = static_cast<State*>(p.get());
     if (std::holds_alternative<Error>(state->u)) {
         return toGrpcStatus(std::get<Error>(state->u));
@@ -59,7 +59,7 @@ grpc::Status KVStoreServiceImpl::set(
     const Value value{request->value().data(), request->value().version()};
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
     std::shared_ptr<raft::Command> s = std::make_shared<Set>(uuid, key, value);
-    auto p = kvStateMachine.handle(s, context->deadline());
+    auto p = kvStateMachine.handle(s, std::min(context->deadline(), std::chrono::system_clock::now() + std::chrono::milliseconds{100L}));
     const auto state = static_cast<State*>(p.get());
     if (std::holds_alternative<Error>(state->u)) {
         return toGrpcStatus(std::get<Error>(state->u));
@@ -74,7 +74,7 @@ grpc::Status KVStoreServiceImpl::erase(
     const Key key{request->key().data()};
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
     std::shared_ptr<raft::Command> e = std::make_shared<Erase>(uuid, key);
-    auto p = kvStateMachine.handle(e, context->deadline());
+    auto p = kvStateMachine.handle(e, std::min(context->deadline(), std::chrono::system_clock::now() + std::chrono::milliseconds{100L}));
     const auto state = static_cast<State*>(p.get());
     if (std::holds_alternative<Error>(state->u)) {
         return toGrpcStatus(std::get<Error>(state->u));
@@ -94,7 +94,7 @@ grpc::Status KVStoreServiceImpl::size(
     kvStore::SizeReply *reply) {
     auto uuid = string_to_uuid_v7(request->requestid().uuid());
     std::shared_ptr<raft::Command> sz = std::make_shared<Size>(uuid);
-    auto p = kvStateMachine.handle(std::move(sz), context->deadline());
+    auto p = kvStateMachine.handle(std::move(sz), std::min(context->deadline(), std::chrono::system_clock::now() + std::chrono::milliseconds{100L}));
     const auto state = static_cast<State*>(p.get());
     if (std::holds_alternative<Error>(state->u)) {
         return toGrpcStatus(std::get<Error>(state->u));

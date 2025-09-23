@@ -32,7 +32,7 @@ void KVStateMachine::consumeChannel() {
         std::unique_lock lock{m};
         auto c = raftChannel.receiveUntil(std::chrono::system_clock::now() + std::chrono::milliseconds{1L});
         if (c.has_value()) {
-            c.value()->apply(*this);
+            applyCommand(*c.value());
         }
         lock.unlock();
     }

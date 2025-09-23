@@ -21,6 +21,7 @@
 #include "common/RetryPolicy.hpp"
 #include "common/Types.hpp"
 #include "common/Util.hpp"
+#include "common/TypesMap.hpp"
 
 namespace zdb {
 
@@ -30,7 +31,7 @@ public:
     KVStoreClient(const KVStoreClient&) = delete;
     KVStoreClient& operator=(const KVStoreClient&) = delete;
     [[nodiscard]] std::expected<Value, Error> get(const Key& key) const;
-    std::expected<std::monostate, Error> set(const Key& key, const Value& value);
+    [[nodiscard]] std::expected<std::monostate, Error> set(const Key& key, const Value& value);
     [[nodiscard]] std::expected<Value, Error> erase(const Key& key);
     [[nodiscard]] std::expected<size_t, Error> size() const;
     void waitSet(Key key, Value value);
@@ -38,7 +39,7 @@ public:
     bool waitNotFound(Key key);
     Value waitGet(Key key, uint64_t version);
 private:
-    template<typename Req, typename Rep>
+    template<typename Req, typename Rep=map_to_t<Req>>
     std::expected<Rep, std::vector<Error>> call(
         const std::string& op,
         Req& request) const {
@@ -49,12 +50,10 @@ private:
                 auto callResult = serviceResult.value()->call<Req, Rep>(op, request);
                 if (callResult.has_value()) {
                     return callResult;
-                } else {
-                    if (callResult.error().back().code == ErrorCode::NotLeader) {
-                        serviceResult = config.randomService();
-                    } else if (!isRetriable(op, callResult.error().back().code)) {
-                        return callResult;
-                    }
+                } else if (callResult.error().back().code == ErrorCode::NotLeader) {
+                    serviceResult = config.randomService();
+                } else if (!isRetriable(op, callResult.error().back().code)) {
+                    return callResult;
                 }
             }
         }

@@ -27,7 +27,7 @@ KVStoreClient::KVStoreClient(Config& c) : config(c) {}
 std::expected<Value, Error> KVStoreClient::get(const Key& key) const {
     kvStore::GetRequest request;
     request.mutable_key()->set_data(key.data);
-    auto t = call<kvStore::GetRequest, kvStore::GetReply>(
+    auto t = call(
         "get",
         request
     );
@@ -43,7 +43,7 @@ std::expected<std::monostate, Error> KVStoreClient::set(const Key& key, const Va
     request.mutable_key()->set_data(key.data);
     request.mutable_value()->set_data(value.data);
     request.mutable_value()->set_version(value.version);
-    auto t = call<kvStore::SetRequest, kvStore::SetReply>(
+    auto t = call(
         "set",
         request
     );
@@ -51,7 +51,7 @@ std::expected<std::monostate, Error> KVStoreClient::set(const Key& key, const Va
     if (t.has_value()) {
         return {};
     } else {
-        if (t.error().size() > 1 && isRetriable("set", t.error().front().code) && t.error().back().code == ErrorCode::VersionMismatch) {
+        if (t.error().size() > 1 && t.error().back().code == ErrorCode::VersionMismatch) {
             return std::unexpected {Error(ErrorCode::Maybe)};
         } else {
             return std::unexpected {t.error().back()};
@@ -62,7 +62,7 @@ std::expected<std::monostate, Error> KVStoreClient::set(const Key& key, const Va
 std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
     kvStore::EraseRequest request;
     request.mutable_key()->set_data(key.data);
-    auto t = call<kvStore::EraseRequest, kvStore::EraseReply>(
+    auto t = call(
         "erase",
         request
     );
@@ -75,7 +75,7 @@ std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
 
 std::expected<size_t, Error> KVStoreClient::size() const {
     kvStore::SizeRequest request;
-    auto t = call<kvStore::SizeRequest, kvStore::SizeReply>(
+    auto t = call(
         "size",
         request
     );
@@ -105,15 +105,9 @@ bool KVStoreClient::waitGet(Key key, Value value) {
     while (true) {
         auto t = get(key);
         if(t.has_value()) {
-            if(t.value() == value) {
-                return true;
-            } else {
-                return false;
-            }
-        } else {
-            if (t.error().code == ErrorCode::KeyNotFound) {
-                return false;
-            }
+            return t.value() == value;
+        } else if (t.error().code == ErrorCode::KeyNotFound) {
+            return false;
         }
     }
     std::unreachable();
@@ -124,10 +118,8 @@ bool KVStoreClient::waitNotFound(Key key) {
         auto t = get(key);
         if (t.has_value()) {
             return false;
-        } else {
-            if (t.error().code == ErrorCode::KeyNotFound) {
-                return true;
-            }
+        } else if (t.error().code == ErrorCode::KeyNotFound) {
+            return true;
         }
     }
     std::unreachable();

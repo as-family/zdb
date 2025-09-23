@@ -79,8 +79,7 @@ struct Size : public raft::Command {
 };
 
 struct TestCommand : raft::Command {
-    TestCommand(std::string d);
-    TestCommand(UUIDV7& u, uint64_t i);
+    TestCommand(UUIDV7& u, std::string d);
     TestCommand(const zdb::proto::Command& cmd);
 
     std::string serialize() const override;
