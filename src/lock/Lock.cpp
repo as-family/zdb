@@ -27,26 +27,19 @@ void Lock::acquire() {
 }
 
 void Lock::release() {
-    std::cerr << "Releasing" << std::endl;
     auto v = client.waitGet(lockKey, 1);
-    std::cerr << "Got " << v.data << " " << v.version << std::endl;
     if (v != lockValue) {
         return;
     }
-    std::cerr << "matches" << std::endl;
     client.waitSet(lockKey, v);
-    std::cerr << "set" << std::endl;
     while (true) {
         auto t = client.erase(lockKey);
-        std::cerr << "Erased" << std::endl;
         if (t.has_value()) {
             return;
         } else {
-            std::cerr << "Failed to erase" << std::endl;
             if (client.waitNotFound(lockKey)) {
                 return;
             } else {
-                std::cerr << "Key not found" << std::endl;
                 if (!client.waitGet(lockKey, Value{v.data, 2})) {
                     return;
                 }

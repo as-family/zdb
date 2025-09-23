@@ -90,11 +90,9 @@ std::expected<size_t, Error> KVStoreClient::size() const {
 void KVStoreClient::waitSet(Key key, Value value) {
     while(true) {
         auto v = set(key, value);
-        std::cerr << "Set" << std::endl;
         if (v.has_value()) {
             return;
         } else {
-            std::cerr << "Failed to set " << v.error().what << std::endl;
             if (waitGet(key, Value{value.data, value.version + 1})) {
                 return;
             }
@@ -106,7 +104,6 @@ void KVStoreClient::waitSet(Key key, Value value) {
 bool KVStoreClient::waitGet(Key key, Value value) {
     while (true) {
         auto t = get(key);
-        std::cerr << "waitGet Got " << (t.has_value()? t.value().data : "BAAD " + t.error().what) << std::endl;
         if(t.has_value()) {
             return t.value() == value;
         } else if (t.error().code == ErrorCode::KeyNotFound) {

@@ -20,7 +20,6 @@
 #include <utility>
 #include <vector>
 #include <string>
-#include <iostream>
 
 namespace zdb {
 
@@ -45,12 +44,9 @@ std::vector<grpc::Status> CircuitBreaker::call(const std::string& op, const std:
                 state = State::Closed;
                 repeater.reset();
             } else {
-                // Log failure observed in half-open
-                std::cerr << "CircuitBreaker HalfOpen observed failure: " << status.error_code() << " " << status.error_message() << std::endl;
                 if (isRetriable(op, toError(status).code)) {
                     lastFailureTime = std::chrono::steady_clock::now();
                     state = State::Open;
-                    std::cerr << "CircuitBreaker transitioning to Open (HalfOpen) due to retriable error" << std::endl;
                 } else {
                     state = State::Closed;
                 }
@@ -63,11 +59,9 @@ std::vector<grpc::Status> CircuitBreaker::call(const std::string& op, const std:
             if (!statuses.back().ok()) {
                 // Log the failing status
                 auto s = statuses.back();
-                std::cerr << "CircuitBreaker Closed observed failing status: " << s.error_code() << " " << s.error_message() << std::endl;
                 if (isRetriable(op, toError(statuses.back()).code)) {
                     lastFailureTime = std::chrono::steady_clock::now();
                     state = State::Open;
-                    std::cerr << "CircuitBreaker transitioning to Open (Closed) due to retriable error" << std::endl;
                 }
             }
             return statuses;

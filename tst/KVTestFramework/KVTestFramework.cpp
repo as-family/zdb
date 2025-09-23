@@ -201,8 +201,6 @@ bool KVTestFramework::checkSetConcurrent(
         totalOK += result.nOK;
         totalMaybe += result.nMaybe;
     }
-    // Diagnostic logging
-    std::cerr << "checkSetConcurrent: totalOK=" << totalOK << " totalMaybe=" << totalMaybe << " value.version=" << value.version << " value.data=" << value.data << std::endl;
     if (networkConfig.isReliable()) {
         return value.version == totalOK;
     } else {
