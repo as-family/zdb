@@ -166,8 +166,10 @@ public:
         auto reply = Rep{};
         auto& repMsg = static_cast<google::protobuf::Message&>(reply);
         if (networkConfig.isReliable()) {
+            std::cerr << "Reliable" << std::endl;
             auto status = funcIt->second(stub.get(), &c, reqMsg, &repMsg);
             if (status.ok()) {
+                std::cerr << "OK" << std::endl;
                 if constexpr (std::is_base_of_v<raft::Reply, Rep>) {
                     return Rep{repMsg};
                 } else {

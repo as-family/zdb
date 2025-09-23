@@ -175,7 +175,8 @@ int raft_start(RaftHandle* handle, void* command, int command_size, int* index, 
         return 0;
     }
     std::string command_str{static_cast<const char*>(command), static_cast<size_t>(command_size)};
-    auto c = std::make_shared<zdb::TestCommand>(command_str);
+    auto uuid = generate_uuid_v7();
+    auto c = std::make_shared<zdb::TestCommand>(uuid, command_str);
     *is_leader = handle->raft->start(c);
     *index = c->index;
     *term = c->term;

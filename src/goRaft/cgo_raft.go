@@ -129,9 +129,9 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
 //             panic("could not unmarshal Command")
         }
         var x interface{}
-        x, err = strconv.Atoi(protoC.Op)
+        x, err = strconv.Atoi(protoC.Key.Data)
         if err != nil {
-            x = protoC.Op
+            x = protoC.Key.Data
         }
 //         fmt.Println("Go: channel callback invoked:", x)
 		if rf.applyCh != nil {

@@ -47,6 +47,7 @@ private:
         for (int i = 0; i < config.policy.servicesToTry; ++i) {
             auto serviceResult = config.nextService();
             if (serviceResult.has_value()) {
+                std::cerr << "Calling " << serviceResult.value()->address() << std::endl;
                 auto callResult = serviceResult.value()->call<Req, Rep>(op, request);
                 if (callResult.has_value()) {
                     return callResult;

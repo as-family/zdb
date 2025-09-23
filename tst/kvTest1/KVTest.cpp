@@ -31,21 +31,21 @@ TEST(KVTest, TestReliablePut) {
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
         std::chrono::milliseconds{150L},
-        std::chrono::milliseconds{200L},
+        std::chrono::milliseconds{10L},
         3,
         1,
-        std::chrono::milliseconds{100L},
-        std::chrono::milliseconds{100L}
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{1000L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, raft, proxyPolicy};
     zdb::Config config{{proxyAddress}, zdb::RetryPolicy{
-        std::chrono::milliseconds{20L},
-        std::chrono::milliseconds{150L},
-        std::chrono::milliseconds{200L},
-        10,
+        std::chrono::milliseconds{50L},
+        std::chrono::milliseconds{100L},
+        std::chrono::milliseconds{10L},
+        10, // keep retries reasonable
         1,
-        std::chrono::milliseconds{1000L},
-        std::chrono::milliseconds{200L}
+        std::chrono::milliseconds{2000L},
+        std::chrono::milliseconds{500L}
     }};
     zdb::KVStoreClient client = zdb::KVStoreClient {config};
 
@@ -80,21 +80,21 @@ TEST(KVTest, TestPutConcurrentReliable) {
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
         std::chrono::milliseconds{150L},
-        std::chrono::milliseconds{200L},
+        std::chrono::milliseconds{10L},
         10,
-        1,
-        std::chrono::milliseconds{100L},
-        std::chrono::milliseconds{100L}
+        10,
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{1000L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, raft, proxyPolicy};
     zdb::RetryPolicy policy{
-        std::chrono::milliseconds{20L},
-        std::chrono::milliseconds{500L},
-        std::chrono::milliseconds{600L},
-        100,
-        1,
+        std::chrono::milliseconds{100L},
+        std::chrono::milliseconds{300L},
+        std::chrono::milliseconds{10L},
+        10, // keep retries reasonable
+        10,
         std::chrono::milliseconds{1000L},
-        std::chrono::milliseconds{200L}
+        std::chrono::milliseconds{1000L}
     };
     const int nClients = 10;
     const std::chrono::seconds timeout(1);
@@ -119,17 +119,17 @@ TEST(KVTest, TestUnreliableNet) {
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
         std::chrono::milliseconds{150L},
-        std::chrono::milliseconds{200L},
+        std::chrono::milliseconds{10L},
         1,
         1,
-        std::chrono::milliseconds{100L},
-        std::chrono::milliseconds{100L}
+        std::chrono::milliseconds{1000L},
+        std::chrono::milliseconds{1000L}
     };
     KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, raft, proxyPolicy};
     zdb::RetryPolicy policy{
         std::chrono::microseconds{100L},
-        std::chrono::microseconds{1000L},
-        std::chrono::microseconds{5000L},
+        std::chrono::microseconds{300L},
+        std::chrono::microseconds{10L},
         10000,
         1,
         std::chrono::milliseconds{1000L},

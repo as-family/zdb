@@ -135,9 +135,11 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
 template<typename Service>
 bool RPCService<Service>::available() {
     if (circuitBreaker.open()) {
+        std::cerr << "Circuit breaker is open" << std::endl;
         return false;
     }
     if (!connected()) {
+        std::cerr << "Not connected" << std::endl;
         auto result = connect();
         if (!result.has_value()) {
             return false;
