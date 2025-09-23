@@ -52,7 +52,18 @@ private:
                 if (callResult.has_value()) {
                     return callResult;
                 } else if (callResult.error().back().code == ErrorCode::NotLeader) {
-                    serviceResult = config.randomService();
+                    // Try a random service immediately instead of just assigning it to serviceResult
+                    auto randomResult = config.randomService();
+                    if (randomResult.has_value()) {
+                        std::cerr << "Calling random " << randomResult.value()->address() << std::endl;
+                        auto randCall = randomResult.value()->call<Req, Rep>(op, request);
+                        if (randCall.has_value()) {
+                            return randCall;
+                        } else if (!isRetriable(op, randCall.error().back().code)) {
+                            return randCall;
+                        }
+                        // otherwise fall through and try other services in the loop
+                    }
                 } else if (!isRetriable(op, callResult.error().back().code)) {
                     return callResult;
                 }

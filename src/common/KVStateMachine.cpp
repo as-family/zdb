@@ -13,6 +13,7 @@
 #include "raft/StateMachine.hpp"
 #include "raft/Command.hpp"
 #include "common/Command.hpp"
+#include "common/Util.hpp"
 #include <mutex>
 
 namespace zdb {
@@ -20,8 +21,7 @@ namespace zdb {
 KVStateMachine::KVStateMachine(StorageEngine& s, raft::Channel<std::shared_ptr<raft::Command>>& raftCh, raft::Raft& r)
     : storageEngine(s),
       raftChannel(raftCh),
-      raft {r},
-      consumerThread {std::thread(&KVStateMachine::consumeChannel, this)} {}
+      raft {r} {}
 
 std::unique_ptr<raft::State> KVStateMachine::applyCommand(raft::Command& command) {
     return command.apply(*this);
@@ -72,13 +72,18 @@ std::unique_ptr<raft::State> KVStateMachine::handle(std::shared_ptr<raft::Comman
     if (!raft.start(c)) {
         return std::make_unique<State>(State{Error{ErrorCode::NotLeader, "not the leader"}});
     }
+    std::cerr << "KVStateMachine::handle: started command uuid=" << uuid_v7_to_string(c->getUUID()) << " deadline in ms=" << std::chrono::duration_cast<std::chrono::milliseconds>(t - std::chrono::system_clock::now()).count() << std::endl;
     while (!raftChannel.isClosed()) {
         auto r = raftChannel.receiveUntil(t);
         if (!r.has_value()) {
+            std::cerr << "KVStateMachine::handle: receiveUntil timed out for uuid=" << uuid_v7_to_string(c->getUUID()) << std::endl;
             return std::make_unique<State>(State{Error{ErrorCode::Timeout, "request timed out"}});
         }
+        auto recvUuid = r.value()->getUUID();
+        std::cerr << "KVStateMachine::handle: received uuid=" << uuid_v7_to_string(recvUuid) << " current cmd uuid=" << uuid_v7_to_string(c->getUUID()) << std::endl;
         auto s = applyCommand(*r.value());
-        if (r.value()->getUUID() == c->getUUID()) {
+        if (recvUuid == c->getUUID()) {
+            std::cerr << "KVStateMachine::handle: matched uuid, returning" << std::endl;
             return s;
         }
     }
