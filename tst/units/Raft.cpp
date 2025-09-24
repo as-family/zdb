@@ -55,6 +55,7 @@ public:
             reply.term = 1;
             return reply;
         }
+        return std::nullopt;
     }
 
 private:
