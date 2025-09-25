@@ -14,28 +14,30 @@
 #include <google/protobuf/any.pb.h>
 #include <memory>
 #include "common/KVStateMachine.hpp"
-
 namespace zdb
 {
 
-std::unique_ptr<raft::Command> commandFactory(const std::string& s) {
+std::shared_ptr<raft::Command> commandFactory(const std::string& s) {
     auto cmd = zdb::proto::Command {};
     if (!cmd.ParseFromString(s)) {
         throw std::invalid_argument{"commandFactory: deserialization failed"};
     }
     if (cmd.op() == "get") {
-        return std::make_unique<Get>(cmd);
+        return std::make_shared<Get>(cmd);
     }
     if (cmd.op() == "set") {
-        return std::make_unique<Set>(cmd);
+        return std::make_shared<Set>(cmd);
     }
     if (cmd.op() == "erase") {
-        return std::make_unique<Erase>(cmd);
+        return std::make_shared<Erase>(cmd);
     }
     if (cmd.op() == "size") {
-        return std::make_unique<Size>(cmd);
+        return std::make_shared<Size>(cmd);
     }
-    throw std::invalid_argument{"commandFactory: unknown op: " + cmd.op()};
+    if (cmd.op() == "t") {
+        return std::make_shared<TestCommand>(cmd);
+    }
+    throw std::invalid_argument{"commandFactory: unknown command"};
 }
 
 
@@ -45,6 +47,7 @@ Get::Get(UUIDV7& u, const Key& k) : key(k) {
 
 Get::Get(const proto::Command& cmd) : key{cmd.key()} {
     uuid = string_to_uuid_v7(cmd.requestid().uuid());
+    index = cmd.index();
 }
 
 std::string Get::serialize() const {
@@ -52,6 +55,7 @@ std::string Get::serialize() const {
     c.set_op("get");
     c.mutable_key()->set_data(key.data);
     c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
+    c.set_index(index);
     std::string s;
     if (!c.SerializeToString(&s)) {
         throw std::runtime_error("failed to serialize Get command");
@@ -81,6 +85,7 @@ Set::Set(UUIDV7& u, const Key& k, const Value& v) : key(k), value(v) {
 
 Set::Set(const proto::Command& cmd) : key{cmd.key()}, value{cmd.value()} {
     uuid = string_to_uuid_v7(cmd.requestid().uuid());
+    index = cmd.index();
 }
 
 std::string Set::serialize() const {
@@ -90,6 +95,7 @@ std::string Set::serialize() const {
     c.mutable_value()->set_data(value.data);
     c.mutable_value()->set_version(value.version);
     c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
+    c.set_index(index);
     std::string s;
     if (!c.SerializeToString(&s)) {
         throw std::runtime_error("failed to serialize Set command");
@@ -119,6 +125,7 @@ Erase::Erase(UUIDV7& u, const Key& k) : key(k) {
 
 Erase::Erase(const proto::Command& cmd) : key{cmd.key()} {
     uuid = string_to_uuid_v7(cmd.requestid().uuid());
+    index = cmd.index();
 }
 
 std::string Erase::serialize() const {
@@ -126,6 +133,7 @@ std::string Erase::serialize() const {
     c.set_op("erase");
     c.mutable_key()->set_data(key.data);
     c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
+    c.set_index(index);
     std::string s;
     if (!c.SerializeToString(&s)) {
         throw std::runtime_error("failed to serialize Erase command");
@@ -155,12 +163,14 @@ Size::Size(UUIDV7& u) {
 
 Size::Size(const proto::Command& cmd) {
     uuid = string_to_uuid_v7(cmd.requestid().uuid());
+    index = cmd.index();
 }
 
 std::string Size::serialize() const {
     auto c = proto::Command {};
     c.set_op("size");
     c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
+    c.set_index(index);
     std::string s;
     if (!c.SerializeToString(&s)) {
         throw std::runtime_error("failed to serialize Size command");
@@ -181,6 +191,44 @@ bool Size::operator==(const raft::Command& other) const {
 }
 
 bool Size::operator!=(const raft::Command& other) const {
+    return !(*this == other);
+}
+
+TestCommand::TestCommand(UUIDV7& u, std::string d) :data{d} {
+    uuid = u;
+}
+
+TestCommand::TestCommand(const zdb::proto::Command& cmd) {
+    data = cmd.key().data();
+    index = cmd.index();
+    uuid = string_to_uuid_v7(cmd.requestid().uuid());
+}
+
+std::string TestCommand::serialize() const {
+    auto c = zdb::proto::Command {};
+    c.set_op("t");
+    c.mutable_key()->set_data(data);
+    c.set_index(index);
+    c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
+    std::string s;
+    if (!c.SerializeToString(&s)) {
+        throw std::runtime_error("failed to serialize TestCommand command");
+    }
+    return s;
+}
+
+std::unique_ptr<raft::State> TestCommand::apply(raft::StateMachine& stateMachine) {
+    return std::make_unique<zdb::State>(index);
+}
+
+bool TestCommand::operator==(const raft::Command& other) const {
+    if (const auto o = dynamic_cast<const TestCommand*>(&other)) {
+        return data == o->data;
+    }
+    return false;
+}
+
+bool TestCommand::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 

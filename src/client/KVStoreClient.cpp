@@ -27,14 +27,12 @@ KVStoreClient::KVStoreClient(Config& c) : config(c) {}
 std::expected<Value, Error> KVStoreClient::get(const Key& key) const {
     kvStore::GetRequest request;
     request.mutable_key()->set_data(key.data);
-    kvStore::GetReply reply;
     auto t = call(
         "get",
-        request,
-        reply
+        request
     );
     if (t.has_value()) {
-        return reply.value();
+        return t.value().value();
     } else {
         return std::unexpected {t.error().back()};
     }
@@ -45,18 +43,15 @@ std::expected<std::monostate, Error> KVStoreClient::set(const Key& key, const Va
     request.mutable_key()->set_data(key.data);
     request.mutable_value()->set_data(value.data);
     request.mutable_value()->set_version(value.version);
-    kvStore::SetReply reply;
-
     auto t = call(
         "set",
-        request,
-        reply
+        request
     );
 
     if (t.has_value()) {
-        return {};
+        return std::monostate{};
     } else {
-        if (t.error().size() > 1 && isRetriable("set", t.error().front().code) && t.error().back().code == ErrorCode::VersionMismatch) {
+        if (t.error().size() > 1 && t.error().back().code == ErrorCode::VersionMismatch) {
             return std::unexpected {Error(ErrorCode::Maybe)};
         } else {
             return std::unexpected {t.error().back()};
@@ -67,14 +62,12 @@ std::expected<std::monostate, Error> KVStoreClient::set(const Key& key, const Va
 std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
     kvStore::EraseRequest request;
     request.mutable_key()->set_data(key.data);
-    kvStore::EraseReply reply;
     auto t = call(
         "erase",
-        request,
-        reply
+        request
     );
     if (t.has_value()) {
-        return reply.value();
+        return t.value().value();
     } else {
         return std::unexpected {t.error().back()};
     }
@@ -82,14 +75,12 @@ std::expected<Value, Error> KVStoreClient::erase(const Key& key) {
 
 std::expected<size_t, Error> KVStoreClient::size() const {
     kvStore::SizeRequest request;
-    kvStore::SizeReply reply;
     auto t = call(
         "size",
-        request,
-        reply
+        request
     );
     if (t.has_value()) {
-        return reply.size();
+        return t.value().size();
     } else {
         return std::unexpected {t.error().back()};
     }
@@ -114,15 +105,9 @@ bool KVStoreClient::waitGet(Key key, Value value) {
     while (true) {
         auto t = get(key);
         if(t.has_value()) {
-            if(t.value() == value) {
-                return true;
-            } else {
-                return false;
-            }
-        } else {
-            if (t.error().code == ErrorCode::KeyNotFound) {
-                return false;
-            }
+            return t.value() == value;
+        } else if (t.error().code == ErrorCode::KeyNotFound) {
+            return false;
         }
     }
     std::unreachable();
@@ -133,10 +118,8 @@ bool KVStoreClient::waitNotFound(Key key) {
         auto t = get(key);
         if (t.has_value()) {
             return false;
-        } else {
-            if (t.error().code == ErrorCode::KeyNotFound) {
-                return true;
-            }
+        } else if (t.error().code == ErrorCode::KeyNotFound) {
+            return true;
         }
     }
     std::unreachable();

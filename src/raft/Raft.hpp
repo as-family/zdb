@@ -15,12 +15,13 @@
 #include "raft/Log.hpp"
 #include "raft/Types.hpp"
 #include <optional>
-#include <vector>
 #include <cstdint>
 #include "raft/Command.hpp"
 #include <chrono>
 #include <string>
 #include <unordered_map>
+#include "raft/Command.hpp"
+#include <memory>
 
 namespace raft {
 
@@ -30,6 +31,12 @@ enum class Role {
     Leader
 };
 
+struct Start {
+    uint64_t index;
+    uint64_t term;
+    bool isLeader;
+};
+
 class Raft {
 public:
     virtual ~Raft() = default;
@@ -37,7 +44,7 @@ public:
     virtual RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) = 0;
     virtual void appendEntries(bool heartBeat) = 0;
     virtual void requestVote() = 0;
-    virtual bool start(std::string command) = 0;
+    virtual bool start(std::shared_ptr<Command> c) = 0;
     virtual Log& log() = 0;
     virtual void kill() = 0;
     virtual Role getRole() const { return role; }

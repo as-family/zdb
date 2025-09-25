@@ -23,10 +23,11 @@
 #include <chrono>
 #include <algorithm>
 #include <string>
-#include <thread>
 #include <mutex>
 #include <unordered_map>
 #include "proto/kvStore.pb.h"
+#include "raft/Types.hpp"
+#include "common/TypesMap.hpp"
 
 namespace zdb {
 
@@ -35,15 +36,14 @@ class RPCService {
 public:
     using Stub = typename Service::Stub;
     using function_t = std::function<grpc::Status(Stub*, grpc::ClientContext*, const google::protobuf::Message&, google::protobuf::Message*)>;
-    RPCService(const std::string& address, const RetryPolicy p, std::unordered_map<std::string, function_t> f);
+    RPCService(const std::string& address, const RetryPolicy p, std::unordered_map<std::string, function_t> f, std::atomic<bool>& sc);
     RPCService(const RPCService&) = delete;
     RPCService& operator=(const RPCService&) = delete;
     std::expected<std::monostate, Error> connect();
-    template<typename Req, typename Rep>
-    std::expected<std::monostate, std::vector<Error>> call(
+    template<typename Req, typename Rep = map_to_t<Req>>
+    std::expected<Rep, std::vector<Error>> call(
         const std::string& op,
-        const Req& request,
-        Rep& reply) {
+        const Req& request) {
         Stub* stubLocal = nullptr;
         function_t f;
         {
@@ -58,14 +58,21 @@ public:
             f = it->second;
             stubLocal = stub.get();
         }
-        auto bound = [stubLocal, f, &request, &reply, timeout = policy.rpcTimeout] {
+        auto& reqMsg = static_cast<const google::protobuf::Message&>(request);
+        auto reply = Rep{};
+        auto& repMsg = static_cast<google::protobuf::Message&>(reply);
+        auto bound = [stubLocal, f, &reqMsg, &repMsg, timeout = policy.rpcTimeout] {
             grpc::ClientContext c {};
             c.set_deadline(std::chrono::system_clock::now() + timeout);
-            return f(stubLocal, &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
+            return f(stubLocal, &c, reqMsg, &repMsg);
         };
         auto statuses = circuitBreaker.call(op, bound);
         if (statuses.back().ok()) {
-            return {};
+            if constexpr (std::is_base_of_v<raft::Reply, Rep>) {
+                return Rep{repMsg};
+            } else {
+                return reply;
+            }
         } else {
             std::vector<Error> errors(statuses.size(), Error(ErrorCode::Unknown, "Unknown error"));
             std::transform(statuses.begin(), statuses.end(), errors.begin(), [](const grpc::Status& s) {
@@ -85,14 +92,16 @@ private:
     std::unordered_map<std::string, function_t> functions;
     std::shared_ptr<grpc::Channel> channel;
     std::unique_ptr<Stub> stub;
+    std::atomic<bool>& stopCalls;
 };
 
 template<typename Service>
-RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p, std::unordered_map<std::string, function_t> f) 
+RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p, std::unordered_map<std::string, function_t> f, std::atomic<bool>& sc)
     : addr {address},
       policy {p},
-      circuitBreaker {p},
-      functions {std::move(f)} {}
+      circuitBreaker {p, sc},
+      functions {std::move(f)},
+      stopCalls{sc} {}
 
 template<typename Service>
 std::expected<std::monostate, Error> RPCService<Service>::connect() {

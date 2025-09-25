@@ -23,11 +23,11 @@
 
 namespace zdb {
 
-CircuitBreaker::CircuitBreaker(const RetryPolicy p)
+CircuitBreaker::CircuitBreaker(const RetryPolicy p, std::atomic<bool>& sc)
     : state{State::Closed},
       policy{p},
-      repeater{p},
-      lastFailureTime{} {}
+      repeater{p, sc},
+      stopCalls{sc} {}
 
 std::vector<grpc::Status> CircuitBreaker::call(const std::string& op, const std::function<grpc::Status()>& rpc) {
     switch (state) {

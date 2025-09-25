@@ -45,9 +45,8 @@ RAFTTestFramework::RAFTTestFramework(
     for (auto& e : config) {
         threads.emplace_back([this, &e, ps] {
             leaders.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
-            followers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
-            rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, leaders.at(e.raftTarget), followers.at(e.raftTarget), policy, [this, &e](const std::string addr, zdb::RetryPolicy) -> Client& {
-                clients[e.raftTarget].emplace(std::piecewise_construct, std::forward_as_tuple(addr), std::forward_as_tuple(addr, e.raftNetworkConfig, policy, getDefaultRaftProxyFunctions()));
+            rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, leaders.at(e.raftTarget), policy, [this, &e](const std::string addr, zdb::RetryPolicy, std::atomic<bool>& sc) -> Client& {
+                clients[e.raftTarget].emplace(std::piecewise_construct, std::forward_as_tuple(addr), std::forward_as_tuple(addr, e.raftNetworkConfig, policy, getDefaultRaftProxyFunctions(), sc));
                 return clients[e.raftTarget].at(addr);
             }));
             raftServices.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(rafts.at(e.raftTarget)));
@@ -55,7 +54,7 @@ RAFTTestFramework::RAFTTestFramework(
             proxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, e.raftNetworkConfig, policy, getDefaultRaftProxyFunctions()));
             raftProxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(proxies.at(e.raftTarget)));
             raftProxyServers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftProxy, raftProxies.at(e.raftTarget)));
-            kvTests.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.kvProxy, e.kvTarget, e.kvNetworkConfig, leaders.at(e.raftTarget), followers.at(e.raftTarget), rafts.at(e.raftTarget), policy));
+            kvTests.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.kvProxy, e.kvTarget, e.kvNetworkConfig, leaders.at(e.raftTarget), rafts.at(e.raftTarget), policy));
         });
     }
     for (auto& t : threads) {
@@ -86,9 +85,9 @@ int RAFTTestFramework::nRole(raft::Role role) {
 }
 
 std::string RAFTTestFramework::check1Leader() {
-    std::uniform_int_distribution<> dist{0, 300};
+    std::uniform_int_distribution<> dist{0, 400};
     for (int i = 0; i < 10; i++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds{static_cast<long>(200 + dist(gen))});
+        std::this_thread::sleep_for(std::chrono::milliseconds{static_cast<long>(400 + dist(gen))});
         std::unordered_map<uint64_t, std::vector<std::string>> termsMap{};
         for (const auto& [id, raft] : rafts) {
             if (proxies.at(id).getNetworkConfig().isConnected()) {
@@ -174,18 +173,18 @@ void RAFTTestFramework::connect(std::string id) {
     }
 }
 
-std::pair<int, std::string> RAFTTestFramework::nCommitted(uint64_t index) {
+std::pair<int, std::shared_ptr<raft::Command>> RAFTTestFramework::nCommitted(uint64_t index) {
     int count = 0;
-    std::string c = "";
+    std::shared_ptr<raft::Command> c = nullptr;
     for (auto& [id, raft] : rafts) {
         if (raft.log().lastIndex() >= index) {
             auto entry = raft.log().at(index);
             if (entry.has_value()) {
                 count++;
-                if (c == "") {
+                if (c == nullptr) {
                     c = entry.value().command;
                 } else {
-                    if (c != entry.value().command) {
+                    if (*c != *entry.value().command) {
                         throw std::runtime_error{"Different commands committed at index " + std::to_string(index)};
                     }
                 }
@@ -195,7 +194,7 @@ std::pair<int, std::string> RAFTTestFramework::nCommitted(uint64_t index) {
     return {count, c};
 }
 
-int RAFTTestFramework::one(std::string c, int servers, bool retry) {
+int RAFTTestFramework::one(std::shared_ptr<raft::Command> c, int servers, bool retry) {
     auto start_time = std::chrono::steady_clock::now();
     size_t starts = 0;
     
@@ -235,7 +234,7 @@ int RAFTTestFramework::one(std::string c, int servers, bool retry) {
                 auto [nd, cmd1] = nCommitted(index);
                 if (nd > 0 && nd >= servers) {
                     // Committed by enough servers
-                    if (cmd1 == c) {
+                    if (*cmd1 == *c) {
                         // And it was the command we submitted
                         return index;
                     }
@@ -245,7 +244,7 @@ int RAFTTestFramework::one(std::string c, int servers, bool retry) {
             
             if (!retry) {
                 // Not retrying, so fail if we didn't get agreement
-                throw std::runtime_error{"Failed to reach agreement for command: " + c};
+                throw std::runtime_error{"Failed to reach agreement for command: " + c->serialize()};
             }
         } else {
             // No leader found, wait a bit before trying again
@@ -254,5 +253,5 @@ int RAFTTestFramework::one(std::string c, int servers, bool retry) {
     }
     
     // Timeout reached
-    throw std::runtime_error{"Timeout: failed to reach agreement for command: " + c};
+    throw std::runtime_error{"Timeout: failed to reach agreement for command: " + c->serialize()};
 }

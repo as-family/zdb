@@ -99,12 +99,14 @@ public:
     void resetUsed();
     const RetryPolicy policy;
 private:
+    std::mutex m;
+    std::atomic<bool> stopCalls {false};
     iterator nextActiveServiceIterator();
     map services;
     iterator cService;
     std::default_random_engine rng;
     std::uniform_int_distribution<std::size_t> dist;
-    std::mutex m;
+
 };
 } // namespace zdb
 

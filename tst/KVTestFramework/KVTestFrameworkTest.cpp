@@ -9,6 +9,7 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+
 #include <gtest/gtest.h>
 #include "KVTestFramework.hpp"
 #include "NetworkConfig.hpp"
@@ -23,8 +24,7 @@ TEST(KVTestFrameworkTest, SpawnClientsAndWaitCoordinatesResults) {
     NetworkConfig networkConfig {true, 0, 0};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    raft::SyncChannel leader{};
-    raft::SyncChannel follower{};
+    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
     TestRaft raft{leader};
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
@@ -35,7 +35,7 @@ TEST(KVTestFrameworkTest, SpawnClientsAndWaitCoordinatesResults) {
         std::chrono::milliseconds{10L},
         std::chrono::milliseconds{20L}
     };
-    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, follower, raft, proxyPolicy};
+    KVTestFramework kvTest {proxyAddress, targetAddress, networkConfig, leader, raft, proxyPolicy};
     zdb::RetryPolicy policy {
         std::chrono::milliseconds{100L},
         std::chrono::milliseconds{1000L},

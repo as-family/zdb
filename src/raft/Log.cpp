@@ -19,7 +19,7 @@
 namespace raft {
 
 bool LogEntry::operator==(const LogEntry& other) const {
-    return index == other.index && term == other.term;
+    return index == other.index && term == other.term && command.get() == other.command.get();
 }
 
 Log::Log()
@@ -28,40 +28,61 @@ Log::Log()
 Log::Log(std::vector<LogEntry> es)
     : entries{es} {}
 
-void Log::append(const proto::LogEntry& entry) {
-    std::lock_guard g{m};
-    entries.emplace_back(LogEntry {
-        entry.index(),
-        entry.term(),
-        entry.command()
-    });
-}
-
 void Log::append(const LogEntry& entry) {
     std::lock_guard g{m};
     entries.push_back(entry);
 }
 
-void Log::merge(const Log& other) {
-    if (this == &other) return;
+bool Log::merge(const Log& other) {
+    if (this == &other) return true;
     std::scoped_lock lk(m, other.m);
     if (other.entries.empty()) {
-        return;
+        return true;
     }
-    const auto i = other.entries.front().index;
-    auto cut = std::ranges::find_if(entries, [i](const LogEntry& e) { return e.index >= i; });
-    if (cut == entries.end()) {
+
+    // Find where to start merging - first entry in other log
+    const auto start_index = other.entries.front().index;
+
+    // Safety check: don't allow gaps in the log
+    // The other log should start at or before our lastIndex + 1
+    const auto our_last = entries.empty() ? 0 : entries.back().index;
+    if (start_index > our_last + 1) {
+        // This would create a gap in the log - reject the merge
+        return false;
+    }
+
+    auto our_it = std::ranges::find_if(entries, [start_index](const LogEntry& e) {
+        return e.index >= start_index;
+    });
+
+    // If we don't have any entries at or after start_index, just append everything
+    if (our_it == entries.end()) {
         entries.insert(entries.end(), other.entries.begin(), other.entries.end());
-        return;
+        return true;
     }
-    if (cut->index == i && cut->term == other.entries.front().term) {
-        ++cut;
-        entries.erase(cut, entries.end());
-        entries.insert(entries.end(), std::next(other.entries.begin()), other.entries.end());
-        return;
+
+    // Compare entries one by one to find first conflict
+    auto other_it = other.entries.begin();
+    auto conflict_point = our_it;
+
+    while (our_it != entries.end() && other_it != other.entries.end() &&
+           our_it->index == other_it->index) {
+
+        // If terms differ, we have a conflict - truncate from here
+        if (our_it->term != other_it->term) {
+            break;
+        }
+
+        // Terms match, move to next entry
+        ++our_it;
+        ++other_it;
+        conflict_point = our_it;
     }
-    entries.erase(cut, entries.end());
-    entries.insert(entries.end(), other.entries.begin(), other.entries.end()); 
+
+    // Truncate our log from the conflict point and append remaining other entries
+    entries.erase(conflict_point, entries.end());
+    entries.insert(entries.end(), other_it, other.entries.end());
+    return true;
 }
 
 uint64_t Log::lastIndex() const {
@@ -82,13 +103,22 @@ uint64_t Log::firstTerm() const {
     return entries.empty() ? 0 : entries.front().term;
 }
 
+uint64_t Log::termFirstIndex(uint64_t term) const {
+    std::lock_guard g{m};
+    auto i = std::ranges::find_if(entries, [term](const LogEntry& e) { return e.term == term; });
+    if (i == entries.end()) {
+        return 0;
+    }
+    return i->index;
+}
+
 Log Log::suffix(uint64_t start) const {
     std::lock_guard g{m};
     auto i = std::ranges::find_if(entries, [start](const LogEntry& e) { return e.index == start; });
     if (i == entries.end()) {
         return Log {};
     }
-    auto es = std::vector<LogEntry>(i, entries.end());
+    std::vector<LogEntry> es{i, entries.end()};
     return Log {es};
 }
 

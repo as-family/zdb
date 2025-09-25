@@ -13,6 +13,7 @@
 syntax = "proto3";
 
 package zdb.proto;
+option go_package = "github.com/as-family/zdb/proto";
 
 message Key {
     string data = 1;
@@ -32,4 +33,5 @@ message Command {
     zdb.proto.Key key = 2;
     zdb.proto.Value value = 3;
     zdb.proto.RequestID requestID = 4;
+    uint64 index = 5;
 }

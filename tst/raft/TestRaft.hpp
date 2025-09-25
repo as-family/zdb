@@ -9,6 +9,7 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+
 #ifndef RAFT_TEST_RAFT_H
 #define RAFT_TEST_RAFT_H
 
@@ -18,18 +19,21 @@
 #include "raft/Log.hpp"
 
 struct TestRaft : raft::Raft {
-    TestRaft(raft::Channel& c) : channel {c}, mainLog{} {}
-    bool start(std::string cmd) override {
-        channel.send(cmd);
+    TestRaft(raft::Channel<std::shared_ptr<raft::Command>>& c) : channel {c}, mainLog{} {}
+    bool start(std::shared_ptr<raft::Command> cmd) override {
+        auto t = std::chrono::system_clock::now() + std::chrono::milliseconds{100L};
+        if (!channel.sendUntil(cmd, t)) {
+            throw std::runtime_error{"Failed to send command"};
+        }
         return true;
     }
     raft::AppendEntriesReply appendEntriesHandler(const raft::AppendEntriesArg& arg) override {
         std::ignore = arg;
-        return {};
+        return raft::AppendEntriesReply{false, 0};
     }
     raft::RequestVoteReply requestVoteHandler(const raft::RequestVoteArg& arg) override {
         std::ignore = arg;
-        return {};
+        return raft::RequestVoteReply{false, 0};
     }
     void appendEntries(bool /*heartBeat*/) override {
     }
@@ -40,7 +44,7 @@ struct TestRaft : raft::Raft {
     }
     void kill() override {
     }
-    raft::Channel& channel;
+    raft::Channel<std::shared_ptr<raft::Command>>& channel;
 private:
     raft::Log mainLog;
 };

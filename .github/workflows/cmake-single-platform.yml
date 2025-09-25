@@ -188,4 +188,4 @@ jobs:
       with:
         name: zdb-release-package
         path: zdb-release.tar.gz
-        retention-days: 90
+        retention-days: 10

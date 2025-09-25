@@ -33,7 +33,6 @@ struct Get : public raft::Command {
     std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
     bool operator==(const raft::Command& other) const override;
     bool operator!=(const raft::Command& other) const override;
-
 };
 
 struct Set : public raft::Command {
@@ -77,10 +76,22 @@ struct Size : public raft::Command {
 
     bool operator==(const raft::Command& other) const override;
     bool operator!=(const raft::Command& other) const override;
-
 };
 
-std::unique_ptr<raft::Command> commandFactory(const std::string& s);
+struct TestCommand : raft::Command {
+    TestCommand(UUIDV7& u, std::string d);
+    TestCommand(const zdb::proto::Command& cmd);
+
+    std::string serialize() const override;
+
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
+    bool operator==(const raft::Command& other) const override;
+    bool operator!=(const raft::Command& other) const override;
+private:
+    std::string data;
+};
+
+std::shared_ptr<raft::Command> commandFactory(const std::string& s);
 
 } // namespace zdb
 

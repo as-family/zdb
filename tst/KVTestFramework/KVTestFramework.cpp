@@ -28,15 +28,13 @@
 #include "raft/SyncChannel.hpp"
 #include "KVTestFramework/NetworkConfig.hpp"
 #include "KVTestFramework/ProxyService.hpp"
-KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel& l, raft::Channel& f, raft::Raft& r, zdb::RetryPolicy p)
+KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel<std::shared_ptr<raft::Command>>& l, raft::Raft& r, zdb::RetryPolicy p)
     : addr {a},
       targetServerAddr {t},
       networkConfig(c),
       mem {zdb::InMemoryKVStore {}},
-      leader{l},
-      follower{f},
       raft {r},
-      kvState {mem, leader, follower, raft},
+      kvState {mem, l, raft},
       targetService {kvState},
       targetProxyService{targetServerAddr, networkConfig, p, getDefaultKVProxyFunctions()},
       service {targetProxyService},
@@ -93,6 +91,7 @@ KVTestFramework::ClientResult KVTestFramework::oneClientSet(
         if (ok) {
             result.nOK++;
         } else {
+            std::cerr << clientId << " oneSet failed for key " << key.data << std::endl;
             result.nMaybe++;
         }
         versions[key] = version;

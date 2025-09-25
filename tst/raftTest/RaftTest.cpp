@@ -9,10 +9,10 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+
 #include <gtest/gtest.h>
 #include "raft/Raft.hpp"
 #include "raft/RaftImpl.hpp"
-#include "raft/Channel.hpp"
 #include <string>
 #include <vector>
 #include <thread>
@@ -20,6 +20,7 @@
 #include "common/Types.hpp"
 #include "RaftTestFramework/RaftTestFramework.hpp"
 #include <random>
+#include "common/Command.hpp"
 
 std::vector<EndPoints> makeConfig(int n) {
     std::vector<EndPoints> config;
@@ -78,8 +79,8 @@ zdb::RetryPolicy makePolicy(int /*servers*/) {
         std::chrono::milliseconds{60L},
         10,
         10,
-        std::chrono::milliseconds{10L},
-        std::chrono::milliseconds{10L}
+        std::chrono::milliseconds{4L},
+        std::chrono::milliseconds{4L}
     };
 }
 
@@ -231,10 +232,10 @@ TEST(Raft, BasicAgree) {
     EXPECT_NO_THROW(framework.check1Leader());
     for (int i = 1; i <= 3; ++i) {
         auto uuid = generate_uuid_v7();
-        auto c = zdb::Get{uuid, zdb::Key{"key"}};
+        std::unique_ptr<raft::Command> c = std::make_unique<zdb::Get>(uuid, zdb::Key{"key"});
         auto nd = framework.nCommitted(i).first;
         ASSERT_EQ(nd, 0);
-        auto xi = framework.one(c.serialize(), 3, false);
+        auto xi = framework.one(std::move(c), 3, false);
         ASSERT_EQ(xi, i);
     }
 }

@@ -19,14 +19,14 @@
 #include "interface/StorageEngine.hpp"
 #include "raft/Raft.hpp"
 #include <chrono>
-#include "common/Command.hpp"
 #include <memory>
+#include <mutex>
 
 namespace zdb {
 
 class KVStateMachine : public raft::StateMachine {
 public:
-    KVStateMachine(StorageEngine& s,  raft::Channel& leaderChannel, raft::Channel& followerChannel, raft::Raft& r);
+    KVStateMachine(StorageEngine& s,  raft::Channel<std::shared_ptr<raft::Command>>& raftCh, raft::Raft& r);
     KVStateMachine(const KVStateMachine&) = delete;
     KVStateMachine& operator=(const KVStateMachine&) = delete;
     KVStateMachine(KVStateMachine&&) = delete;
@@ -35,19 +35,16 @@ public:
     void consumeChannel() override;
     void snapshot() override;
     void restore(const std::string& snapshot) override;
-    std::unique_ptr<raft::State> handleGet(Get c, std::chrono::system_clock::time_point t);
-    std::unique_ptr<raft::State> handleSet(Set c, std::chrono::system_clock::time_point t);
-    std::unique_ptr<raft::State> handleErase(Erase c, std::chrono::system_clock::time_point t);
-    std::unique_ptr<raft::State> handleSize(Size c, std::chrono::system_clock::time_point t);
+    std::unique_ptr<raft::State> handle(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t);
     State get(Key key);
     State set(Key key, Value value);
     State erase(Key key);
     State size();
-    ~KVStateMachine();
+    ~KVStateMachine() override;
 private:
+    std::mutex m;
     StorageEngine& storageEngine;
-    raft::Channel& leader;
-    raft::Channel& follower;
+    raft::Channel<std::shared_ptr<raft::Command>>& raftChannel;
     raft::Raft& raft;
     std::thread consumerThread;
 };

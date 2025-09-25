@@ -20,17 +20,18 @@ namespace raft {
 AsyncTimer::AsyncTimer() : running(false), mtx{}, cv{} {}
 
 void AsyncTimer::start(std::function<std::chrono::milliseconds()> intervalProvider, std::function<void()> callback) {
-    stop();
     {
         std::lock_guard<std::mutex> lock(mtx);
         running = true;
     }
     worker = std::thread([this, intervalProvider, callback]() {
-        while (running) {
-            auto interval = intervalProvider();
+        while (true) {
             std::unique_lock<std::mutex> lock(mtx);
+            if (!running) break;
+            auto interval = intervalProvider();
             if (cv.wait_for(lock, interval, [this]{ return !running; })) break;
-            if (running) callback();
+            lock.unlock();
+            callback();
         }
     });
 }
@@ -45,9 +46,7 @@ void AsyncTimer::stop() {
 }
 
 AsyncTimer::~AsyncTimer() {
-    if (running) {
-        stop();
-    }
+    stop();
 }
 
 } // namespace raft

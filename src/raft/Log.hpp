@@ -19,13 +19,17 @@
 #include <functional>
 #include <optional>
 #include <mutex>
+#include <memory>
 
 namespace raft {
 
 struct LogEntry {
+    LogEntry(uint64_t idx, uint64_t t, std::shared_ptr<Command> cmd)
+    : index(idx), term(t), command(cmd) {}
+
     uint64_t index;
     uint64_t term;
-    std::string command;
+    std::shared_ptr<Command> command;
     bool operator==(const LogEntry& other) const;
 };
 
@@ -37,13 +41,12 @@ public:
     uint64_t lastTerm() const;
     uint64_t firstIndex() const;
     uint64_t firstTerm() const;
-    void append(const proto::LogEntry& entry);
+    uint64_t termFirstIndex(uint64_t term) const;
     void append(const LogEntry& entry);
-    void merge(const Log& other);
+    bool merge(const Log& other);
     std::optional<LogEntry> at(uint64_t index) const;
     Log suffix(uint64_t start) const;
     std::vector<LogEntry> data() const;
-
  private:
     mutable std::mutex m{};
     std::vector<LogEntry> entries;

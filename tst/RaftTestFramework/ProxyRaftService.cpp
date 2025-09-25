@@ -9,8 +9,8 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+
 #include "RaftTestFramework/ProxyRaftService.hpp"
-#include <grpcpp/grpcpp.h>
 #include "common/ErrorConverter.hpp"
 
 ProxyRaftService::ProxyRaftService(ProxyService<raft::proto::Raft>& p)
@@ -20,8 +20,9 @@ grpc::Status ProxyRaftService::appendEntries(
     grpc::ServerContext* /*context*/,
     const raft::proto::AppendEntriesArg* request,
     raft::proto::AppendEntriesReply* response) {
-    auto t = proxy.call("appendEntries", *request, *response);
+    auto t = proxy.call<raft::proto::AppendEntriesArg, raft::proto::AppendEntriesReply>("appendEntries", *request);
     if (t.has_value()) {
+        *response = t.value();
         return grpc::Status::OK;
     } else {
         const auto& errs = t.error();  
@@ -35,8 +36,9 @@ grpc::Status ProxyRaftService::requestVote(
     grpc::ServerContext* /*context*/,
     const raft::proto::RequestVoteArg* request,
     raft::proto::RequestVoteReply* response) {
-    auto t = proxy.call("requestVote", *request, *response);
+    auto t = proxy.call<raft::proto::RequestVoteArg, raft::proto::RequestVoteReply>("requestVote", *request);
     if (t.has_value()) {
+        *response = t.value();
         return grpc::Status::OK;
     } else {
         const auto& errs = t.error();

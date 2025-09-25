@@ -25,14 +25,14 @@ namespace zdb {
 
 class Repeater {
 public:
-    explicit Repeater(const RetryPolicy p);
+    Repeater(const RetryPolicy p, std::atomic<bool>& sc);
     std::vector<grpc::Status> attempt(const std::string& op, const std::function<grpc::Status()>& rpc);
     void reset();
     void stop() noexcept;
 private:
     ExponentialBackoff backoff;
     FullJitter fullJitter;
-    std::atomic<bool> stopped{false};
+    std::atomic<bool>& stopped;
 };
 
 } // namespace zdb

@@ -12,21 +12,16 @@
 #ifndef KV_STORE_CLIENT_H
 #define KV_STORE_CLIENT_H
 
+#include <expected>
 #include <string>
-#include <memory>
-#include <expected>
-#include <optional>
 #include <vector>
-#include <expected>
-#include <optional>
-#include <vector>
-#include <unordered_map>
+#include <spdlog/spdlog.h>
+#include "client/Config.hpp"
 #include "common/Error.hpp"
 #include "common/RetryPolicy.hpp"
-#include "client/Config.hpp"
-#include <spdlog/spdlog.h>
 #include "common/Types.hpp"
 #include "common/Util.hpp"
+#include "common/TypesMap.hpp"
 
 namespace zdb {
 
@@ -36,7 +31,7 @@ public:
     KVStoreClient(const KVStoreClient&) = delete;
     KVStoreClient& operator=(const KVStoreClient&) = delete;
     [[nodiscard]] std::expected<Value, Error> get(const Key& key) const;
-    std::expected<std::monostate, Error> set(const Key& key, const Value& value);
+    [[nodiscard]] std::expected<std::monostate, Error> set(const Key& key, const Value& value);
     [[nodiscard]] std::expected<Value, Error> erase(const Key& key);
     [[nodiscard]] std::expected<size_t, Error> size() const;
     void waitSet(Key key, Value value);
@@ -44,24 +39,21 @@ public:
     bool waitNotFound(Key key);
     Value waitGet(Key key, uint64_t version);
 private:
-    template<typename Req, typename Rep>
-    std::expected<std::monostate, std::vector<Error>> call(
+    template<typename Req, typename Rep=map_to_t<Req>>
+    std::expected<Rep, std::vector<Error>> call(
         const std::string& op,
-        Req& request,
-        Rep& reply) const {
+        Req& request) const {
         request.mutable_requestid()->set_uuid(uuid_v7_to_string(generate_uuid_v7()));
         for (int i = 0; i < config.policy.servicesToTry; ++i) {
             auto serviceResult = config.nextService();
             if (serviceResult.has_value()) {
-                auto callResult = serviceResult.value()->call(op, request, reply);
+                auto callResult = serviceResult.value()->call<Req, Rep>(op, request);
                 if (callResult.has_value()) {
-                    return {};
-                } else {
-                    if (callResult.error().back().code == ErrorCode::NotLeader) {
-                        serviceResult = config.randomService();
-                    } else if (!isRetriable(op, callResult.error().back().code)) {
-                        return callResult;
-                    }
+                    return callResult;
+                } else if (callResult.error().back().code == ErrorCode::NotLeader) {
+                    serviceResult = config.randomService();
+                } else if (!isRetriable(op, callResult.error().back().code)) {
+                    return callResult;
                 }
             }
         }

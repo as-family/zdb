@@ -19,9 +19,7 @@
 #include <vector>
 #include "common/Error.hpp"
 #include <thread>
-#include <vector>
 #include <string>
-#include "common/Error.hpp"
 #include "common/ErrorConverter.hpp"
 #include <mutex>
 #include <condition_variable>
@@ -34,6 +32,9 @@
 #include <unordered_map>
 #include <functional>
 #include <chrono>
+#include "raft/Types.hpp"
+#include <type_traits>
+#include "common/TypesMap.hpp"
 
 inline std::unordered_map<std::string, typename zdb::RPCService<zdb::kvStore::KVStoreService>::function_t> getDefaultKVProxyFunctions() {
     return {
@@ -138,11 +139,16 @@ public:
       networkConfig {c},
       policy {p} {}
 
-    template<typename Req, typename Rep>
-    std::expected<std::monostate, std::vector<zdb::Error>> call(
+    ProxyService(const std::string& original, NetworkConfig& c, zdb::RetryPolicy p, std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t> f, std::atomic<bool>& sc)
+        : originalAddress {original},
+          functions {std::move(f)},
+          networkConfig {c},
+          policy {p} {}
+
+    template<typename Req, typename Rep = zdb::map_to_t<Req>>
+    std::expected<Rep, std::vector<zdb::Error>> call(
         std::string op,
-        const Req& request,
-        Rep& reply) {
+        const Req& request) {
         std::lock_guard l{m};
         if (!networkConfig.isConnected()) {
             return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::UNAVAILABLE, "Disconnected"))});
@@ -156,10 +162,17 @@ public:
         }
         grpc::ClientContext c;
         c.set_deadline(std::chrono::system_clock::now() + policy.rpcTimeout);
+        auto& reqMsg = static_cast<const google::protobuf::Message&>(request);
+        auto reply = Rep{};
+        auto& repMsg = static_cast<google::protobuf::Message&>(reply);
         if (networkConfig.isReliable()) {
-            auto status = funcIt->second(stub.get(), &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
+            auto status = funcIt->second(stub.get(), &c, reqMsg, &repMsg);
             if (status.ok()) {
-                return {};
+                if constexpr (std::is_base_of_v<raft::Reply, Rep>) {
+                    return Rep{repMsg};
+                } else {
+                    return reply;
+                }
             } else {
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(status)});
             }
@@ -167,7 +180,7 @@ public:
             if (networkConfig.shouldDrop()) {
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
-            auto status = funcIt->second(stub.get(), &c, static_cast<const google::protobuf::Message&>(request), static_cast<google::protobuf::Message*>(&reply));
+            auto status = funcIt->second(stub.get(), &c, reqMsg, &repMsg);
             if (networkConfig.shouldDrop()) {
                return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
@@ -175,7 +188,11 @@ public:
                 std::this_thread::sleep_for(networkConfig.delayTime());
             }
             if (status.ok()) {
-                return {};
+                if constexpr (std::is_base_of_v<raft::Reply, Rep>) {
+                    return Rep{repMsg};
+                } else {
+                    return reply;
+                }
             } else {
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(status)});
             }

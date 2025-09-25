@@ -9,10 +9,29 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "GoRPCClient.hpp"
-#include <iostream>
-#include <memory>
 
-GoRPCClient::GoRPCClient(int ii, std::string a, const zdb::RetryPolicy p, uintptr_t h, std::atomic<bool>& sc)
-    : i {ii}, address {a}, policy {p}, handle {h}, stopCalls(sc), circuitBreaker(p, sc) {}
+#ifndef GO_CHANNEL_HPP
+#define GO_CHANNEL_HPP
 
+#include "raft/Channel.hpp"
+#include <string>
+#include <raft/Command.hpp>
+
+#include "raft_wrapper.hpp"
+
+class GoChannel : public raft::Channel<std::shared_ptr<raft::Command>> {
+public:
+    GoChannel(uintptr_t h, RaftHandle* r);
+    ~GoChannel() override;
+    void send(std::shared_ptr<raft::Command>) override;
+    bool sendUntil(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t) override;
+    std::optional<std::shared_ptr<raft::Command>> receive() override;
+    std::optional<std::shared_ptr<raft::Command>> receiveUntil(std::chrono::system_clock::time_point t) override;
+    void close() override;
+    bool isClosed() override;
+private:
+    uintptr_t handle;
+    RaftHandle* raftHandle;
+};
+
+#endif // GO_CHANNEL_HPP

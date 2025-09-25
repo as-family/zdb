@@ -14,27 +14,21 @@
 
 #include "common/CircuitBreaker.hpp"
 #include "common/RetryPolicy.hpp"
-#include <unordered_map>
-#include <functional>
 #include <optional>
 #include <string>
-#include <variant>
-#include <cstdint>
-#include "grpc/grpc.h"
 #include <mutex>
 #include <atomic>
-#include <vector>
 #include <memory>
+#include "common/TypesMap.hpp"
 
 extern "C" int go_invoke_callback(uintptr_t handle, int p, char* f, void* args, int args_len, void* reply, int reply_len);
 
 class GoRPCClient {
 public:
-    GoRPCClient(int ii, std::string a, const zdb::RetryPolicy p, uintptr_t h);
+    GoRPCClient(int ii, std::string a, const zdb::RetryPolicy p, uintptr_t h, std::atomic<bool>& sc);
     void stop();
-    ~GoRPCClient();
-    template<typename Req, typename Rep>
-    std::optional<std::monostate> call(std::string name, Req& request, Rep& reply) {
+    template<typename Req, typename Rep = zdb::map_to_t<Req>>
+    std::optional<Rep> call(std::string name, Req& request) {
         if (name == "requestVote") {
             name = "Raft.RequestVote";
         } else if (name == "appendEntries") {
@@ -42,10 +36,8 @@ public:
         } else {
             throw std::invalid_argument{"Unknown function " + name};
         }
-        std::string r;
-        if (!request.SerializeToString(&r)) {
-            throw std::runtime_error("failed to serialize request");
-        }
+        auto& reqMsg = static_cast<google::protobuf::Message&>(request);
+        auto r = reqMsg.SerializeAsString();
         auto p = std::string{};
         p.resize(1024);
         auto len = 0;
@@ -60,12 +52,7 @@ public:
                 return grpc::Status::OK;
             }
         };
-        auto circuitBreaker = std::make_unique<zdb::CircuitBreaker>(policy);
-        std::unique_lock lock{m};
-        breakers.push_back(std::move(circuitBreaker));
-        auto& breaker = *breakers.back();  
-        lock.unlock();
-        auto status = breaker.call(name, f);
+        auto status = circuitBreaker.call(name, f);
         if (!status.back().ok()) {
             return std::nullopt;
         }
@@ -73,18 +60,26 @@ public:
             return std::nullopt;
         }
         p.resize(len);
-        if (reply.ParseFromString(p)) {
-            return std::optional<std::monostate>{std::monostate{}};
+        if constexpr (std::is_same_v<Rep, raft::RequestVoteReply>) {
+            auto reply = raft::proto::RequestVoteReply{};
+            reply.ParseFromString(p);
+            return raft::RequestVoteReply{reply};
+        } else {
+            auto reply = raft::proto::AppendEntriesReply{};
+            reply.ParseFromString(p);
+            // std::cerr << "reply: " << reply.DebugString() << "\n";
+            return raft::AppendEntriesReply{reply};
         }
         return std::nullopt;
     }
 private:
     int i;
+    std::mutex m;
     std::string address;
     zdb::RetryPolicy policy;
     uintptr_t handle;
-    std::vector<std::unique_ptr<zdb::CircuitBreaker>> breakers;
-    std::mutex m;
+    std::atomic<bool>& stopCalls;
+    zdb::CircuitBreaker circuitBreaker;
 };
 
 #endif // GO_RPC_CLIENT_HPP

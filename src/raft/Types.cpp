@@ -10,7 +10,10 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "raft/Types.hpp"
+
+#include "common/Command.hpp"
 #include "raft/Log.hpp"
+#include <memory>
 
 namespace raft {
 
@@ -19,10 +22,10 @@ AppendEntriesArg::AppendEntriesArg(const proto::AppendEntriesArg& arg)
       term(arg.term()),
       prevLogIndex(arg.prevlogindex()),
       prevLogTerm(arg.prevlogterm()),
-      leaderCommit(arg.leadercommit()), 
-      entries{} {
+      leaderCommit(arg.leadercommit()) {
     for (const auto& entry : arg.entries()) {
-        entries.append(entry);
+        auto e = LogEntry {entry.index(), entry.term(), zdb::commandFactory(entry.command())};
+        entries.append(e);
     }
 }
 
@@ -34,10 +37,112 @@ AppendEntriesArg::AppendEntriesArg(std::string l, uint64_t t, uint64_t pi, uint6
       leaderCommit {c},
       entries{g.data()} {}
 
+AppendEntriesArg::operator google::protobuf::Message&() {
+    if (!protoArg) {
+        protoArg = std::make_shared<proto::AppendEntriesArg>();
+    }
+    protoArg->set_leaderid(leaderId);
+    protoArg->set_term(term);
+    protoArg->set_prevlogindex(prevLogIndex);
+    protoArg->set_prevlogterm(prevLogTerm);
+    protoArg->set_leadercommit(leaderCommit);
+    protoArg->clear_entries();
+    for (const auto& e : entries.data()) {
+        auto *entry = protoArg->add_entries();
+        entry->set_index(e.index);
+        entry->set_term(e.term);
+        entry->set_command(e.command->serialize());
+    }
+    return *protoArg;
+}
+
+AppendEntriesArg::operator const google::protobuf::Message&() const {
+    return const_cast<AppendEntriesArg*>(this)->operator google::protobuf::Message&();
+}
+
+AppendEntriesReply::AppendEntriesReply(bool cond, uint64_t t)
+    : success{cond},
+      term{t} {}
+
+AppendEntriesReply::AppendEntriesReply(const google::protobuf::Message& m) {
+    auto *reply = dynamic_cast<const proto::AppendEntriesReply*>(&m);
+    if (!reply) {
+        throw std::runtime_error("Invalid message type");
+    }
+    success = reply->success();
+    term = reply->term();
+    conflictTerm = reply->conflictterm();
+    conflictIndex = reply->conflictindex();
+}
+
+AppendEntriesReply::operator google::protobuf::Message&() {
+    if (!protoReply) {
+        protoReply = std::make_shared<proto::AppendEntriesReply>();
+    }
+    protoReply->set_success(success);
+    protoReply->set_term(term);
+    protoReply->set_conflictterm(conflictTerm);
+    protoReply->set_conflictindex(conflictIndex);
+    return *protoReply;
+}
+
+AppendEntriesReply::operator const google::protobuf::Message&() const {
+    return const_cast<AppendEntriesReply*>(this)->operator google::protobuf::Message&();
+}
+
+RequestVoteArg::RequestVoteArg(std::string c, uint64_t t, uint64_t li, uint64_t lt)
+    : candidateId {c},
+      term{t},
+      lastLogIndex{li},
+      lastLogTerm{lt} {}
+
 RequestVoteArg::RequestVoteArg(const proto::RequestVoteArg& arg)
     : candidateId(arg.candidateid()),
       term(arg.term()),
       lastLogIndex(arg.lastlogindex()),
       lastLogTerm(arg.lastlogterm()) {}
+
+RequestVoteArg::operator google::protobuf::Message&() {
+    if (!protoArg) {
+        protoArg = std::make_shared<proto::RequestVoteArg>();
+    }
+    protoArg->set_candidateid(candidateId);
+    protoArg->set_term(term);
+    protoArg->set_lastlogindex(lastLogIndex);
+    protoArg->set_lastlogterm(lastLogTerm);
+    return *protoArg;
+}
+
+RequestVoteArg::operator const google::protobuf::Message&() const {
+    return const_cast<RequestVoteArg*>(this)->operator google::protobuf::Message&();
+}
+
+
+RequestVoteReply::RequestVoteReply(bool cond, uint64_t t)
+    : voteGranted{cond},
+      term{t} {}
+
+RequestVoteReply::RequestVoteReply(const google::protobuf::Message& m) {
+    auto *reply = dynamic_cast<const proto::RequestVoteReply*>(&m);
+    if (!reply) {
+        throw std::runtime_error("Invalid message type");
+    }
+    voteGranted = reply->votegranted();
+    term = reply->term();
+}
+
+RequestVoteReply::operator google::protobuf::Message&() {
+    if (!protoReply) {
+        protoReply = std::make_shared<proto::RequestVoteReply>();
+    }
+    protoReply->set_votegranted(voteGranted);
+    protoReply->set_term(term);
+    return *protoReply;
+}
+
+RequestVoteReply::operator const google::protobuf::Message&() const {
+    return const_cast<RequestVoteReply*>(this)->operator google::protobuf::Message&();
+}
+
 
 } // namespace raft

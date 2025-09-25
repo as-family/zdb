@@ -9,6 +9,7 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+
 #include "ProxyKVStoreService.hpp"
 #include <grpcpp/grpcpp.h>
 #include "common/ErrorConverter.hpp"
@@ -20,8 +21,9 @@ grpc::Status ProxyKVStoreService::get(
     grpc::ServerContext* /*context*/,
     const zdb::kvStore::GetRequest* request,
     zdb::kvStore::GetReply* reply) {
-    auto t = proxy.call("get", *request, *reply);
+    auto t = proxy.call<zdb::kvStore::GetRequest, zdb::kvStore::GetReply>("get", *request);
     if (t.has_value()) {
+        *reply = t.value();
         return grpc::Status::OK;
     }
     return zdb::toGrpcStatus(t.error().back());
@@ -31,8 +33,9 @@ grpc::Status ProxyKVStoreService::set(
     grpc::ServerContext* /*context*/,
     const zdb::kvStore::SetRequest* request,
     zdb::kvStore::SetReply* reply) {
-    auto t = proxy.call("set", *request, *reply);
+    auto t = proxy.call<zdb::kvStore::SetRequest, zdb::kvStore::SetReply>("set", *request);
     if (t.has_value()) {
+        *reply = t.value();
         return grpc::Status::OK;
     }
     return zdb::toGrpcStatus(t.error().back());
@@ -42,8 +45,9 @@ grpc::Status ProxyKVStoreService::erase(
     grpc::ServerContext* /*context*/,
     const zdb::kvStore::EraseRequest* request,
     zdb::kvStore::EraseReply* reply) {
-    auto t = proxy.call("erase", *request, *reply);
+    auto t = proxy.call<zdb::kvStore::EraseRequest, zdb::kvStore::EraseReply>("erase", *request);
     if (t.has_value()) {
+        *reply = t.value();
         return grpc::Status::OK;
     }
     return zdb::toGrpcStatus(t.error().back());
@@ -53,8 +57,9 @@ grpc::Status ProxyKVStoreService::size(
     grpc::ServerContext* /*context*/,
     const zdb::kvStore::SizeRequest* request,
     zdb::kvStore::SizeReply* reply) {
-    auto t = proxy.call("size", *request, *reply);
+    auto t = proxy.call<zdb::kvStore::SizeRequest, zdb::kvStore::SizeReply>("size", *request);
     if (t.has_value()) {
+        *reply = t.value();
         return grpc::Status::OK;
     }
     return zdb::toGrpcStatus(t.error().back());

@@ -18,16 +18,13 @@
 #include <string>
 #include "server/KVStoreServiceImpl.hpp"
 #include "client/KVStoreClient.hpp"
-#include "client/Config.hpp"
 #include <vector>
 #include <functional>
 #include <atomic>
-#include "common/Types.hpp"
 #include <expected>
 #include "Porcupine.hpp"
 #include "raft/Raft.hpp"
 #include "raft/Channel.hpp"
-#include "raft/TestRaft.hpp"
 #include "storage/InMemoryKVStore.hpp"
 #include "common/KVStateMachine.hpp"
 #include "common/RetryPolicy.hpp"
@@ -35,6 +32,7 @@
 #include <variant>
 #include "server/RPCServer.hpp"
 #include "KVTestFramework/NetworkConfig.hpp"
+#include <memory>
 
 class KVTestFramework {
 public:
@@ -43,7 +41,7 @@ public:
         int nMaybe;
     };
     Porcupine porcupine;
-    KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel& l, raft::Channel& f, raft::Raft& r, zdb::RetryPolicy p);
+    KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel<std::shared_ptr<raft::Command>>& l, raft::Raft& r, zdb::RetryPolicy p);
     std::vector<ClientResult> spawnClientsAndWait(
         int nClients,
         std::chrono::seconds timeout,
@@ -77,8 +75,6 @@ private:
     std::string targetServerAddr;
     NetworkConfig& networkConfig;
     zdb::InMemoryKVStore mem;
-    raft::Channel& leader;
-    raft::Channel& follower;
     raft::Raft& raft;
     zdb::KVStateMachine kvState;
     zdb::KVStoreServiceImpl targetService;

@@ -44,14 +44,13 @@ protected:
     const std::string invalidServerAddr = "localhost:59999";
     
     InMemoryKVStore kvStore;
-    raft::SyncChannel leader1{};
-    raft::SyncChannel follower1{};
+    raft::SyncChannel<std::shared_ptr<raft::Command>> leader1{};
     TestRaft raft1{leader1};
-    zdb::KVStateMachine kvState1 = zdb::KVStateMachine {kvStore, leader1, follower1, raft1};
-    raft::SyncChannel leader2{};
-    raft::SyncChannel follower2{};
+    zdb::KVStateMachine kvState1 = zdb::KVStateMachine {kvStore, leader1, raft1};
+    raft::SyncChannel<std::shared_ptr<raft::Command>> leader2{};
+    raft::SyncChannel<std::shared_ptr<raft::Command>> follower2{};
     TestRaft raft2{leader2};
-    zdb::KVStateMachine kvState2 = zdb::KVStateMachine {kvStore, leader2, follower2, raft2};
+    zdb::KVStateMachine kvState2 = zdb::KVStateMachine {kvStore, leader2, raft2};
     KVStoreServiceImpl serviceImpl1{kvState1};
     KVStoreServiceImpl serviceImpl2{kvState2};
     std::unique_ptr<KVStoreServer> server1;
