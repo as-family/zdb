@@ -31,12 +31,6 @@ enum class Role {
     Leader
 };
 
-struct Start {
-    uint64_t index;
-    uint64_t term;
-    bool isLeader;
-};
-
 class Raft {
 public:
     virtual ~Raft() = default;
@@ -50,6 +44,8 @@ public:
     virtual Role getRole() const { return role; }
     virtual std::string getSelfId() const { return selfId; }
     virtual uint64_t getCurrentTerm() const { return currentTerm; }
+    virtual void persist() = 0;
+    virtual void readPersist(void* data, size_t data_size) = 0;
 protected:
     Role role = Role::Follower;
     std::string selfId;

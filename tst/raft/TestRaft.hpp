@@ -44,6 +44,10 @@ struct TestRaft : raft::Raft {
     }
     void kill() override {
     }
+    void persist() override {
+    }
+    void readPersist(void* data, size_t data_size) override {
+    }
     raft::Channel<std::shared_ptr<raft::Command>>& channel;
 private:
     raft::Log mainLog;

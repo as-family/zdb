@@ -21,10 +21,6 @@ package zdb
 #include <string.h>
 #include <stdint.h>
 
-// Forward declaration of the Go function C++ will call.
-extern int go_invoke_callback(uintptr_t handle, int, char*, void*, int, void*, int);
-extern int channel_go_invoke_callback(uintptr_t handle, void*, int, int);
-
 // C wrapper that C++ will call (calls the exported Go function).
 // We declare it here so the C++ library can link against it.
 int go_invoke_callback(uintptr_t handle, int v, char*, void*, int, void*, int);
@@ -53,18 +49,18 @@ var (
 	cbCounter uint64
 )
 
-func newHandle(cb callbackFn) uintptr {
+func newHandle(cb interface{}) uintptr {
 	h := atomic.AddUint64(&cbCounter, 1)
 	cbStore.Store(uintptr(h), cb)
 	return uintptr(h)
 }
 
-func getCallback(h uintptr) (callbackFn, bool) {
+func getCallback(h uintptr) (interface{}, bool) {
 	v, ok := cbStore.Load(h)
 	if !ok {
 		return nil, false
 	}
-	return v.(callbackFn), true
+	return v, true
 }
 
 func deleteHandle(h uintptr) {
@@ -72,12 +68,12 @@ func deleteHandle(h uintptr) {
 }
 
 func registerCallback(rf *Raft) C.uintptr_t {
-	cb := func(p int, s string, a interface{}, b interface{}) int {
+	cb := callbackFn(func(p int, s string, a interface{}, b interface{}) int {
 		if rf.peers[p].Call(s, a, b) {
 			return 1
 		}
 		return 0
-	}
+	})
 	h := newHandle(cb)
 	return C.uintptr_t(h)
 }
@@ -89,7 +85,7 @@ func GoInvokeCallback(h C.uintptr_t, p int, s string, a interface{}, b interface
 		fmt.Printf("Go: invalid handle %d\n", uintptr(h))
 		return 0
 	}
-	return cb(p, s, a, b)
+	return cb.(callbackFn)(p, s, a, b)
 }
 
 func GoFreeCallback(h C.uintptr_t) {
@@ -98,35 +94,13 @@ func GoFreeCallback(h C.uintptr_t) {
 
 type goChannelCallbackFn func(string, int) int
 
-var (
-	channelCbStore   sync.Map
-	channelCbCounter uint64
-)
-
-func channelNewHandle(cb goChannelCallbackFn) uintptr {
-	h := atomic.AddUint64(&channelCbCounter, 1)
-	channelCbStore.Store(uintptr(h), cb)
-	return uintptr(h)
-}
-
-func channelGetCallback(h uintptr) (goChannelCallbackFn, bool) {
-	v, ok := channelCbStore.Load(h)
-	if !ok {
-		return nil, false
-	}
-	return v.(goChannelCallbackFn), true
-}
-
-func channelDeleteHandle(h uintptr) {
-	channelCbStore.Delete(h)
-}
 
 func channelRegisterCallback(rf *Raft) C.uintptr_t {
-	cb := func(s string, i int) int {
+	cb := goChannelCallbackFn(func(s string, i int) int {
 		protoC := &proto_raft.Command{}
         err := protobuf.Unmarshal([]byte(s), protoC)
         if err != nil {
-//             panic("could not unmarshal Command")
+             return 0
         }
         var x interface{}
         x, err = strconv.Atoi(protoC.Key.Data)
@@ -144,23 +118,19 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
 			return 1
 		}
 		return 0
-	}
-	h := channelNewHandle(cb)
+	})
+	h := newHandle(cb)
 	return C.uintptr_t(h)
 }
 
 //export ChannelGoInvokeCallback
 func ChannelGoInvokeCallback(h C.uintptr_t, s string, i int) int {
-	cb, ok := channelGetCallback(uintptr(h))
+	cb, ok := getCallback(uintptr(h))
 	if !ok {
 		fmt.Printf("Go: invalid handle %d\n", uintptr(h))
 		return 0
 	}
-	return cb(s, i)
-}
-
-func ChannelGoFreeCallback(h C.uintptr_t) {
-	channelDeleteHandle(uintptr(h))
+	return cb.(goChannelCallbackFn)(s, i)
 }
 
 func go_invoke_request_vote(handle C.uintptr_t, p C.int, s string, args unsafe.Pointer, args_len C.int, reply unsafe.Pointer, reply_len C.int) C.int {
@@ -380,13 +350,20 @@ func (rf *Raft) Kill() {
 
 	C.kill_raft(handle)
 	GoFreeCallback(rf.cb)
-	ChannelGoFreeCallback(rf.channelCb)
+	GoFreeCallback(rf.channelCb)
 	// fmt.Println("Go: Raft killed", rf.me)
 }
 
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
 	// Your code here, if desired.
 }
+
+func (rf *Raft) persist() {
+}
+
+func (rf *Raft) readPersist(data []byte) {
+}
+
 
 func (rf *Raft) PersistBytes() int {
 	return rf.persister.RaftStateSize()
@@ -492,6 +469,7 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	if rf.handle == nil {
 		// Avoid returning a half-initialized Raft
 		GoFreeCallback(rf.cb)
+		GoFreeCallback(rf.channelCb)
 		return nil
 	}
 	return rf

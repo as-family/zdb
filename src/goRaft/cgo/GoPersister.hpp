@@ -9,26 +9,19 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef RAFT_WRAPPER_H
-#define RAFT_WRAPPER_H
 
-#include <stdint.h>
+#ifndef GO_PERSISTER_HPP
+#define GO_PERSISTER_HPP
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <storage/Persister.hpp>
 
-typedef struct RaftHandle RaftHandle;
-RaftHandle* create_raft(int id, int servers, uintptr_t handle, uintptr_t channelCb);
-void kill_raft(RaftHandle* h);
-int handle_request_vote(RaftHandle* h, char* args, int args_size, char* reply);
-int handle_append_entries(RaftHandle* h, char* args, int args_size, char* reply);
-int raft_get_state(RaftHandle* handle, int* term, int* is_leader);
-int raft_start(RaftHandle* handle, void* command, int command_size, int* index, int* term, int* is_leader);
-void raft_persist(RaftHandle* handle);
-void raft_read_persist(RaftHandle* handle, void* data, int data_size);
-#ifdef __cplusplus
+class GoPersister : zdb::Persister {
+public:
+    GoPersister(uintptr_t h);
+    void* load() override;
+    void save(void* data, size_t size) override;
+private:
+    uintptr_t handle;
 }
-#endif
 
-#endif // RAFT_WRAPPER_H
+#endif // GO_PERSISTER_HPP

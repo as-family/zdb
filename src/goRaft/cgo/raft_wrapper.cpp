@@ -183,4 +183,17 @@ int raft_start(RaftHandle* handle, void* command, int command_size, int* index, 
     return 1;
 }
 
+void raft_persist(RaftHandle* handle) {
+    if (!handle || !handle->raft) {
+        return;
+    }
+    handle->raft->persist();
+}
+void raft_read_persist(RaftHandle* handle, void* data, int data_size) {
+    if (!handle || !handle->raft) {
+        return;
+    }
+    handle->raft->readPersist(data, data_size);
+}
+
 }

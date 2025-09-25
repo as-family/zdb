@@ -158,7 +158,7 @@ This is an excellent idea for accountability and managing such an ambitious plan
     *   [ ] **Project:** Organize into better nested namespaces
     *   [x] **Project:** Make Raft::Client stoppable
     *   [x] **Project:** Use one channel in RaftImpl
-    *   [ ] **Project:** relax the time requirements in RaftImpl (currently too many RPCs to reach agreement)
+    *   [x] **Project:** relax the time requirements in RaftImpl (currently too many RPCs to reach agreement)
     *   [ ] **Project:** Fix the whole "Many threads in each call" issues!
       * [x] appendEntries need to use `>= clusterSize/2 + 1`
       * [x] More aggressive thread cleanup
