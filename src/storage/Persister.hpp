@@ -12,15 +12,16 @@
 
 #ifndef PERSISTER_H
 #define PERSISTER_H
+#include "raft/Raft.hpp"
 
 namespace zdb {
 
 class Persister {
 public:
-    virtual void* load() = 0;
-    virtual void save(void* data, size_t size) = 0;
-    ~Persister() = default;
-}
+    virtual raft::PersistentState load() = 0;
+    virtual void save(raft::PersistentState) = 0;
+    virtual ~Persister() = default;
+};
 
 } // namespace zdb
 

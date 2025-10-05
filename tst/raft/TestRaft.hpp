@@ -46,7 +46,7 @@ struct TestRaft : raft::Raft {
     }
     void persist() override {
     }
-    void readPersist(void* data, size_t data_size) override {
+    void readPersist(raft::PersistentState) override {
     }
     raft::Channel<std::shared_ptr<raft::Command>>& channel;
 private:

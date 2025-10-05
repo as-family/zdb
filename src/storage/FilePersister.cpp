@@ -10,32 +10,19 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "GoPersister.hpp"
-#include "raft/Raft.hpp"
-#include "proto/raft.pb.h"
-#include "raft_wrapper.hpp"
+#include "storage/FilePersister.hpp"
 
-GoPersister::GoPersister(uintptr_t h) : handle(h) {
+namespace zdb {
+
+FilePersister::FilePersister(const std::string &p) : path(p) {
 }
 
-raft::PersistentState GoPersister::load() {
-    return {};
+raft::PersistentState FilePersister::load() {
 }
 
-void GoPersister::save(raft::PersistentState s) {
-    raft::proto::PersistentState p;
-    p.set_currentterm(s.currentTerm);
-    if (s.votedFor.has_value()) {
-        p.set_votedfor(s.votedFor.value());
-    }
-    for (auto &e : s.log.data()) {
-        auto entry = p.add_log();
-        entry->set_term(e.term);
-        entry->set_index(e.index);
-        entry->set_command(e.command->serialize());
-    }
-    auto str = p.SerializeAsString();
-    persister_go_invoke_callback(handle, str.data(), str.size());
+void FilePersister::save(raft::PersistentState s) {
 }
 
-GoPersister::~GoPersister() = default;
+FilePersister::~FilePersister() {}
+
+} // namespace zdb

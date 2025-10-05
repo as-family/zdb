@@ -27,12 +27,26 @@
 #include "common/FullJitter.hpp"
 #include <queue>
 #include <ranges>
+#include "storage/Persister.hpp"
+#include <thread>
+#include <mutex>
+#include <chrono>
+#include <utility>
+#include <memory>
+#include <optional>
+#include <condition_variable>
 
 namespace raft {
 template <typename Client>
 class RaftImpl : public Raft {
 public:
-    RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::shared_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g);
+    RaftImpl(
+        std::vector<std::string> p,
+        const std::string& s,
+        Channel<std::shared_ptr<raft::Command>>& c,
+        const zdb::RetryPolicy& r,
+        std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g,
+        zdb::Persister& pers);
     void appendEntries(bool heartBeat) override;
     void requestVote() override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
@@ -42,7 +56,7 @@ public:
     Log& log() override;
     void cleanUpThreads();
     void persist() override;
-    void readPersist(void* data, size_t data_size) override;
+    void readPersist(PersistentState) override;
     ~RaftImpl() override;
 private:
     void applyCommittedEntries();
@@ -65,12 +79,20 @@ private:
     std::mutex appendEntriesMutex{};
     std::mutex requestVoteMutex{};
     std::atomic<bool> stopCalls{false};
+    zdb::Persister& persister;
 };
 
 template <typename Client>
-RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::shared_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g)
+RaftImpl<Client>::RaftImpl(
+    std::vector<std::string> p,
+    const std::string& s,
+    Channel<std::shared_ptr<raft::Command>>& c,
+    const zdb::RetryPolicy& r,
+    std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g,
+    zdb::Persister& pers)
 : stateMachine {c},
-  policy {r} {
+  policy {r},
+  persister {pers} {
     selfId = s;
     clusterSize = p.size();
     nextIndex = std::unordered_map<std::string, uint64_t>{};
@@ -171,6 +193,7 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
         role = Role::Follower;
         lastHeartbeat = std::chrono::steady_clock::now();
         votedFor.reset();
+        persist();
     }
     if ((votedFor.has_value() && votedFor.value() == arg.candidateId) || !votedFor.has_value()) {
         if ((mainLog.lastTerm() == arg.lastLogTerm && mainLog.lastIndex() <= arg.lastLogIndex) || mainLog.lastTerm() < arg.lastLogTerm) {
@@ -178,6 +201,7 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
             lastHeartbeat = std::chrono::steady_clock::now();
             reply.term = currentTerm;
             reply.voteGranted = true;
+            persist();
             return reply;
         }
     }
@@ -205,6 +229,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         currentTerm = arg.term;
         role = Role::Follower;
         votedFor.reset();
+        persist();
     }
     auto e = mainLog.at(arg.prevLogIndex);
     if (arg.prevLogIndex == 0 || (e.has_value() && e.value().term == arg.prevLogTerm)) {
@@ -220,6 +245,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
             commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
             applyCommittedEntries();
         }
+        persist();
         reply.term = currentTerm;
         reply.success = true;
         return reply;
@@ -319,6 +345,7 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                     } else if (reply.value().term > currentTerm) {
                         currentTerm = reply.value().term;
                         role = Role::Follower;
+                        persist();
                         stopCalls = true;
                     } else {
                         if (mainLog.termFirstIndex(reply.value().conflictTerm) == 0) {
@@ -354,6 +381,7 @@ void RaftImpl<Client>::requestVote(){
     role = Role::Candidate;
     ++currentTerm;
     votedFor = selfId;
+    persist();
     lastHeartbeat = std::chrono::steady_clock::now();
     votesGranted = 1;
     stopCalls = false;
@@ -392,6 +420,7 @@ void RaftImpl<Client>::requestVote(){
                         currentTerm = reply.value().term;
                         role = Role::Follower;
                         votedFor.reset();
+                        persist();
                         stopCalls = true;
                         lastHeartbeat = std::chrono::steady_clock::now();
                     }
@@ -425,18 +454,27 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
         command
     };
     mainLog.append(e);
+    persist();
     appendEntries(false);
     return true;
 }
 
 template <typename Client>
 void RaftImpl<Client>::persist() {
-
+    persister.save(PersistentState {
+        currentTerm,
+        votedFor,
+        Log {mainLog.data()}
+    });
 }
 
 template <typename Client>
-void RaftImpl<Client>::readPersist(void* data, size_t size) {
-
+void RaftImpl<Client>::readPersist(PersistentState s) {
+    std::cerr << "readPersist" << std::endl;
+    currentTerm = s.currentTerm;
+    votedFor = s.votedFor;
+    mainLog.clear();
+    mainLog.merge(s.log);
 }
 
 

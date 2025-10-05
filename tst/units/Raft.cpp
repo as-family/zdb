@@ -18,7 +18,6 @@
 #include "common/RetryPolicy.hpp"
 #include "common/Error.hpp"
 #include "proto/raft.grpc.pb.h"
-#include <thread>
 #include <chrono>
 #include <memory>
 #include <string>
@@ -30,6 +29,8 @@
 #include <tuple>
 #include "common/Command.hpp"
 #include "common/TypesMap.hpp"
+#include "storage/Persister.hpp"
+#include "storage/FilePersister.hpp"
 
 using namespace raft;
 using namespace testing;
@@ -116,12 +117,13 @@ protected:
     std::unique_ptr<MockChannel> serviceChannel;
     std::function<MockClient&(const std::string&, const zdb::RetryPolicy&, std::atomic<bool>& sc)> clientFactory;
     std::unordered_map<std::string, std::unique_ptr<MockClient>> mockClients;
+    zdb::FilePersister persister = zdb::FilePersister{"."};
 };
 
 TEST_F(RaftImplTest, ConstructorInitializesCorrectly) {
     // Test that constructor initializes the Raft instance correctly
     auto raft = std::make_unique<raft::RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     EXPECT_EQ(raft->getRole(), raft::Role::Follower);
     EXPECT_EQ(raft->getSelfId(), selfId);
@@ -133,7 +135,7 @@ TEST_F(RaftImplTest, ConstructorInitializesCorrectly) {
 
 TEST_F(RaftImplTest, StartCommandWhenFollower) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Follower should not accept start commands
     EXPECT_FALSE(raft->start(nullptr));
@@ -141,7 +143,7 @@ TEST_F(RaftImplTest, StartCommandWhenFollower) {
 
 TEST_F(RaftImplTest, StartCommandWhenLeader) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Manually set role to leader for testing
     // Note: This requires accessing protected members or using friend class
@@ -157,7 +159,7 @@ TEST_F(RaftImplTest, StartCommandWhenLeader) {
 
 TEST_F(RaftImplTest, RequestVoteHandlerWithHigherTerm) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     proto::RequestVoteArg protoArg;
     protoArg.set_candidateid("candidate1");
@@ -176,7 +178,7 @@ TEST_F(RaftImplTest, RequestVoteHandlerWithHigherTerm) {
 
 TEST_F(RaftImplTest, RequestVoteHandlerWithLowerTerm) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // First set current term to 10
     proto::RequestVoteArg setupArg;
@@ -204,7 +206,7 @@ TEST_F(RaftImplTest, RequestVoteHandlerWithLowerTerm) {
 
 TEST_F(RaftImplTest, RequestVoteHandlerAlreadyVoted) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // First vote in term 5
     proto::RequestVoteArg protoArg1;
@@ -236,7 +238,7 @@ TEST_F(RaftImplTest, RequestVoteHandlerAlreadyVoted) {
 
 TEST_F(RaftImplTest, AppendEntriesHandlerWithHigherTerm) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     Log emptyLog;
     AppendEntriesArg arg{"leader1", 5, 0, 0, 0, emptyLog};
@@ -254,7 +256,7 @@ TEST_F(RaftImplTest, AppendEntriesHandlerWithHigherTerm) {
 // Raft spec: If term < currentTerm, reply false
 TEST_F(RaftImplTest, AppendEntriesHandlerWithLowerTerm) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Set current term to 10
     proto::RequestVoteArg setupArg;
@@ -280,7 +282,7 @@ TEST_F(RaftImplTest, AppendEntriesHandlerWithLowerTerm) {
 // Raft spec: Reply false if log doesn't contain entry at prevLogIndex 
 TEST_F(RaftImplTest, AppendEntriesHandlerLogInconsistency) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     Log emptyLog;
     // Try to append at index 5 when log is empty (prevLogIndex doesn't exist)
@@ -296,7 +298,7 @@ TEST_F(RaftImplTest, AppendEntriesHandlerLogInconsistency) {
 
 TEST_F(RaftImplTest, LogAccessor) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     Log& log = raft->log();
     EXPECT_EQ(log.lastIndex(), 0);
@@ -310,7 +312,7 @@ TEST_F(RaftImplTest, LogAccessor) {
 
 TEST_F(RaftImplTest, KillMethod) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Kill should set internal killed flag
     raft->kill();
@@ -324,7 +326,7 @@ TEST_F(RaftImplTest, KillMethod) {
 // Raft spec: Append entries and update commitIndex
 TEST_F(RaftImplTest, AppendEntriesWithValidEntries) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Create a log with one entry
     Log entriesLog;
@@ -349,7 +351,7 @@ TEST_F(RaftImplTest, AppendEntriesWithValidEntries) {
 // Test Raft Log Matching Property - log consistency across multiple appends
 TEST_F(RaftImplTest, MultipleAppendEntriesOperations) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // First append
     Log entriesLog1;
@@ -383,7 +385,7 @@ TEST_F(RaftImplTest, MultipleAppendEntriesOperations) {
 
 TEST_F(RaftImplTest, RequestVoteHandlerOutdatedLog) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Add some entries to the log to make it more up-to-date
     auto u1 = generate_uuid_v7();
@@ -412,7 +414,7 @@ TEST_F(RaftImplTest, RequestVoteHandlerOutdatedLog) {
 // Test for Raft Log Matching Property
 TEST_F(RaftImplTest, LogMatchingProperty) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Add entries to establish a log
     auto u1 = generate_uuid_v7();
@@ -448,7 +450,7 @@ TEST_F(RaftImplTest, LogMatchingProperty) {
 // Test for Raft Safety Properties
 TEST_F(RaftImplTest, LeaderAppendOnlyProperty) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Add some entries to log
     auto u1 = generate_uuid_v7();
@@ -476,7 +478,7 @@ TEST_F(RaftImplTest, LeaderAppendOnlyProperty) {
 // Test Raft Election Safety - at most one leader per term
 TEST_F(RaftImplTest, ElectionSafetyProperty) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Test that a follower cannot grant vote to multiple candidates in same term
     proto::RequestVoteArg vote1;
@@ -504,7 +506,7 @@ TEST_F(RaftImplTest, ElectionSafetyProperty) {
 // Test State Machine Safety Property
 TEST_F(RaftImplTest, StateMachineSafetyProperty) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Test that committed entries are applied in order
     Log entriesLog;
@@ -531,7 +533,7 @@ TEST_F(RaftImplTest, StateMachineSafetyProperty) {
 // Test for term monotonicity - terms never decrease
 TEST_F(RaftImplTest, TermMonotonicityProperty) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     EXPECT_EQ(raft->getCurrentTerm(), 0);
     
@@ -583,6 +585,7 @@ protected:
         std::chrono::milliseconds{200L}
     };
     std::unique_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> serviceChannel;
+    zdb::FilePersister persister = zdb::FilePersister{"."};
 };
 
 TEST_F(RaftImplIntegrationTest, BasicChannelInteraction) {
@@ -595,7 +598,7 @@ TEST_F(RaftImplIntegrationTest, BasicChannelInteraction) {
     };
     
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Test basic log entry and commit
     Log entriesLog;
@@ -622,7 +625,7 @@ TEST_F(RaftImplIntegrationTest, StateTransitions) {
     };
     
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Start as follower
     EXPECT_EQ(raft->getRole(), Role::Follower);
@@ -637,7 +640,7 @@ TEST_F(RaftImplIntegrationTest, StateTransitions) {
 // Test for edge cases and error conditions
 TEST_F(RaftImplTest, AppendEntriesWithConflictingEntries) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // First, add an entry
     auto u1 = generate_uuid_v7();
@@ -669,7 +672,7 @@ TEST_F(RaftImplTest, EmptyPeersList) {
     std::vector<std::string> emptyPeers = {};
     
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        emptyPeers, selfId, *serviceChannel, policy, clientFactory);
+        emptyPeers, selfId, *serviceChannel, policy, clientFactory, persister);
 
     EXPECT_EQ(raft->getRole(), Role::Follower);
     EXPECT_EQ(raft->getSelfId(), selfId);
@@ -681,7 +684,7 @@ TEST_F(RaftImplTest, EmptyPeersList) {
 // Test that previously applied entries are not re-sent when new entries are added
 TEST_F(RaftImplTest, DoesNotResendPreviouslyAppliedEntries) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // First append - should apply entry 1
     Log firstBatch;
@@ -747,7 +750,7 @@ TEST_F(RaftImplTest, DoesNotResendPreviouslyAppliedEntries) {
 // Test edge case: commit index moves but no new entries to apply
 TEST_F(RaftImplTest, CommitIndexAdvanceWithoutNewEntries) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     // Add entries but don't commit them initially
     Log entriesLog;
@@ -791,7 +794,7 @@ TEST_F(RaftImplTest, CommitIndexAdvanceWithoutNewEntries) {
 // Performance and stress tests
 TEST_F(RaftImplTest, MultipleVoteRequests) {
     auto raft = std::make_unique<RaftImpl<MockClient>>(
-        peers, selfId, *serviceChannel, policy, clientFactory);
+        peers, selfId, *serviceChannel, policy, clientFactory, persister);
     
     const int numRequests = 100;
     std::vector<RequestVoteReply> replies;

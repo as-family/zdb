@@ -13,7 +13,6 @@
 #include "raft/Raft.hpp"
 #include "raft/RaftImpl.hpp"
 #include "raft/Channel.hpp"
-#include "raft/SyncChannel.hpp"
 #include "proto/raft.pb.h"
 #include "GoRPCClient.hpp"
 #include <memory>
@@ -26,6 +25,7 @@
 #include <unordered_map>
 #include "common/Command.hpp"
 #include "GoChannel.hpp"
+#include "GoPersister.hpp"
 #include "RaftHandle.hpp"
 
 extern "C" {
@@ -63,7 +63,7 @@ void kill_raft(RaftHandle* h) {
     }
 }
 
-RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb) {
+RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, uintptr_t pCb) {
     std::vector<std::string> peers;
     std::unordered_map<std::string, int> ids;
     std::string selfId = "peer_" + std::to_string(id);
@@ -91,9 +91,11 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb) 
         nullptr,
         ids,
         {},
+        nullptr,
         nullptr
     };
     handle->goChannel = std::make_unique<GoChannel>(handle->channelCallback, handle);
+    handle->persister = std::make_unique<GoPersister>(pCb);
     handle->raft = std::make_unique<raft::RaftImpl<GoRPCClient>>(
         peers,
         selfId,
@@ -102,7 +104,8 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb) 
         [handle, cb](std::string address, zdb::RetryPolicy p, std::atomic<bool>& sc) -> GoRPCClient& {
             handle->clients[address] = std::make_unique<GoRPCClient>(handle->peerIds.at(address), address, p, cb, sc);
             return *(handle->clients[address]);
-        }
+        },
+        *handle->persister
     );
     return handle;
 }
@@ -193,7 +196,26 @@ void raft_read_persist(RaftHandle* handle, void* data, int data_size) {
     if (!handle || !handle->raft) {
         return;
     }
-    handle->raft->readPersist(data, data_size);
+    raft::proto::PersistentState protoState;
+    if (!protoState.ParseFromString(std::string{static_cast<const char*>(data), static_cast<size_t>(data_size)})) {
+        throw std::runtime_error("failed to parse PersistentState");
+    }
+    raft::PersistentState p;
+    p.currentTerm = protoState.currentterm();
+    if (protoState.has_votedfor()) {
+        p.votedFor = protoState.votedfor();
+    } else {
+        p.votedFor = std::nullopt;
+    }
+    for (const auto& e : protoState.log()) {
+
+        p.log.append(raft::LogEntry{
+            e.index(),
+            e.term(),
+            zdb::commandFactory(e.command())
+        });
+    }
+    handle->raft->readPersist(p);
 }
 
 }

@@ -131,6 +131,11 @@ std::optional<LogEntry> Log::at(uint64_t index) const {
     return *i;
 }
 
+void Log::clear() {
+    std::lock_guard g{m};
+    entries.clear();
+}
+
 std::vector<LogEntry> Log::data() const {
     std::lock_guard g{m};
     return entries;

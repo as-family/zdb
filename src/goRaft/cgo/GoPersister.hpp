@@ -14,14 +14,18 @@
 #define GO_PERSISTER_HPP
 
 #include <storage/Persister.hpp>
+#include "raft/Raft.hpp"
 
-class GoPersister : zdb::Persister {
+extern "C" int persister_go_invoke_callback(uintptr_t handle, void *state, int stateSize);
+
+class GoPersister : public zdb::Persister {
 public:
     GoPersister(uintptr_t h);
-    void* load() override;
-    void save(void* data, size_t size) override;
+    raft::PersistentState load() override;
+    void save(raft::PersistentState) override;
+    ~GoPersister() override;
 private:
     uintptr_t handle;
-}
+};
 
 #endif // GO_PERSISTER_HPP
