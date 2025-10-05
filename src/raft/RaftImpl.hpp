@@ -34,7 +34,6 @@
 #include <utility>
 #include <memory>
 #include <optional>
-#include <condition_variable>
 
 namespace raft {
 template <typename Client>
@@ -141,11 +140,12 @@ RaftImpl<Client>::RaftImpl(
 
 template <typename Client>
 RaftImpl<Client>::~RaftImpl() {
+    auto t = std::chrono::steady_clock::now();
     killed = true;
     stopCalls = true;
     threadsCleanupTimer.stop();
-    electionTimer.stop();
     heartbeatTimer.stop();
+    electionTimer.stop();
     std::unique_lock lock{m};
     while (!activeThreads.empty()) {
         std::thread& t = activeThreads.front();
@@ -154,16 +154,17 @@ RaftImpl<Client>::~RaftImpl() {
         }
         activeThreads.pop();
     }
+    std::cerr << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t) << " " << selfId << " RaftImpl::~RaftImpl done" << std::endl;
 }
 
 template <typename Client>
 void RaftImpl<Client>::cleanUpThreads() {
     std::unique_lock lock{m};
-    if (activeThreads.size() <= clusterSize * 3) {
+    if (activeThreads.size() <= clusterSize * 2) {
         return;
     }
     std::vector<std::thread> threads;
-    while (activeThreads.size() > clusterSize * 3) {
+    while (activeThreads.size() > clusterSize * 2) {
         std::thread& t = activeThreads.front();
         threads.push_back(std::move(t));
         activeThreads.pop();
@@ -461,6 +462,7 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
 
 template <typename Client>
 void RaftImpl<Client>::persist() {
+    // std::cerr << "persist" << std::endl;
     persister.save(PersistentState {
         currentTerm,
         votedFor,
@@ -470,7 +472,7 @@ void RaftImpl<Client>::persist() {
 
 template <typename Client>
 void RaftImpl<Client>::readPersist(PersistentState s) {
-    std::cerr << "readPersist" << std::endl;
+    // std::cerr << "readPersist" << std::endl;
     currentTerm = s.currentTerm;
     votedFor = s.votedFor;
     mainLog.clear();

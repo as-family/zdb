@@ -34,6 +34,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+// 	"time"
 	"unsafe"
 
     "6.5840/labgob"
@@ -50,6 +51,9 @@ var (
 	cbStore   sync.Map
 	cbCounter uint64
 )
+
+var rafts = make(map[int]bool)
+
 
 func newHandle(cb interface{}) uintptr {
 	h := atomic.AddUint64(&cbCounter, 1)
@@ -71,6 +75,12 @@ func deleteHandle(h uintptr) {
 
 func registerCallback(rf *Raft) C.uintptr_t {
 	cb := callbackFn(func(p int, s string, a interface{}, b interface{}) int {
+	    if (rf.dead == 1) {
+	        return 0
+	    }
+        if (rafts[p] == false) {
+            return 0
+        }
 		if rf.peers[p].Call(s, a, b) {
 			return 1
 		}
@@ -144,7 +154,9 @@ func go_invoke_request_vote(handle C.uintptr_t, p C.int, s string, args unsafe.P
 		LastLogTerm:  protoArg.LastLogTerm,
 	}
 	rep := &RequestVoteReply{}
+// 	start := time.Now()
 	result := GoInvokeCallback(handle, int(p), s, arg, rep)
+// 	fmt.Println(int(p), " Go: RequestVote callback took", time.Since(start))
 	if result == 0 {
 		return C.int(-1)
 	}
@@ -191,7 +203,9 @@ func go_invoke_append_entries(handle C.uintptr_t, p C.int, s string, args unsafe
 		Entries:      entries,
 	}
 	rep := &AppendEntriesReply{}
+// 	start := time.Now()
 	result := GoInvokeCallback(handle, int(p), s, arg, rep)
+// 	fmt.Println(int(p), " Go: AppendEntries callback took", time.Since(start))
 	if result == 0 {
 		return C.int(-1)
 	}
@@ -390,6 +404,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 }
 
 func (rf *Raft) Kill() {
+    rf.dead = 1
+    rafts[rf.me] = false
 	if rf.handle == nil {
 		// fmt.Println("Go: Raft handle is nil, already killed", rf.me)
 		return
@@ -540,6 +556,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArg, reply *AppendEntriesReply)
 }
 
 func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyCh chan raftapi.ApplyMsg) raftapi.Raft {
+    rafts[me] = true
 	rf := &Raft{}
 	rf.peers = peers
 	rf.me = me

@@ -52,7 +52,10 @@ public:
                 return grpc::Status::OK;
             }
         };
+        // std::cerr << "calling " << name << "\n";
+        auto t = std::chrono::system_clock::now();
         auto status = circuitBreaker.call(name, f);
+        // std::cerr << "called " << name << " in " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - t) << "\n";
         if (!status.back().ok()) {
             return std::nullopt;
         }
