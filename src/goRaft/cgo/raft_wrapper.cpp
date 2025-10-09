@@ -81,7 +81,7 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, 
             std::chrono::milliseconds{1L},
             std::chrono::milliseconds{5L},
             std::chrono::milliseconds{4L},
-            3,
+            10,
             servers - 1,
             std::chrono::milliseconds{4L},
             std::chrono::milliseconds{4L}

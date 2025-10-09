@@ -39,49 +39,21 @@ bool Log::merge(const Log& other) {
     if (other.entries.empty()) {
         return true;
     }
-
-    // Find where to start merging - first entry in other log
-    const auto start_index = other.entries.front().index;
-
-    // Safety check: don't allow gaps in the log
-    // The other log should start at or before our lastIndex + 1
-    const auto our_last = entries.empty() ? 0 : entries.back().index;
-    if (start_index > our_last + 1) {
-        // This would create a gap in the log - reject the merge
-        return false;
-    }
-
-    auto our_it = std::ranges::find_if(entries, [start_index](const LogEntry& e) {
-        return e.index >= start_index;
-    });
-
-    // If we don't have any entries at or after start_index, just append everything
-    if (our_it == entries.end()) {
-        entries.insert(entries.end(), other.entries.begin(), other.entries.end());
-        return true;
-    }
-
-    // Compare entries one by one to find first conflict
-    auto other_it = other.entries.begin();
-    auto conflict_point = our_it;
-
-    while (our_it != entries.end() && other_it != other.entries.end() &&
-           our_it->index == other_it->index) {
-
-        // If terms differ, we have a conflict - truncate from here
-        if (our_it->term != other_it->term) {
+    size_t i = 0;
+    // std::cerr << "other.entries.size() = " << other.entries.size() << std::endl;
+    while (i < other.entries.size()) {
+        auto e = other.entries[i];
+        auto v = atIter(e.index);
+        if (!v.has_value()) {
             break;
         }
-
-        // Terms match, move to next entry
-        ++our_it;
-        ++other_it;
-        conflict_point = our_it;
+        if (v.value()->term != e.term) {
+            entries.erase(v.value(), entries.end());
+            break;
+        }
+        ++i;
     }
-
-    // Truncate our log from the conflict point and append remaining other entries
-    entries.erase(conflict_point, entries.end());
-    entries.insert(entries.end(), other_it, other.entries.end());
+    entries.insert(entries.end(), other.entries.begin() + i, other.entries.end());
     return true;
 }
 
@@ -129,6 +101,14 @@ std::optional<LogEntry> Log::at(uint64_t index) const {
         return std::nullopt;
     }
     return *i;
+}
+
+std::optional<std::vector<LogEntry>::const_iterator> Log::atIter(uint64_t index) const {
+    auto i = std::ranges::find_if(entries, [index](const LogEntry& e) { return e.index == index; });
+    if (i == entries.end()) {
+        return std::nullopt;
+    }
+    return i;
 }
 
 void Log::clear() {

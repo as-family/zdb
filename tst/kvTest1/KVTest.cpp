@@ -103,9 +103,6 @@ TEST(KVTest, TestPutConcurrentReliable) {
     });
     zdb::Config config {{proxyAddress}, policy};
     auto client = zdb::KVStoreClient {config};
-    for (auto& result : results) {
-        std::cerr << "result " << result.nOK << " " << result.nMaybe << std::endl;
-    }
     ASSERT_TRUE(kvTest.checkSetConcurrent(client, zdb::Key{"k"}, results));
     ASSERT_TRUE(kvTest.porcupine.check(10));
 }

@@ -46,6 +46,7 @@ public:
     bool merge(const Log& other);
     void clear();
     std::optional<LogEntry> at(uint64_t index) const;
+    std::optional<std::vector<LogEntry>::const_iterator> atIter(uint64_t index) const;
     Log suffix(uint64_t start) const;
     std::vector<LogEntry> data() const;
  private:

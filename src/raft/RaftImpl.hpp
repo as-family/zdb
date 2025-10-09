@@ -154,7 +154,7 @@ RaftImpl<Client>::~RaftImpl() {
         }
         activeThreads.pop();
     }
-    std::cerr << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t) << " " << selfId << " RaftImpl::~RaftImpl done" << std::endl;
+    // std::cerr << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t) << " " << selfId << " RaftImpl::~RaftImpl done" << std::endl;
 }
 
 template <typename Client>
@@ -213,6 +213,7 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
 
 template <typename Client>
 AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg& arg) {
+    // std::cerr << selfId << " appendEntriesHandler " << arg.leaderId << " " << arg.prevLogIndex << " " << arg.prevLogTerm << std::endl;
     if (killed.load()) {
         return AppendEntriesReply{false, currentTerm};
     }
@@ -234,27 +235,23 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
     }
     auto e = mainLog.at(arg.prevLogIndex);
     if (arg.prevLogIndex == 0 || (e.has_value() && e.value().term == arg.prevLogTerm)) {
-        bool mergeSuccess = mainLog.merge(arg.entries);
-        if (!mergeSuccess) {
-            reply.term = currentTerm;
-            reply.success = false;
-            reply.conflictIndex = mainLog.lastIndex() + 1;
-            reply.conflictTerm = 0;
-            return reply;
-        }
+        // std::cerr << "merging" << std::endl;
+        mainLog.merge(arg.entries);
+        persist();
+        // std::cerr << "merged" << std::endl;
         if (arg.leaderCommit > commitIndex) {
             commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
             applyCommittedEntries();
         }
-        persist();
         reply.term = currentTerm;
         reply.success = true;
         return reply;
     } else {
+        // std::cerr << "not merging" << std::endl;
         reply.term = currentTerm;
         reply.success = false;
         if (e.has_value()) {
-            reply.conflictIndex = e.value().index;
+            reply.conflictIndex = mainLog.termFirstIndex(e.value().term);
             reply.conflictTerm = e.value().term;
         } else if (mainLog.lastIndex() > 0) {
             reply.conflictIndex = mainLog.lastIndex();
@@ -301,7 +298,7 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                 auto& peer = peers.at(peerId).get();
                 auto n = nextIndex.at(peerId);
                 auto g = mainLog.suffix(n);
-                auto prevLogIndex = n == 0? 0 : n - 1;
+                auto prevLogIndex = n - 1;
                 AppendEntriesArg arg {
                     selfId,
                     currentTerm,
@@ -326,22 +323,22 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                             matchIndex[peerId] = g.lastIndex();
                         }
                         ++successCount;
-                        if (successCount >= clusterSize / 2 + 1) {
-                            for (auto i = mainLog.lastIndex(); i > commitIndex; --i) {
-                                if (mainLog.at(i).value().term == currentTerm) {
-                                    auto matches = 1;
-                                    for (auto& index : matchIndex | std::views::values) {
-                                        if (index >= i) {
-                                            ++matches;
-                                        }
-                                    }
-                                    if (matches >= clusterSize / 2 + 1) {
-                                        commitIndex = i;
-                                        break;
+                        for (auto i = mainLog.lastIndex(); i > commitIndex; --i) {
+                            if (mainLog.at(i).value().term == currentTerm) {
+                                auto matches = 1;
+                                for (auto& index : matchIndex | std::views::values) {
+                                    if (index >= i) {
+                                        ++matches;
                                     }
                                 }
+                                if (matches >= clusterSize / 2 + 1) {
+                                    commitIndex = i;
+                                    applyCommittedEntries();
+                                    break;
+                                }
+                            } else {
+                                break;
                             }
-                            applyCommittedEntries();
                         }
                     } else if (reply.value().term > currentTerm) {
                         currentTerm = reply.value().term;
@@ -349,11 +346,8 @@ void RaftImpl<Client>::appendEntries(const bool heartBeat){
                         persist();
                         stopCalls = true;
                     } else {
-                        if (mainLog.termFirstIndex(reply.value().conflictTerm) == 0) {
-                            nextIndex[peerId] = std::max(reply.value().conflictIndex, static_cast<uint64_t>(1));
-                        } else {
-                            nextIndex[peerId] = mainLog.termFirstIndex(reply.value().conflictTerm);
-                        }
+                        nextIndex[peerId] = mainLog.termFirstIndex(reply.value().conflictTerm) - 1;
+                        // --nextIndex[peerId];
                         nextIndex[peerId] = std::clamp(nextIndex[peerId], static_cast<uint64_t>(1), mainLog.lastIndex() + 1);
                     }
                 }
@@ -418,11 +412,11 @@ void RaftImpl<Client>::requestVote(){
                             appendEntries(false);
                         }
                     } else if (reply.value().term > currentTerm) {
+                        stopCalls = true;
                         currentTerm = reply.value().term;
                         role = Role::Follower;
                         votedFor.reset();
                         persist();
-                        stopCalls = true;
                         lastHeartbeat = std::chrono::steady_clock::now();
                     }
                 }
