@@ -54,8 +54,8 @@ public:
     virtual ~Raft() = default;
     virtual AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) = 0;
     virtual RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) = 0;
-    virtual void appendEntries(bool heartBeat) = 0;
-    virtual void requestVote() = 0;
+    virtual void appendEntries(std::string peerId) = 0;
+    virtual void requestVote(std::string peerId) = 0;
     virtual bool start(std::shared_ptr<Command> c) = 0;
     virtual Log& log() = 0;
     virtual void kill() = 0;

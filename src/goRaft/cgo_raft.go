@@ -99,7 +99,7 @@ func registerPersister(rf *Raft) C.uintptr_t {
 func GoInvokeCallback(h C.uintptr_t, p int, s string, a interface{}, b interface{}) int {
 	cb, ok := getCallback(uintptr(h))
 	if !ok {
-		fmt.Printf("Go: invalid handle %d\n", uintptr(h))
+		fmt.Printf("GoInvokeCallback: invalid handle %d\n", uintptr(h))
 		return 0
 	}
 	return cb.(callbackFn)(p, s, a, b)
@@ -125,6 +125,9 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
             x = protoC.Key.Data
         }
 //         fmt.Println("Go: channel callback invoked:", x)
+        if rf.dead == 1 {
+            return 0
+        }
 		if rf.applyCh != nil {
 			rf.applyCh <- raftapi.ApplyMsg{
 				CommandValid: true,
@@ -251,7 +254,7 @@ func channel_go_invoke_callback(handle C.uintptr_t, s unsafe.Pointer, s_len C.in
 	str := C.GoStringN((*C.char)(s), s_len)
     cb, ok := getCallback(uintptr(handle))
     if !ok {
-        fmt.Printf("Go: invalid handle %d\n", uintptr(handle))
+        fmt.Printf("channel_go_invoke_callback: invalid handle %d\n", uintptr(handle))
         return 0
     }
     return C.int(cb.(goChannelCallbackFn)(str, int(i)))
@@ -261,7 +264,7 @@ func channel_go_invoke_callback(handle C.uintptr_t, s unsafe.Pointer, s_len C.in
 func persister_go_invoke_callback(handle C.uintptr_t, data unsafe.Pointer, data_len C.int) C.int {
     ps, ok := getCallback(uintptr(handle))
     if !ok {
-        fmt.Printf("Go: invalid handle %d\n", uintptr(handle))
+        fmt.Printf("persister_go_invoke_callback: invalid handle %d\n", uintptr(handle))
         return C.int(0)
     }
     p := ps.(*tester.Persister)
@@ -419,6 +422,7 @@ func (rf *Raft) Kill() {
 	C.kill_raft(handle)
 	GoFreeCallback(rf.cb)
 	GoFreeCallback(rf.channelCb)
+	GoFreeCallback(rf.persisterCB)
 	// fmt.Println("Go: Raft killed", rf.me)
 }
 
@@ -570,6 +574,7 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 		// Avoid returning a half-initialized Raft
 		GoFreeCallback(rf.cb)
 		GoFreeCallback(rf.channelCb)
+		GoFreeCallback(rf.persisterCB)
 		return nil
 	}
     rf.readPersist(rf.persister.ReadRaftState())
