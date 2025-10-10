@@ -89,12 +89,12 @@ uint64_t Log::termLastIndex(uint64_t term) const {
     if (entries.empty()) {
         return 0;
     }
-    auto i = std::ranges::find_if(entries, [term](const LogEntry& e) { return e.term > term; });
-    if (i == entries.begin()) {
-        return 0;
+    // find from the end the last entry that has the given term
+    auto ri = std::find_if(entries.rbegin(), entries.rend(), [term](const LogEntry& e) { return e.term == term; });
+    if (ri == entries.rend()) {
+        return 0; // term not present in this log
     }
-    --i;
-    return i->index;
+    return ri->index;
 }
 
 Log Log::suffix(uint64_t start) const {
