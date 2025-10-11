@@ -36,7 +36,7 @@
 #include <optional>
 #include <condition_variable>
 #include <print>
-
+#include <numeric>
 namespace raft {
 template <typename Client>
 class RaftImpl : public Raft {
@@ -170,7 +170,7 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
     if (killed.load()) {
         return RequestVoteReply{false, currentTerm};
     }
-    std::println(stderr, "{} requestVoteHandler: {} {} . {} {}", std::chrono::system_clock::now(), selfId, currentTerm, arg.candidateId, arg.term);
+    // std::println(stderr, "{} requestVoteHandler: {} {} . {} {}", std::chrono::system_clock::now(), selfId, currentTerm, arg.candidateId, arg.term);
     RequestVoteReply reply;
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -186,7 +186,7 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
     }
     if ((votedFor.has_value() && votedFor.value() == arg.candidateId) || !votedFor.has_value()) {
         if ((mainLog.lastTerm() == arg.lastLogTerm && mainLog.lastIndex() <= arg.lastLogIndex) || mainLog.lastTerm() < arg.lastLogTerm) {
-            std::println(stderr, "{} VotedFor: {} {} . {} {}", std::chrono::system_clock::now(), selfId, currentTerm, arg.candidateId, arg.term);
+            // std::println(stderr, "{} VotedFor: {} {} . {} {}", std::chrono::system_clock::now(), selfId, currentTerm, arg.candidateId, arg.term);
             votedFor = arg.candidateId;
             role = Role::Follower;
             lastHeartbeat = std::chrono::steady_clock::now();
@@ -207,7 +207,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
     if (killed.load()) {
         return AppendEntriesReply{false, currentTerm};
     }
-    std::println(stdout, "{} appendEntriesHandler: {} {} . {} {}", std::chrono::system_clock::now(), selfId, currentTerm, arg.leaderId, arg.term);
+    // std::println(stdout, "{} appendEntriesHandler: {} {} . {} {}", std::chrono::system_clock::now(), selfId, currentTerm, arg.leaderId, arg.term);
     AppendEntriesReply reply;
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -231,7 +231,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         }
         reply.term = currentTerm;
         reply.success = true;
-        std::println(stderr, "{} appended: {} {} {}", std::chrono::system_clock::now(), selfId, arg.leaderId, arg.term);
+        // std::println(stderr, "{} appended: {} {} {}", std::chrono::system_clock::now(), selfId, arg.leaderId, arg.term);
         return reply;
     } else {
         reply.term = currentTerm;
@@ -249,9 +249,11 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
 
 template <typename Client>
 void RaftImpl<Client>::applyCommittedEntries() {
+    std::println(stderr, "{} applyCommittedEntries: {} {}", std::chrono::system_clock::now(), selfId, commitIndex);
     while (lastApplied < commitIndex) {
         int i = lastApplied + 1;
         auto c = mainLog.at(i);
+        std::println(stderr, "{} applyCommittedEntries: {} {}", std::chrono::system_clock::now(), selfId, c.value().command->serialize());
         if (!stateMachine.sendUntil(c.value().command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
             break;
         }
@@ -264,7 +266,7 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
     auto& peer = peers.at(peerId).get();
     while (!killed.load()) {
         std::unique_lock initLock{m};
-        std::println(stderr, "{} waiting: {} {}", std::chrono::system_clock::now(), selfId, peerId);
+        // std::println(stderr, "{} waiting: {} {}", std::chrono::system_clock::now(), selfId, peerId);
         appendCond.wait(initLock, [this, peerId] { return killed.load() || (role == Role::Leader && (appendNow.at(peerId) || shouldStartHeartbeat.at(peerId))); });
         if (killed.load()) {
             break;
@@ -275,7 +277,7 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
         if (!(appendNow.at(peerId) || shouldStartHeartbeat.at(peerId))) {
             continue;
         }
-        std::println(stderr, "{} appendEntries: {} {}", std::chrono::system_clock::now(), selfId, peerId);
+        // std::println(stderr, "{} appendEntries: {} {}", std::chrono::system_clock::now(), selfId, peerId);
         stopCalls = false;
         auto n = nextIndex.at(peerId);
         auto g = mainLog.suffix(n);
@@ -293,13 +295,14 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
             "appendEntries",
             arg
         );
+        // std::println(stderr, "{} Called: {} {}", std::chrono::system_clock::now(), selfId, peerId);
         std::unique_lock resLock{m};
         if (killed.load() || role != Role::Leader) {
             stopCalls = true;
             continue;
         }
         if (!reply.has_value()) {
-            std::println(stderr, "{} no Response: {} {}", std::chrono::system_clock::now(), selfId, peerId);
+            // std::println(stderr, "{} no Response: {} {}", std::chrono::system_clock::now(), selfId, peerId);
             continue;
         }
         if (reply.value().term < currentTerm || arg.term != currentTerm) {
@@ -363,7 +366,7 @@ void RaftImpl<Client>::initVote() {
     if (const auto d = std::chrono::steady_clock::now() - lastHeartbeat; std::chrono::duration_cast<std::chrono::milliseconds>(d) < electionTimeout) {
         return;
     }
-    std::println(stderr, "{} initVote: {} {}", std::chrono::system_clock::now(), selfId, currentTerm);
+    // std::println(stderr, "{} initVote: {} {}", std::chrono::system_clock::now(), selfId, currentTerm);
     role = Role::Candidate;
     ++currentTerm;
     votedFor = selfId;
@@ -427,7 +430,7 @@ void RaftImpl<Client>::requestVote(std::string peerId) {
         if (reply.value().voteGranted) {
             ++votesGranted;
             if (votesGranted == clusterSize / 2 + 1) {
-                std::println(stderr, "{} Leader: {} {}", std::chrono::system_clock::now(), selfId, currentTerm);
+                // std::println(stderr, "{} Leader: {} {}", std::chrono::system_clock::now(), selfId, currentTerm);
                 role = Role::Leader;
                 shouldStartElection = false;
                 stopCalls = true;
@@ -469,6 +472,11 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
         app = true;
     }
     appendCond.notify_all();
+    // appendCond.wait(lock, [this] {
+    //     return killed.load() || std::accumulate(appendNow.begin(), appendNow.end(), 0, [](auto acc, auto t) {
+    //         return acc + !t.second;
+    //     }) >= clusterSize / 2 + 1;
+    // });
     return true;
 }
 

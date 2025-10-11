@@ -30,11 +30,12 @@ import "C"
 
 import (
     "bytes"
+    "context"
 	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
-// 	"time"
+ 	"time"
 	"unsafe"
 
     "6.5840/labgob"
@@ -75,10 +76,10 @@ func deleteHandle(h uintptr) {
 
 func registerCallback(rf *Raft) C.uintptr_t {
 	cb := callbackFn(func(p int, s string, a interface{}, b interface{}) int {
-	    if (rf.dead == 1) {
+	    if rf.dead == 1 {
 	        return 0
 	    }
-        if (rafts[p] == false) {
+        if rafts[p] == false {
             return 0
         }
 		if rf.peers[p].Call(s, a, b) {
@@ -102,7 +103,19 @@ func GoInvokeCallback(h C.uintptr_t, p int, s string, a interface{}, b interface
 		fmt.Printf("GoInvokeCallback: invalid handle %d\n", uintptr(h))
 		return 0
 	}
-	return cb.(callbackFn)(p, s, a, b)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+    defer cancel()
+    done := make(chan int, 1)
+    go func() {
+        done <- cb.(callbackFn)(p, s, a, b)
+    }()
+    select {
+    case res := <-done:
+        return res
+    case <-ctx.Done():
+//         fmt.Printf("GoInvokeCallback: callback timed out for handle %d\n", uintptr(h))
+        return 0
+    }
 }
 
 func GoFreeCallback(h C.uintptr_t) {
