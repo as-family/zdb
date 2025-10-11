@@ -40,14 +40,13 @@ bool Log::merge(const Log& other) {
         return true;
     }
     size_t i = 0;
-    // std::cerr << "other.entries.size() = " << other.entries.size() << std::endl;
     while (i < other.entries.size()) {
         auto e = other.entries[i];
         auto v = atIter(e.index);
         if (!v.has_value()) {
             break;
         }
-        if (v.value()->term != e.term) {
+        if (*v.value() != e) {
             entries.erase(v.value(), entries.end());
             break;
         }
