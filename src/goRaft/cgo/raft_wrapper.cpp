@@ -183,6 +183,7 @@ int raft_start(RaftHandle* handle, void* command, int command_size, int* index, 
     *is_leader = handle->raft->start(c);
     *index = c->index;
     *term = c->term;
+    std::cerr << "raft_start: " << *index << " " << *term << " " << *is_leader << " " << handle->raft->log().data().size() << " " << handle->raft->log().lastTerm() << "\n";
     return 1;
 }
 

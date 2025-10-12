@@ -53,7 +53,7 @@ var (
 	cbCounter uint64
 )
 
-var rafts = make(map[int]bool)
+var rafts sync.Map
 
 
 func newHandle(cb interface{}) uintptr {
@@ -79,7 +79,7 @@ func registerCallback(rf *Raft) C.uintptr_t {
 	    if rf.dead == 1 {
 	        return 0
 	    }
-        if rafts[p] == false {
+        if v, ok := rafts.Load(p); !ok || !v.(bool) {
             return 0
         }
 		if rf.peers[p].Call(s, a, b) {
@@ -133,9 +133,16 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
              return 0
         }
         var x interface{}
-        x, err = strconv.Atoi(protoC.Key.Data)
-        if err != nil {
-            x = protoC.Key.Data
+        var commandValid bool
+        if (protoC.Key == nil) || (protoC.Key.Data == "") {
+            x = nil
+            commandValid = true
+        } else {
+            commandValid = true
+            x, err = strconv.Atoi(protoC.Key.Data)
+            if err != nil {
+                x = protoC.Key.Data
+            }
         }
 //         fmt.Println("Go: channel callback invoked:", x)
         if rf.dead == 1 {
@@ -143,7 +150,7 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
         }
 		if rf.applyCh != nil {
 			rf.applyCh <- raftapi.ApplyMsg{
-				CommandValid: true,
+				CommandValid: commandValid,
 				Command:      x,
 				CommandIndex: i,
 			}
@@ -398,7 +405,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	}
 	index := 0
 	term := 0
-	isLeader := true
+	isLeader := false
 
 	var commandPtr unsafe.Pointer
 	var commandSize int
@@ -414,14 +421,14 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	r := C.raft_start(rf.handle, commandPtr, C.int(commandSize), (*C.int)(unsafe.Pointer(&index)), (*C.int)(unsafe.Pointer(&term)), (*C.int)(unsafe.Pointer(&isLeader)))
 	if r == 0 {
 		// Could not start
-		return -1, -1, false
+		return 0, 0, false
 	}
 	return index, term, isLeader
 }
 
 func (rf *Raft) Kill() {
     rf.dead = 1
-    rafts[rf.me] = false
+    rafts.Store(rf.me, false)
 	if rf.handle == nil {
 		// fmt.Println("Go: Raft handle is nil, already killed", rf.me)
 		return
@@ -573,7 +580,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArg, reply *AppendEntriesReply)
 }
 
 func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyCh chan raftapi.ApplyMsg) raftapi.Raft {
-    rafts[me] = true
+    rafts.Store(me, true)
 	rf := &Raft{}
 	rf.peers = peers
 	rf.me = me
