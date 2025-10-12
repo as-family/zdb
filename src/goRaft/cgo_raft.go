@@ -127,18 +127,16 @@ type goChannelCallbackFn func(string, int) int
 
 func channelRegisterCallback(rf *Raft) C.uintptr_t {
 	cb := goChannelCallbackFn(func(s string, i int) int {
+// 	    fmt.Println("Go: channel callback invoked with:", i)
 		protoC := &proto_raft.Command{}
         err := protobuf.Unmarshal([]byte(s), protoC)
         if err != nil {
              return 0
         }
         var x interface{}
-        var commandValid bool
         if (protoC.Key == nil) || (protoC.Key.Data == "") {
-            x = nil
-            commandValid = true
+            x = 0
         } else {
-            commandValid = true
             x, err = strconv.Atoi(protoC.Key.Data)
             if err != nil {
                 x = protoC.Key.Data
@@ -150,7 +148,7 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
         }
 		if rf.applyCh != nil {
 			rf.applyCh <- raftapi.ApplyMsg{
-				CommandValid: commandValid,
+				CommandValid: true,
 				Command:      x,
 				CommandIndex: i,
 			}

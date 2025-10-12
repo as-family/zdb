@@ -262,22 +262,22 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
 
 template <typename Client>
 void RaftImpl<Client>::applyCommittedEntries() {
-    // std::println(stderr, "{} applyCommittedEntries: {} {}", std::chrono::system_clock::now(), selfId, commitIndex);
+    std::println(stderr, "{} applyCommittedEntries: {} {} {}", std::chrono::system_clock::now(), selfId, lastApplied, commitIndex);
     while (lastApplied < commitIndex) {
         int i = lastApplied + 1;
         auto c = mainLog.at(i);
         try {
             auto payload = c->command ? c->command->serialize() : std::string{"<null>"};
-            // std::println(stderr, "{} APPLY index={} term={} server={} payload={}", std::chrono::system_clock::now(), i, c->term, selfId, payload);
+            // std::println(stderr, "{} APPLY index={} term={} server={} payload={} cmd->index={}", std::chrono::system_clock::now(), i, c->term, selfId, payload, c->command->index);
         } catch (...) {
-            // std::println(stderr, "{} APPLY index={} term={} server={} payload=<serialize-error>", std::chrono::system_clock::now(), i, c->term, selfId);
+            // std::println(stderr, "{} APPLY index={} term={} server={} payload=<serialize-error> cmd->index={}", std::chrono::system_clock::now(), i, c->term, selfId, c->command->index);
         }
         if (!stateMachine.sendUntil(c->command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
-            std::println(stderr, "{} APPLY index={} term={} server={} payload=<timeout>", std::chrono::system_clock::now(), i, c->term, selfId);
             break;
         }
         lastApplied = i;
     }
+    std::println(stderr, "{} applyCommittedEntries: {} {} {}", std::chrono::system_clock::now(), selfId, lastApplied, commitIndex);
 }
 
 template <typename Client>
@@ -366,7 +366,7 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
                         break;
                     }
                 } else {
-                    std::println(stderr, "{} LE-commit-FAIL: leader={} term={} commitIndex -> {} mainLog term ={}", std::chrono::system_clock::now(), selfId, currentTerm, i, mainLog.at(i).value().term);
+                    // std::println(stderr, "{} LE-commit-FAIL: leader={} term={} commitIndex -> {} mainLog term ={}", std::chrono::system_clock::now(), selfId, currentTerm, i, mainLog.at(i).value().term);
                     break;
                 }
             }
@@ -380,8 +380,10 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
                 nextIndex[peerId] = reply.value().conflictIndex;
             }
             nextIndex[peerId] = std::clamp(nextIndex[peerId], static_cast<uint64_t>(1), mainLog.lastIndex() + 1);
+            appendNow[peerId] = true;
         }
     }
+    std::println(stderr, "{} Quit appendEntries: {} {}", std::chrono::system_clock::now(), selfId, peerId);
 }
 
 template<typename Client>
@@ -459,25 +461,27 @@ void RaftImpl<Client>::requestVote(std::string peerId) {
         if (reply.value().voteGranted) {
             ++votesGranted;
             if (votesGranted >= clusterSize / 2 + 1) {
-                // std::println(stderr, "{} Leader: {} {}", std::chrono::system_clock::now(), selfId, currentTerm);
+                std::println(stderr, "{} Became Leader: {} {}", std::chrono::system_clock::now(), selfId, currentTerm);
                 role = Role::Leader;
                 stopCalls = true;
                 for (const auto& [a, _] : peers) {
                     nextIndex[a] = mainLog.lastIndex() + 1;
                     matchIndex[a] = 0;
                 }
-                for (auto& app : appendNow | std::views::values) {
-                    app = true;
-                }
                 auto uuid = generate_uuid_v7();
                 auto noop = std::make_shared<zdb::NoOp>(uuid);
+                noop->term = currentTerm;
+                noop->index = mainLog.lastIndex() + 1;
                 LogEntry noOpEntry {
-                    mainLog.lastIndex() + 1,
-                    currentTerm,
+                    noop->index,
+                    noop->term,
                     noop
                 };
                 mainLog.append(noOpEntry);
                 persist();
+                for (auto& app : appendNow | std::views::values) {
+                    app = true;
+                }
                 appendCond.notify_all();
                 electionCond.notify_all();
             }

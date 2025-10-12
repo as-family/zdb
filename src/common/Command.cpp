@@ -241,11 +241,13 @@ NoOp::NoOp(UUIDV7& u) {
 
 NoOp::NoOp(const proto::Command& cmd) {
     uuid = string_to_uuid_v7(cmd.requestid().uuid());
+    index = cmd.index();
 }
 
 std::string NoOp::serialize() const {
     auto c = proto::Command {};
     c.set_op("n");
+    c.set_index(index);
     c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
     std::string s;
     if (!c.SerializeToString(&s)) {

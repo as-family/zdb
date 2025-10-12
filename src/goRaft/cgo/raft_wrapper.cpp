@@ -79,9 +79,9 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, 
         peers,
         zdb::RetryPolicy(
             std::chrono::milliseconds{2L},
-            std::chrono::milliseconds{6L},
-            std::chrono::milliseconds{10L},
-            3,
+            std::chrono::milliseconds{50L},
+            std::chrono::milliseconds{60L},
+            10,
             1,
             std::chrono::milliseconds{4L},
             std::chrono::milliseconds{4L}
@@ -183,7 +183,7 @@ int raft_start(RaftHandle* handle, void* command, int command_size, int* index, 
     *is_leader = handle->raft->start(c);
     *index = c->index;
     *term = c->term;
-    std::cerr << "raft_start: " << *index << " " << *term << " " << *is_leader << " " << handle->raft->log().data().size() << " " << handle->raft->log().lastTerm() << "\n";
+    // std::cerr << "raft_start: " << *index << " " << *term << " " << *is_leader << " " << handle->raft->log().data().size() << " " << handle->raft->log().lastTerm() << "\n";
     return 1;
 }
 
