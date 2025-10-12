@@ -78,10 +78,10 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, 
         selfId,
         peers,
         zdb::RetryPolicy(
-            std::chrono::milliseconds{1L},
             std::chrono::milliseconds{2L},
-            std::chrono::milliseconds{4L},
-            1,
+            std::chrono::milliseconds{6L},
+            std::chrono::milliseconds{10L},
+            3,
             1,
             std::chrono::milliseconds{4L},
             std::chrono::milliseconds{4L}

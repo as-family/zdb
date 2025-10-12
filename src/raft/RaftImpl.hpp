@@ -119,7 +119,7 @@ RaftImpl<Client>::RaftImpl(
         shouldStartElection.emplace(peer, false);
     }
     heartbeatInterval = 10 * policy.rpcTimeout;
-    electionTimeout = 10 * heartbeatInterval;
+    electionTimeout = 5 * heartbeatInterval;
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
             auto t = electionTimeout +
@@ -321,6 +321,7 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
         }
         if (!reply.has_value()) {
             // std::println(stderr, "{} no Response: {} {}", std::chrono::system_clock::now(), selfId, peerId);
+            appendNow[peerId] = true;
             continue;
         }
         if (reply.value().term < currentTerm || arg.term != currentTerm) {
@@ -365,7 +366,7 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
             shouldStartHeartbeat[peerId] = false;
             appendCond.notify_all();
         } else {
-            if (reply.value().conflictIndex != 0 && mainLog.termFirstIndex(reply.value().conflictTerm) != 0) {
+            if (mainLog.termFirstIndex(reply.value().conflictTerm) != 0) {
                 nextIndex[peerId] = mainLog.termLastIndex(reply.value().conflictTerm) + 1;
             } else {
                 nextIndex[peerId] = reply.value().conflictIndex;
