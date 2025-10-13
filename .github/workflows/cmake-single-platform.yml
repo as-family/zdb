@@ -98,6 +98,8 @@ jobs:
   build:
     needs: [config]
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Get build directory from CMake
         id: build-dir
         run: |
