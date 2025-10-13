@@ -15,6 +15,7 @@
 
 #include "storage/Persister.hpp"
 #include "raft/Raft.hpp"
+#include <string>
 
 namespace zdb {
 

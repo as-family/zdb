@@ -298,7 +298,6 @@ func persister_go_invoke_callback(handle C.uintptr_t, data unsafe.Pointer, data_
     }
     state := PersistentState {
         CurrentTerm: protoState.CurrentTerm,
-        VotedFor:    "",
         Log:         make(Log, len(protoState.Log)),
     }
     if protoState.VotedFor != nil {
@@ -479,6 +478,10 @@ func (rf *Raft) readPersist(data []byte) {
 	  if err != nil {
 		  panic("Failed to marshal protoState")
 	  }
+      if len(stateBytes) == 0 {
+          C.raft_read_persist(rf.handle, unsafe.Pointer(nil), C.int(0))
+          return
+      }
       C.raft_read_persist(rf.handle, unsafe.Pointer(&stateBytes[0]), C.int(len(stateBytes)))
 	}
 

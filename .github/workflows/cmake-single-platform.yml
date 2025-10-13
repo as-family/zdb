@@ -21,7 +21,7 @@ env:
   BUILD_TYPE: Debug
 
 jobs:
-  build:
+  config:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
@@ -95,45 +95,46 @@ jobs:
     - name: Configure CMake using preset
       # Use the gcc-14 preset from CMakePresets.json
       run: cmake --preset gcc-14
+  build:
+    needs: [config]
+    runs-on: ubuntu-latest
+      - name: Get build directory from CMake
+        id: build-dir
+        run: |
+          BUILD_DIR=$(cmake -L --preset gcc-14 | grep ZDB_BUILD_DIR | cut -d= -f2)
+          if [ -z "$BUILD_DIR" ]; then
+            BUILD_DIR="${{github.workspace}}/out/build/gcc-14"
+          fi
+          echo "build_dir=$BUILD_DIR" >> $GITHUB_OUTPUT
+          echo "Build directory: $BUILD_DIR"
 
-    - name: Get build directory from CMake
-      id: build-dir
-      run: |
-        BUILD_DIR=$(cmake -L --preset gcc-14 | grep ZDB_BUILD_DIR | cut -d= -f2)
-        if [ -z "$BUILD_DIR" ]; then
-          BUILD_DIR="${{github.workspace}}/out/build/gcc-14"
-        fi
-        echo "build_dir=$BUILD_DIR" >> $GITHUB_OUTPUT
-        echo "Build directory: $BUILD_DIR"
+      - name: Build using preset
+        # Build using the gcc-14 preset
+        run: cmake --build --preset gcc-14
 
-    - name: Build using preset
-      # Build using the gcc-14 preset
-      run: cmake --build --preset gcc-14
+      - name: Run cppcheck (complementary analysis)
+        run: |
+          chmod +x run-cppcheck.sh
+          ./run-cppcheck.sh "${{ steps.build-dir.outputs.build_dir }}" "${{github.workspace}}/cppcheck-report.xml"
 
-    - name: Run cppcheck (complementary analysis)
-      run: |
-        chmod +x run-cppcheck.sh
-        ./run-cppcheck.sh "${{ steps.build-dir.outputs.build_dir }}" "${{github.workspace}}/cppcheck-report.xml"
+      - name: Test
+        working-directory: ${{ steps.build-dir.outputs.build_dir }}
+        # Execute tests defined by the CMake configuration using ctest
+        run: ctest --output-on-failure
 
-    - name: Test
-      working-directory: ${{ steps.build-dir.outputs.build_dir }}
-      # Execute tests defined by the CMake configuration using ctest
-      run: ctest --output-on-failure
+      - name: Install
+        # Install the built binaries
+        run: cmake --install ${{ steps.build-dir.outputs.build_dir }} --prefix ${{github.workspace}}/install
 
-    - name: Install
-      # Install the built binaries
-      run: cmake --install ${{ steps.build-dir.outputs.build_dir }} --prefix ${{github.workspace}}/install
-
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: zdb-${{env.BUILD_TYPE}}-${{runner.os}}
-        path: |
-          ${{github.workspace}}/install/
-          cppcheck-report.xml
-          clang-tidy-reports/
-        retention-days: 30
-
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zdb-${{env.BUILD_TYPE}}-${{runner.os}}
+          path: |
+            ${{github.workspace}}/install/
+            cppcheck-report.xml
+            clang-tidy-reports/
+          retention-days: 30
   release:
     needs: [build]
     runs-on: ubuntu-latest

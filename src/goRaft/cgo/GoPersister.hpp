@@ -15,6 +15,7 @@
 
 #include <storage/Persister.hpp>
 #include "raft/Raft.hpp"
+#include <cstdint>
 
 extern "C" int persister_go_invoke_callback(uintptr_t handle, void *state, int stateSize);
 

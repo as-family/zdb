@@ -18,6 +18,7 @@ FilePersister::FilePersister(const std::string &p) : path(p) {
 }
 
 raft::PersistentState FilePersister::load() {
+    return {};
 }
 
 void FilePersister::save(raft::PersistentState s) {
