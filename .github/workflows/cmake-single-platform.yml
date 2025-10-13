@@ -100,6 +100,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Restore vcpkg installation
+        uses: actions/cache@v4
+        with:
+          path: vcpkg
+          key: vcpkg-installation-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-installation-${{ runner.os }}-
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/vcpkg
+          key: vcpkg-binary-cache-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-binary-cache-${{ runner.os }}-
+      - name: Restore CMake build
+        uses: actions/cache@v4
+        with:
+          path: out/build/gcc-14
+          key: cmake-build-${{ runner.os }}-gcc-14-${{ hashFiles('**/CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'tst/**/*.cpp', 'vcpkg.json', 'CMakePresets.json') }}
+          restore-keys: |
+            cmake-build-${{ runner.os }}-gcc-14-
       - name: Get build directory from CMake
         id: build-dir
         run: |
