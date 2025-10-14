@@ -62,7 +62,12 @@ jobs:
         key: cmake-build-${{ runner.os }}-gcc-14-${{ hashFiles('**/CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'tst/**/*.cpp', 'vcpkg.json', 'CMakePresets.json') }}
         restore-keys: |
           cmake-build-${{ runner.os }}-gcc-14-
-
+    - name: Install protoc-gen-go and setup Go environment
+      run: |
+        # Install protoc-gen-go
+        go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+        # Add Go bin to PATH for subsequent steps
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
     - name: Configure CMake using preset
       # Use the gcc-14 preset from CMakePresets.json
       run: cmake --preset gcc-14

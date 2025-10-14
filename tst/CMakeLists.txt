@@ -13,7 +13,6 @@ if(${BUILD_TESTING})
 
   find_package(GTest CONFIG REQUIRED)
   find_package(nlohmann_json CONFIG REQUIRED)
-  include(GoogleTest)
 
   add_executable(tests)
   enable_testing()
@@ -50,6 +49,7 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/common/Command.cpp
     ${CMAKE_SOURCE_DIR}/src/common/KVStateMachine.cpp
     ${CMAKE_SOURCE_DIR}/src/storage/FilePersister.cpp
+    ${CMAKE_SOURCE_DIR}/tst/main.cpp
     ${CMAKE_SOURCE_DIR}/tst/server/InMemoryKVStoreTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/ExponentialBackoffTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/RetryPolicyTest.cpp
@@ -75,7 +75,8 @@ if(${BUILD_TESTING})
   )
 
   target_link_libraries(tests PRIVATE
-    GTest::gmock_main
+    GTest::gtest
+    GTest::gmock
     gRPC::grpc++
     protobuf::libprotobuf
     protobuf_generated
@@ -139,6 +140,6 @@ if(${BUILD_TESTING})
   else()
     message(WARNING "Go not found. Porcupine checker will not be built.")
   endif()
-
+  include(GoogleTest)
   gtest_discover_tests(tests)
 endif()

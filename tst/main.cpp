@@ -12,6 +12,7 @@
 
 #include <memory>
 #include <vector>
+#include <gtest/gtest.h>
 #include <spdlog/common.h>
 #include "spdlog/async.h"
 #include "spdlog/async_logger.h"
@@ -30,6 +31,8 @@ int main(int argc, char** argv) {
         spdlog::thread_pool(), spdlog::async_overflow_policy::block);
     spdlog::register_logger(asyncLogger);
     spdlog::set_default_logger(asyncLogger);
+    testing::InitGoogleTest(&argc, argv);
+    int const result = RUN_ALL_TESTS();
     spdlog::shutdown();
-    return 0;
+    return result;
 }

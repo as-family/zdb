@@ -18,6 +18,7 @@
 #include "raft/Log.hpp"
 #include <algorithm>
 #include <string>
+#include <tuple>
 #include <vector>
 #include "common/RetryPolicy.hpp"
 #include <unordered_map>
@@ -36,7 +37,6 @@
 #include <optional>
 #include <condition_variable>
 #include <print>
-#include <numeric>
 #include <common/Command.hpp>
 
 namespace raft {
@@ -66,7 +66,6 @@ private:
     std::mutex m;
     std::condition_variable electionCond;
     std::condition_variable appendCond;
-    std::atomic<std::chrono::steady_clock::rep> time;
     Channel<std::shared_ptr<raft::Command>>& stateMachine;
     zdb::RetryPolicy policy;
     zdb::FullJitter fullJitter;
@@ -94,19 +93,16 @@ RaftImpl<Client>::RaftImpl(
     const zdb::RetryPolicy& r,
     std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g,
     zdb::Persister& pers)
-: stateMachine {c},
+: Raft(s,  10 * r.rpcTimeout, 5 * 10 * r.rpcTimeout, p.size()),
+  stateMachine {c},
   policy {r},
   persister {pers} {
-    selfId = s;
-    clusterSize = p.size();
-    nextIndex = std::unordered_map<std::string, uint64_t>{};
-    matchIndex = std::unordered_map<std::string, uint64_t>{};
     std::erase(p, selfId);
     for (const auto& a : p) {
         nextIndex[a] = 1;
         matchIndex[a] = 0;
     }
-    readPersist(persister.load());
+    RaftImpl<Client>::readPersist(persister.load());
     for (const auto& peer : p) {
         shouldStartHeartbeat.emplace(peer, false);
         appendNow.emplace(peer, false);
@@ -121,15 +117,11 @@ RaftImpl<Client>::RaftImpl(
             )
         );
     }
-    heartbeatInterval = 10 * policy.rpcTimeout;
-    electionTimeout = 5 * heartbeatInterval;
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
-            auto t = electionTimeout +
+            return electionTimeout +
                    std::chrono::duration_cast<std::chrono::milliseconds>(fullJitter.jitter(
                     std::chrono::duration_cast<std::chrono::microseconds>(electionTimeout)));
-            time = t.count();
-            return t;
         },
         [this] {
             initVote();
@@ -543,7 +535,6 @@ void RaftImpl<Client>::readPersist(PersistentState s) {
     mainLog.clear();
     mainLog.merge(s.log);
 }
-
 
 template <typename Client>
 void RaftImpl<Client>::kill(){
