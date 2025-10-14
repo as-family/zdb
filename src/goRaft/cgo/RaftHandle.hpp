@@ -5,9 +5,9 @@
 #include <raft/Channel.hpp>
 #include <string>
 #include <unordered_map>
-#include <queue>
 #include <memory>
 #include "GoRPCClient.hpp"
+#include "storage/Persister.hpp"
 
 struct RaftHandle {
     int id;
@@ -20,6 +20,7 @@ struct RaftHandle {
     std::unique_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
     std::unordered_map<std::string, int> peerIds;
     std::unordered_map<std::string, std::unique_ptr<GoRPCClient>> clients;
+    std::unique_ptr<zdb::Persister> persister;
     std::unique_ptr<raft::RaftImpl<GoRPCClient>> raft;
 };
 

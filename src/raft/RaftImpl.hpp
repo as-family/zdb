@@ -27,63 +27,102 @@
 #include "common/FullJitter.hpp"
 #include <queue>
 #include <ranges>
+#include "storage/Persister.hpp"
+#include <thread>
+#include <mutex>
+#include <chrono>
+#include <utility>
+#include <memory>
+#include <optional>
+#include <condition_variable>
+#include <print>
+#include <numeric>
+#include <common/Command.hpp>
 
 namespace raft {
 template <typename Client>
 class RaftImpl : public Raft {
 public:
-    RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::shared_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g);
-    void appendEntries(bool heartBeat) override;
-    void requestVote() override;
+    RaftImpl(
+        std::vector<std::string> p,
+        const std::string& s,
+        Channel<std::shared_ptr<raft::Command>>& c,
+        const zdb::RetryPolicy& r,
+        std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g,
+        zdb::Persister& pers);
+    void appendEntries(std::string peerId) override;
+    void requestVote(std::string peerId) override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
     RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) override;
     bool start(std::shared_ptr<Command> command) override;
     void kill() override;
     Log& log() override;
-    void cleanUpThreads();
+    void persist() override;
+    void readPersist(PersistentState) override;
     ~RaftImpl() override;
 private:
+    void initVote();
     void applyCommittedEntries();
-    std::mutex m{};
-    std::atomic<std::chrono::steady_clock::rep> time {};
+    std::mutex m;
+    std::condition_variable electionCond;
+    std::condition_variable appendCond;
+    std::atomic<std::chrono::steady_clock::rep> time;
     Channel<std::shared_ptr<raft::Command>>& stateMachine;
     zdb::RetryPolicy policy;
     zdb::FullJitter fullJitter;
-    std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat;
+    std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat = std::chrono::steady_clock::now();
     Log mainLog;
     std::atomic<bool> killed{false};
     std::unordered_map<std::string, std::reference_wrapper<Client>> peers;
-    std::chrono::milliseconds threadsCleanupInterval;
     AsyncTimer electionTimer;
     AsyncTimer heartbeatTimer;
-    AsyncTimer threadsCleanupTimer;
-    int successCount{0};
+    std::unordered_map<std::string, bool> shouldStartElection;
+    std::unordered_map<std::string, bool> shouldStartHeartbeat;
+    std::unordered_map<std::string, bool> appendNow;
     int votesGranted{0};
-    std::queue<std::thread> activeThreads{};
-    std::mutex appendEntriesMutex{};
-    std::mutex requestVoteMutex{};
+    RequestVoteArg requestVoteArg {"", 0, 0, 0};
+    std::unordered_map<std::string, std::pair<std::thread, std::thread>> leaderThreads;
     std::atomic<bool> stopCalls{false};
+    zdb::Persister& persister;
 };
 
 template <typename Client>
-RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Channel<std::shared_ptr<raft::Command>>& c, const zdb::RetryPolicy& r, std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g)
+RaftImpl<Client>::RaftImpl(
+    std::vector<std::string> p,
+    const std::string& s,
+    Channel<std::shared_ptr<raft::Command>>& c,
+    const zdb::RetryPolicy& r,
+    std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g,
+    zdb::Persister& pers)
 : stateMachine {c},
-  policy {r} {
+  policy {r},
+  persister {pers} {
     selfId = s;
     clusterSize = p.size();
     nextIndex = std::unordered_map<std::string, uint64_t>{};
     matchIndex = std::unordered_map<std::string, uint64_t>{};
+    std::erase(p, selfId);
     for (const auto& a : p) {
         nextIndex[a] = 1;
         matchIndex[a] = 0;
     }
-    p.erase(std::ranges::remove(p, selfId).begin(), p.end());
+    readPersist(persister.load());
     for (const auto& peer : p) {
+        shouldStartHeartbeat.emplace(peer, false);
+        appendNow.emplace(peer, false);
+        shouldStartElection.emplace(peer, false);
         peers.emplace(peer, std::ref(g(peer, policy, stopCalls)));
+        leaderThreads.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(peer),
+            std::forward_as_tuple(
+                std::thread(&RaftImpl::requestVote, this, peer),
+                std::thread(&RaftImpl::appendEntries, this, peer)
+            )
+        );
     }
-    heartbeatInterval = 30 * policy.rpcTimeout;
-    electionTimeout = 3 * heartbeatInterval;
-    threadsCleanupInterval = heartbeatInterval;
+    heartbeatInterval = 10 * policy.rpcTimeout;
+    electionTimeout = 5 * heartbeatInterval;
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
             auto t = electionTimeout +
@@ -93,7 +132,7 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Cha
             return t;
         },
         [this] {
-            requestVote();
+            initVote();
         }
     );
     heartbeatTimer.start(
@@ -101,76 +140,41 @@ RaftImpl<Client>::RaftImpl(std::vector<std::string> p, const std::string& s, Cha
             return heartbeatInterval;
         },
         [this] {
-            appendEntries(true);
-        }
-    );
-    threadsCleanupTimer.start(
-        [this] -> std::chrono::milliseconds {
-            return threadsCleanupInterval + std::chrono::duration_cast<std::chrono::milliseconds>(fullJitter.jitter(
-                    std::chrono::duration_cast<std::chrono::microseconds>(threadsCleanupInterval)));
-        },
-        [this] {
-            cleanUpThreads();
+            if (role == Role::Leader) {
+                for (auto& shouldStart : shouldStartHeartbeat | std::views::values) {
+                    shouldStart = true;
+                }
+                appendCond.notify_all();
+            }
         }
     );
 }
 
 template <typename Client>
 RaftImpl<Client>::~RaftImpl() {
-    // std::cerr << selfId << " is being destroyed\n";
     killed = true;
     stopCalls = true;
-    threadsCleanupTimer.stop();
-    electionTimer.stop();
-    // std::cerr << selfId << " election timer stopped\n";
+    appendCond.notify_all();
+    electionCond.notify_all();
     heartbeatTimer.stop();
-    // std::cerr << selfId << " heartbeat timer stopped\n";
-    // std::cerr << selfId << " acquiring lock to stop RPC clients\n";
-    std::unique_lock lock{m};
-    // std::cerr << selfId << " threads cleanup timer stopped\n";
-    // for (auto& [p, peer] : peers) {
-    //     peer.get().stop();
-    // }
-    // std::cerr << selfId << " stopped all RPC clients\n";
-    // std::cerr << selfId << " waiting for " << activeThreads.size() << " active threads to finish\n";
-    while (!activeThreads.empty()) {
-        std::thread& t = activeThreads.front();
-        if (t.joinable()) {
-            t.join();
+    electionTimer.stop();
+    for (auto& th : leaderThreads | std::views::values) {
+        if (th.first.joinable()) {
+            th.first.join();
         }
-        activeThreads.pop();
-    }
-    // std::cerr << selfId << " all threads joined\n";
-}
-
-template <typename Client>
-void RaftImpl<Client>::cleanUpThreads() {
-    std::unique_lock lock{m};
-    if (activeThreads.size() <= clusterSize * 3) {
-        return;
-    }
-    // std::cerr << selfId << " cleaning up threads, activeThreads size: " << activeThreads.size() << "\n";
-    std::vector<std::thread> threads;
-    while (activeThreads.size() > clusterSize * 3) {
-        std::thread& t = activeThreads.front();
-        threads.push_back(std::move(t));
-        activeThreads.pop();
-    }
-    lock.unlock();
-    for (auto& t : threads) {
-        if (t.joinable()) {
-            t.join();
+        if (th.second.joinable()) {
+            th.second.join();
         }
     }
 }
 
 template <typename Client>
 RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg) {
+    std::unique_lock lk{m};
     if (killed.load()) {
         return RequestVoteReply{false, currentTerm};
     }
-    std::unique_lock lock{m};
-    // std::cerr << selfId << " received RequestVote from " << arg.candidateId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
+    // std::println(stderr, "{} requestVoteHandler: {} {} . {} {}", std::chrono::system_clock::now(), selfId, currentTerm, arg.candidateId, arg.term);
     RequestVoteReply reply;
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -182,13 +186,19 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
         role = Role::Follower;
         lastHeartbeat = std::chrono::steady_clock::now();
         votedFor.reset();
+        persist();
+        appendCond.notify_all();
+        electionCond.notify_all();
     }
     if ((votedFor.has_value() && votedFor.value() == arg.candidateId) || !votedFor.has_value()) {
         if ((mainLog.lastTerm() == arg.lastLogTerm && mainLog.lastIndex() <= arg.lastLogIndex) || mainLog.lastTerm() < arg.lastLogTerm) {
+            // std::println(stderr, "{} VotedFor: {} {} . {} {}", std::chrono::system_clock::now(), selfId, currentTerm, arg.candidateId, arg.term);
             votedFor = arg.candidateId;
+            role = Role::Follower;
             lastHeartbeat = std::chrono::steady_clock::now();
             reply.term = currentTerm;
             reply.voteGranted = true;
+            persist();
             return reply;
         }
     }
@@ -199,14 +209,11 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
 
 template <typename Client>
 AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg& arg) {
+    std::unique_lock lock{m};
     if (killed.load()) {
         return AppendEntriesReply{false, currentTerm};
     }
-    std::unique_lock lock{m};
-    if (arg.term >= currentTerm) {
-        lastHeartbeat = std::chrono::steady_clock::now();
-    }
-    // std::cerr << selfId << " received AppendEntries from " << arg.leaderId << " for term " << arg.term << " (current term: " << currentTerm << ")\n";
+    // std::println(stdout, "{} appendEntriesHandler: {} {} . {} {}", std::chrono::system_clock::now(), selfId, currentTerm, arg.leaderId, arg.term);
     AppendEntriesReply reply;
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -215,20 +222,23 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
     }
     if (arg.term > currentTerm) {
         currentTerm = arg.term;
-        role = Role::Follower;
         votedFor.reset();
+        persist();
+        role = Role::Follower;
+        appendCond.notify_all();
+        electionCond.notify_all();
     }
+    lastHeartbeat = std::chrono::steady_clock::now();
     auto e = mainLog.at(arg.prevLogIndex);
     if (arg.prevLogIndex == 0 || (e.has_value() && e.value().term == arg.prevLogTerm)) {
-        bool mergeSuccess = mainLog.merge(arg.entries);
-        if (!mergeSuccess) {
-            // Merge failed due to gap in log - inform leader where to start next
-            reply.term = currentTerm;
-            reply.success = false;
-            reply.conflictIndex = mainLog.lastIndex() + 1;
-            reply.conflictTerm = 0; // No term for non-existent entry
-            return reply;
-        }
+        auto beforeLast = mainLog.lastIndex();
+        mainLog.merge(arg.entries);
+        role = Role::Follower;
+        appendCond.notify_all();
+        electionCond.notify_all();
+        auto afterLast = mainLog.lastIndex();
+        // std::println(stderr, "{} AE-RX ok: follower={} term={} from={} prev=({},{}) entries=[{}..{}] lastIndex {}->{} lc={}", std::chrono::system_clock::now(), selfId, currentTerm, arg.leaderId, arg.prevLogIndex, arg.prevLogTerm, arg.entries.firstIndex(), arg.entries.lastIndex(), beforeLast, afterLast, arg.leaderCommit);
+        persist();
         if (arg.leaderCommit > commitIndex) {
             commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
             applyCommittedEntries();
@@ -240,217 +250,300 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         reply.term = currentTerm;
         reply.success = false;
         if (e.has_value()) {
-            reply.conflictIndex = e.value().index;
+            reply.conflictIndex = mainLog.termFirstIndex(e.value().term);
             reply.conflictTerm = e.value().term;
-        } else if (mainLog.lastIndex() > 0) {
-            reply.conflictIndex = mainLog.lastIndex();
-            reply.conflictTerm = mainLog.lastTerm();
         } else {
-            reply.conflictIndex = 0;
+            reply.conflictIndex = mainLog.lastIndex() + 1;
             reply.conflictTerm = 0;
         }
+        // std::println(stderr, "{} AE-RX nack: follower={} term={} from={} prev=({},{}) -> conflict(term={}, index={})", std::chrono::system_clock::now(), selfId, currentTerm, arg.leaderId, arg.prevLogIndex, arg.prevLogTerm, reply.conflictTerm, reply.conflictIndex);
         return reply;
     }
 }
 
 template <typename Client>
 void RaftImpl<Client>::applyCommittedEntries() {
+    // std::println(stderr, "{} applyCommittedEntries: {} {} {}", std::chrono::system_clock::now(), selfId, lastApplied, commitIndex);
     while (lastApplied < commitIndex) {
-        int i = lastApplied + 1;
+        uint64_t i = lastApplied + 1;
         auto c = mainLog.at(i);
-        if (!stateMachine.sendUntil(c.value().command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
+        try {
+            auto payload = c->command ? c->command->serialize() : std::string{"<null>"};
+            // std::println(stderr, "{} APPLY index={} term={} server={} payload={} cmd->index={}", std::chrono::system_clock::now(), i, c->term, selfId, payload, c->command->index);
+        } catch (...) {
+            // std::println(stderr, "{} APPLY index={} term={} server={} payload=<serialize-error> cmd->index={}", std::chrono::system_clock::now(), i, c->term, selfId, c->command->index);
+        }
+        if (!stateMachine.sendUntil(c->command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
             break;
         }
         lastApplied = i;
     }
+    // std::println(stderr, "{} applyCommittedEntries: {} {} {}", std::chrono::system_clock::now(), selfId, lastApplied, commitIndex);
 }
 
 template <typename Client>
-void RaftImpl<Client>::appendEntries(const bool heartBeat){
-    if (killed.load()) {
-        return;
-    }
-    std::unique_lock lock{m, std::defer_lock};
-    if (heartBeat) {
-        lock.lock();
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - lastHeartbeat) < heartbeatInterval) {
-            return;
+void RaftImpl<Client>::appendEntries(std::string peerId){
+    auto& peer = peers.at(peerId).get();
+    while (!killed.load()) {
+        std::unique_lock initLock{m};
+        // std::println(stderr, "{} waiting: {} {}", std::chrono::system_clock::now(), selfId, peerId);
+        appendCond.wait(initLock, [this, peerId] { return killed.load() || (role == Role::Leader && (appendNow.at(peerId) || shouldStartHeartbeat.at(peerId))); });
+        if (killed.load()) {
+            break;
         }
-    }
-    if (role != Role::Leader) {
-        return;
-    }
-    lastHeartbeat = std::chrono::steady_clock::now();
-    stopCalls = false;
-    std::vector<std::thread> threads;
-    successCount = 1;
-    // std::cerr << selfId << " is sending AppendEntries for term " << currentTerm << " (commitIndex: " << commitIndex << ", lastIndex: " << mainLog.lastIndex() << ")\n";
-    for (auto& [peerId, _] : peers) {
-        threads.emplace_back(
-        [this, peerId] {
-                auto& peer = peers.at(peerId).get();
-                auto n = nextIndex.at(peerId);
-                auto g = mainLog.suffix(n);
-                auto prevLogIndex = n == 0? 0 : n - 1;
-                if (!mainLog.at(prevLogIndex).has_value() && prevLogIndex != 0) {
-                    std::cerr << selfId << " appendEntries ERROR " << peerId << " prevLogIndex " << prevLogIndex << " not found " << mainLog.lastIndex() << "\n";
-                }
-                AppendEntriesArg arg {
-                    selfId,
-                    currentTerm,
-                    prevLogIndex,
-                    prevLogIndex == 0? 0 : mainLog.at(prevLogIndex).value().term,
-                    commitIndex,
-                    g
-                };
-                auto reply = peer.call(
-                    "appendEntries",
-                    arg
-                );
-                if (killed.load() || role != Role::Leader) {
-                    stopCalls = true;
-                    return;
-                }
-                std::lock_guard l{appendEntriesMutex};
-                if (reply.has_value()) {
-                    if (reply.value().success) {
-                        if (g.lastIndex() != 0) {
-                            nextIndex[peerId] = g.lastIndex() + 1;
-                            matchIndex[peerId] = g.lastIndex();
+        if (role != Role::Leader) {
+            continue;
+        }
+        if (!(appendNow.at(peerId) || shouldStartHeartbeat.at(peerId))) {
+            continue;
+        }
+        // std::println(stderr, "{} appendEntries: {} {}", std::chrono::system_clock::now(), selfId, peerId);
+        stopCalls = false;
+        auto n = nextIndex.at(peerId);
+        auto g = mainLog.suffix(n);
+        auto prevLogIndex = n - 1;
+        AppendEntriesArg arg {
+            selfId,
+            currentTerm,
+            prevLogIndex,
+            prevLogIndex == 0? 0 : mainLog.at(prevLogIndex).value().term,
+            commitIndex,
+            g
+        };
+        initLock.unlock();
+        // std::println(stderr, "{} AE-send: leader={} term={} -> {} prev=({},{}) lc={} entries=[{}..{}]", std::chrono::system_clock::now(), selfId, currentTerm, peerId, arg.prevLogIndex, arg.prevLogTerm, arg.leaderCommit, g.firstIndex(), g.lastIndex());
+        auto reply = peer.call(
+            "appendEntries",
+            arg
+        );
+        std::unique_lock resLock{m};
+        // std::println(stderr, "{} Called: {} {}", std::chrono::system_clock::now(), selfId, peerId);
+        if (killed.load() || role != Role::Leader) {
+            stopCalls = true;
+            appendNow[peerId] = false;
+            shouldStartHeartbeat[peerId] = false;
+            appendCond.notify_all();
+            electionCond.notify_all();
+            continue;
+        }
+        if (!reply.has_value()) {
+            // std::println(stderr, "{} no Response: {} {}", std::chrono::system_clock::now(), selfId, peerId);
+            appendNow[peerId] = true;
+            continue;
+        }
+        if (reply.value().term > currentTerm) {
+            currentTerm = reply.value().term;
+            role = Role::Follower;
+            votedFor.reset();
+            persist();
+            stopCalls = true;
+            appendNow[peerId] = false;
+            shouldStartHeartbeat[peerId] = false;
+            lastHeartbeat = std::chrono::steady_clock::now();
+            appendCond.notify_all();
+            electionCond.notify_all();
+            continue;
+        }
+        if (reply.value().term < currentTerm || arg.term != currentTerm) {
+            appendNow[peerId] = true;
+            continue;
+        }
+        if (reply.value().success) {
+                    // std::println(stderr, "{} AE-ok: leader={} term={} <- {} advanced next={} match={}", std::chrono::system_clock::now(), selfId, currentTerm, peerId, g.lastIndex() == 0 ? nextIndex[peerId] : g.lastIndex() + 1, g.lastIndex());
+            nextIndex[peerId] = n + g.data().size();
+            matchIndex[peerId] = nextIndex[peerId] - 1;
+            for (auto i = mainLog.lastIndex(); i > commitIndex; --i) {
+                if (mainLog.at(i).value().term == currentTerm) {
+                    auto matches = 1;
+                    for (auto& index : matchIndex | std::views::values) {
+                        if (index >= i) {
+                            ++matches;
                         }
-                        ++successCount;
-                        if (successCount >= clusterSize / 2 + 1) {
-                            for (auto i = mainLog.lastIndex(); i > commitIndex; --i) {
-                                if (mainLog.at(i).value().term == currentTerm) {
-                                    auto matches = 1;
-                                    for (auto& index : matchIndex | std::views::values) {
-                                        if (index >= i) {
-                                            ++matches;
-                                        }
-                                    }
-                                    if (matches >= clusterSize / 2 + 1) {
-                                        commitIndex = i;
-                                        break;
-                                    }
-                                }
-                            }
-                            applyCommittedEntries();
-                        }
-                    } else if (reply.value().term > currentTerm) {
-                        currentTerm = reply.value().term;
-                        role = Role::Follower;
-                        stopCalls = true;
-                    } else {
-                        if (mainLog.termFirstIndex(reply.value().conflictTerm) == 0) {
-                            nextIndex[peerId] = std::max(reply.value().conflictIndex, static_cast<uint64_t>(1));
-                        } else {
-                            nextIndex[peerId] = mainLog.termFirstIndex(reply.value().conflictTerm);
-                        }
-                        // Clamp nextIndex to [1, mainLog.lastIndex() + 1] to prevent corruption
-                        nextIndex[peerId] = std::clamp(nextIndex[peerId], static_cast<uint64_t>(1), mainLog.lastIndex() + 1);
                     }
+                    // std::println(stderr, "{} LE-commit: leader={} term={} commitIndex -> {} (matches={})", std::chrono::system_clock::now(), selfId, currentTerm, i, matches);
+                    if (matches >= clusterSize / 2 + 1) {
+                        commitIndex = i;
+                        applyCommittedEntries();
+                        break;
+                    }
+                } else {
+                    // std::println(stderr, "{} LE-commit-FAIL: leader={} term={} commitIndex -> {} mainLog term ={}", std::chrono::system_clock::now(), selfId, currentTerm, i, mainLog.at(i).value().term);
+                    break;
                 }
             }
-        );
-    }
-    for (auto& t : threads) {
-        if(t.joinable()) {
-            activeThreads.push(std::move(t));
+            appendNow[peerId] = false;
+            shouldStartHeartbeat[peerId] = false;
+            appendCond.notify_all();
+        } else {
+            if (mainLog.termLastIndex(reply.value().conflictTerm) != 0) {
+                nextIndex[peerId] = mainLog.termLastIndex(reply.value().conflictTerm) + 1;
+            } else {
+                nextIndex[peerId] = reply.value().conflictIndex;
+            }
+            nextIndex[peerId] = std::clamp(nextIndex[peerId], static_cast<uint64_t>(1), mainLog.lastIndex() + 1);
+            appendNow[peerId] = true;
         }
     }
+    // std::println(stderr, "{} Quit appendEntries: {} {}", std::chrono::system_clock::now(), selfId, peerId);
 }
 
-template <typename Client>
-void RaftImpl<Client>::requestVote(){
-    if (killed.load()) {
-        return;
-    }
-    std::unique_lock lock{m};
+template<typename Client>
+void RaftImpl<Client>::initVote() {
+    std::unique_lock initLock{m};
     if (role == Role::Leader) {
         return;
     }
-    if (const auto d = std::chrono::steady_clock::now() - lastHeartbeat; std::chrono::duration_cast<std::chrono::milliseconds>(d) < std::chrono::milliseconds{time.load()}) {
+    if (const auto d = std::chrono::steady_clock::now() - lastHeartbeat; std::chrono::duration_cast<std::chrono::milliseconds>(d) < electionTimeout) {
         return;
     }
+    // std::println(stderr, "{} initVote: {} {}", std::chrono::system_clock::now(), selfId, currentTerm);
     role = Role::Candidate;
     ++currentTerm;
     votedFor = selfId;
-    lastHeartbeat = std::chrono::steady_clock::now();
+    persist();
+    requestVoteArg = {
+        selfId,
+        currentTerm,
+        mainLog.lastIndex(),
+        mainLog.lastTerm()
+    };
     votesGranted = 1;
     stopCalls = false;
-    // std::cerr << selfId << " is starting election for term " << currentTerm << "\n";
-    std::vector<std::thread> threads;
-    for (auto& [peerId, _] : peers) {
-        threads.emplace_back(
-            [this, peerId] {
-                auto& peer = peers.at(peerId).get();
-                RequestVoteArg arg{
-                    selfId,
-                    currentTerm,
-                    mainLog.lastIndex(),
-                    mainLog.lastTerm()
-                };
-                auto reply = peer.call(
-                    "requestVote",
-                    arg
-                );
-                std::lock_guard l{requestVoteMutex};
-                if (killed.load() || role != Role::Candidate) {
-                    stopCalls = true;
-                    return;
-                }
-                if (reply.has_value()) {
-                    if (reply.value().voteGranted) {
-                        ++votesGranted;
-                        if (votesGranted == clusterSize / 2 + 1) {
-                            role = Role::Leader;
-                            // std::cerr << selfId << " became leader for term " << currentTerm << "\n";
-                            for (const auto& [a, _] : peers) {
-                                nextIndex[a] = mainLog.lastIndex() + 1;
-                                matchIndex[a] = 0;
-                            }
-                            appendEntries(false);
-                        }
-                    } else if (reply.value().term > currentTerm) {
-                        currentTerm = reply.value().term;
-                        role = Role::Follower;
-                        votedFor.reset();
-                        stopCalls = true;
-                        lastHeartbeat = std::chrono::steady_clock::now();
-                    }
-                }
-            }
-        );
+    for (auto& e : shouldStartElection | std::views::values) {
+        e = true;
     }
-    for (auto& t : threads) {
-        if(t.joinable()) {
-            activeThreads.push(std::move(t));
+    electionCond.notify_all();
+}
+
+template <typename Client>
+void RaftImpl<Client>::requestVote(std::string peerId) {
+    auto& peer = peers.at(peerId).get();
+    while (!killed.load()) {
+        std::unique_lock initLock{m};
+        electionCond.wait(initLock, [this, peerId] { return killed.load() || (role == Role::Candidate && shouldStartElection.at(peerId)); });
+        if (killed.load()) {
+            break;
+        }
+        if (role != Role::Candidate) {
+            continue;
+        }
+        if (!shouldStartElection.at(peerId)) {
+            continue;
+        }
+        shouldStartElection[peerId] = false;
+        auto arg = requestVoteArg;
+        initLock.unlock();
+        auto reply = peer.call(
+            "requestVote",
+            arg
+        );
+
+        std::unique_lock resLock{m};
+        if (killed.load() || role != Role::Candidate) {
+            stopCalls = true;
+            continue;
+        }
+        if (!reply.has_value()) {
+            continue;
+        }
+        if (reply.value().term > currentTerm) {
+            stopCalls = true;
+            currentTerm = reply.value().term;
+            role = Role::Follower;
+            votedFor.reset();
+            persist();
+            lastHeartbeat = std::chrono::steady_clock::now();
+            electionCond.notify_all();
+            continue;
+        }
+        if (reply.value().term < currentTerm || arg.term != currentTerm) {
+            continue;
+        }
+        if (reply.value().voteGranted) {
+            ++votesGranted;
+            if (votesGranted >= clusterSize / 2 + 1) {
+                // std::println(stderr, "{} Became Leader: {} {}", std::chrono::system_clock::now(), selfId, currentTerm);
+                role = Role::Leader;
+                stopCalls = true;
+                for (const auto& [a, _] : peers) {
+                    nextIndex[a] = mainLog.lastIndex() + 1;
+                    matchIndex[a] = 0;
+                }
+                auto uuid = generate_uuid_v7();
+                auto noop = std::make_shared<zdb::NoOp>(uuid);
+                noop->term = currentTerm;
+                noop->index = mainLog.lastIndex() + 1;
+                LogEntry noOpEntry {
+                    noop->index,
+                    noop->term,
+                    noop
+                };
+                // mainLog.append(noOpEntry);
+                persist();
+                for (auto& app : appendNow | std::views::values) {
+                    app = true;
+                }
+                appendCond.notify_all();
+                electionCond.notify_all();
+            }
         }
     }
 }
 
 template <typename Client>
 bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
+    std::unique_lock lock{m};
     if (killed.load()) {
         stopCalls = true;
+        appendCond.notify_all();
+        electionCond.notify_all();
         return false;
     }
-    std::unique_lock lock{m};
     if (role != Role::Leader) {
         stopCalls = true;
+        appendCond.notify_all();
+        electionCond.notify_all();
         return false;
     }
     command->term = currentTerm;
     command->index = mainLog.lastIndex() + 1;
     LogEntry e {
-        mainLog.lastIndex() + 1,
-        currentTerm,
+        command->index,
+        command->term,
         command
     };
     mainLog.append(e);
-    appendEntries(false);
+    try {
+        auto payload = command ? command->serialize() : std::string{"<null>"};
+        // std::println(stderr, "{} START leader={} append index={} term={} payload={}", std::chrono::system_clock::now(), selfId, e.index, e.term, payload);
+    } catch (...) {
+        // std::println(stderr, "{} START leader={} append index={} term={} payload=<serialize-error>", std::chrono::system_clock::now(), selfId, e.index, e.term);
+    }
+    persist();
+    for (auto& app : appendNow | std::views::values) {
+        app = true;
+    }
+    appendCond.notify_all();
     return true;
 }
+
+template <typename Client>
+void RaftImpl<Client>::persist() {
+    persister.save(PersistentState {
+        currentTerm,
+        votedFor,
+        Log {mainLog.data()}
+    });
+}
+
+template <typename Client>
+void RaftImpl<Client>::readPersist(PersistentState s) {
+    currentTerm = s.currentTerm;
+    votedFor = s.votedFor;
+    mainLog.clear();
+    mainLog.merge(s.log);
+}
+
 
 template <typename Client>
 void RaftImpl<Client>::kill(){

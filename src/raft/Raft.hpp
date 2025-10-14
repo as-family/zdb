@@ -31,10 +31,22 @@ enum class Role {
     Leader
 };
 
-struct Start {
-    uint64_t index;
-    uint64_t term;
-    bool isLeader;
+struct PersistentState {
+    uint64_t currentTerm = 0;
+    std::optional<std::string> votedFor = std::nullopt;
+    Log log;
+    PersistentState() = default;
+    PersistentState(uint64_t term, std::optional<std::string> v, Log l)
+        : currentTerm(term), votedFor(v) {
+        log.clear();
+        log.merge(l);
+    }
+    PersistentState(const PersistentState& p) {
+        currentTerm = p.currentTerm;
+        votedFor = p.votedFor;
+        log.clear();
+        log.merge(p.log);
+    }
 };
 
 class Raft {
@@ -42,14 +54,16 @@ public:
     virtual ~Raft() = default;
     virtual AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) = 0;
     virtual RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) = 0;
-    virtual void appendEntries(bool heartBeat) = 0;
-    virtual void requestVote() = 0;
+    virtual void appendEntries(std::string peerId) = 0;
+    virtual void requestVote(std::string peerId) = 0;
     virtual bool start(std::shared_ptr<Command> c) = 0;
     virtual Log& log() = 0;
     virtual void kill() = 0;
     virtual Role getRole() const { return role; }
     virtual std::string getSelfId() const { return selfId; }
     virtual uint64_t getCurrentTerm() const { return currentTerm; }
+    virtual void persist() = 0;
+    virtual void readPersist(PersistentState) = 0;
 protected:
     Role role = Role::Follower;
     std::string selfId;

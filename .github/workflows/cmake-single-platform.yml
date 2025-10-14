@@ -21,7 +21,7 @@ env:
   BUILD_TYPE: Debug
 
 jobs:
-  build:
+  config:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
@@ -45,35 +45,6 @@ jobs:
         key: vcpkg-binary-cache-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
           vcpkg-binary-cache-${{ runner.os }}-
-
-    - name: Install dependencies and static analysis tools
-      run: |
-        # Install LLVM 21
-        sudo tee /etc/apt/sources.list.d/llvm.list << EOF
-          deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main
-          deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main
-        EOF
-        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-
-        # Install other dependencies
-        sudo apt-get update -qq
-        sudo apt-get install -y --no-install-recommends \
-          cppcheck \
-          jq \
-          llvm-21 \
-          clang-21 \
-          clang-tools-21 \
-          clang-tidy-21 \
-          libc++-21-dev \
-          golang
-
-    - name: Install protoc-gen-go and setup Go environment
-      run: |
-        # Install protoc-gen-go
-        go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-        # Add Go bin to PATH for subsequent steps
-        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-
     - name: Setup vcpkg
       run: |
         chmod +x setup-vcpkg.sh
@@ -95,45 +66,76 @@ jobs:
     - name: Configure CMake using preset
       # Use the gcc-14 preset from CMakePresets.json
       run: cmake --preset gcc-14
+  build:
+    needs: [config]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Get build directory from CMake
-      id: build-dir
-      run: |
-        BUILD_DIR=$(cmake -L --preset gcc-14 | grep ZDB_BUILD_DIR | cut -d= -f2)
-        if [ -z "$BUILD_DIR" ]; then
-          BUILD_DIR="${{github.workspace}}/out/build/gcc-14"
-        fi
-        echo "build_dir=$BUILD_DIR" >> $GITHUB_OUTPUT
-        echo "Build directory: $BUILD_DIR"
+      - name: Restore vcpkg installation
+        uses: actions/cache@v4
+        with:
+          path: vcpkg
+          key: vcpkg-installation-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-installation-${{ runner.os }}-
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/vcpkg
+          key: vcpkg-binary-cache-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-binary-cache-${{ runner.os }}-
+      - name: Restore CMake build
+        uses: actions/cache@v4
+        with:
+          path: out/build/gcc-14
+          key: cmake-build-${{ runner.os }}-gcc-14-${{ hashFiles('**/CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'tst/**/*.cpp', 'vcpkg.json', 'CMakePresets.json') }}
+          restore-keys: |
+            cmake-build-${{ runner.os }}-gcc-14-
+      - name: Install protoc-gen-go and setup Go environment
+        run: |
+          # Install protoc-gen-go
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          # Add Go bin to PATH for subsequent steps
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+      - name: Get build directory from CMake
+        id: build-dir
+        run: |
+          BUILD_DIR=$(cmake -L --preset gcc-14 | grep ZDB_BUILD_DIR | cut -d= -f2)
+          if [ -z "$BUILD_DIR" ]; then
+            BUILD_DIR="${{github.workspace}}/out/build/gcc-14"
+          fi
+          echo "build_dir=$BUILD_DIR" >> $GITHUB_OUTPUT
+          echo "Build directory: $BUILD_DIR"
 
-    - name: Build using preset
-      # Build using the gcc-14 preset
-      run: cmake --build --preset gcc-14
+      - name: Build using preset
+        # Build using the gcc-14 preset
+        run: cmake --build --preset gcc-14
 
-    - name: Run cppcheck (complementary analysis)
-      run: |
-        chmod +x run-cppcheck.sh
-        ./run-cppcheck.sh "${{ steps.build-dir.outputs.build_dir }}" "${{github.workspace}}/cppcheck-report.xml"
+      - name: Run cppcheck (complementary analysis)
+        run: |
+          chmod +x run-cppcheck.sh
+          ./run-cppcheck.sh "${{ steps.build-dir.outputs.build_dir }}" "${{github.workspace}}/cppcheck-report.xml"
 
-    - name: Test
-      working-directory: ${{ steps.build-dir.outputs.build_dir }}
-      # Execute tests defined by the CMake configuration using ctest
-      run: ctest --output-on-failure
+      - name: Test
+        working-directory: ${{ steps.build-dir.outputs.build_dir }}
+        # Execute tests defined by the CMake configuration using ctest
+        run: ctest --output-on-failure
 
-    - name: Install
-      # Install the built binaries
-      run: cmake --install ${{ steps.build-dir.outputs.build_dir }} --prefix ${{github.workspace}}/install
+      - name: Install
+        # Install the built binaries
+        run: cmake --install ${{ steps.build-dir.outputs.build_dir }} --prefix ${{github.workspace}}/install
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: zdb-${{env.BUILD_TYPE}}-${{runner.os}}
-        path: |
-          ${{github.workspace}}/install/
-          cppcheck-report.xml
-          clang-tidy-reports/
-        retention-days: 30
-
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zdb-${{env.BUILD_TYPE}}-${{runner.os}}
+          path: |
+            ${{github.workspace}}/install/
+            cppcheck-report.xml
+            clang-tidy-reports/
+          retention-days: 30
   release:
     needs: [build]
     runs-on: ubuntu-latest

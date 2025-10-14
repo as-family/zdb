@@ -37,6 +37,9 @@ std::shared_ptr<raft::Command> commandFactory(const std::string& s) {
     if (cmd.op() == "t") {
         return std::make_shared<TestCommand>(cmd);
     }
+    if (cmd.op() == "n") {
+        return std::make_shared<NoOp>(cmd);
+    }
     throw std::invalid_argument{"commandFactory: unknown command"};
 }
 
@@ -231,5 +234,42 @@ bool TestCommand::operator==(const raft::Command& other) const {
 bool TestCommand::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
+
+NoOp::NoOp(UUIDV7& u) {
+    uuid = u;
+}
+
+NoOp::NoOp(const proto::Command& cmd) {
+    uuid = string_to_uuid_v7(cmd.requestid().uuid());
+    index = cmd.index();
+}
+
+std::string NoOp::serialize() const {
+    auto c = proto::Command {};
+    c.set_op("n");
+    c.set_index(index);
+    c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
+    std::string s;
+    if (!c.SerializeToString(&s)) {
+        throw std::runtime_error("failed to serialize TestCommand command");
+    }
+    return s;
+}
+
+std::unique_ptr<raft::State> NoOp::apply(raft::StateMachine& stateMachine) {
+    return std::make_unique<zdb::State>(0L);
+}
+
+bool NoOp::operator==(const raft::Command& other) const {
+    if (dynamic_cast<const NoOp*>(&other)) {
+        return true;
+    }
+    return false;
+}
+
+bool NoOp::operator!=(const raft::Command& other) const {
+    return !(*this == other);
+}
+
 
 } // namespace zdb

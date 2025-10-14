@@ -35,14 +35,18 @@ struct TestRaft : raft::Raft {
         std::ignore = arg;
         return raft::RequestVoteReply{false, 0};
     }
-    void appendEntries(bool /*heartBeat*/) override {
+    void appendEntries(std::string) override {
     }
-    void requestVote() override {
+    void requestVote(std::string) override {
     }
     raft::Log& log() override {
         return mainLog;
     }
     void kill() override {
+    }
+    void persist() override {
+    }
+    void readPersist(raft::PersistentState) override {
     }
     raft::Channel<std::shared_ptr<raft::Command>>& channel;
 private:

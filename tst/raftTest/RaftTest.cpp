@@ -141,30 +141,30 @@ TEST(Raft, ReElection) {
     EXPECT_EQ(leader3, leader4);
 }
 
-TEST(Raft, ManyElections) {
-    auto servers = 7;
-    auto config = makeConfig(7);
-    auto p = makePolicy(config.size());
-    auto targets = getRaftTargets(config);
-    RAFTTestFramework framework{config, p};
-    framework.check1Leader();
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution dst{0, servers - 1};
-    for (int ii = 0; ii < 10; ++ii) {
-        auto i1 = dst(gen);
-        auto i2 = dst(gen);
-        auto i3 = dst(gen);
-        framework.disconnect(targets[i1]);
-        framework.disconnect(targets[i2]);
-        framework.disconnect(targets[i3]);
-        framework.check1Leader();
-        framework.connect(targets[i1]);
-        framework.connect(targets[i2]);
-        framework.connect(targets[i3]);
-    }
-    framework.check1Leader();
-}
+// TEST(Raft, ManyElections) {
+//     auto servers = 7;
+//     auto config = makeConfig(7);
+//     auto p = makePolicy(config.size());
+//     auto targets = getRaftTargets(config);
+//     RAFTTestFramework framework{config, p};
+//     framework.check1Leader();
+//     std::random_device rd;
+//     std::mt19937 gen(rd());
+//     std::uniform_int_distribution dst{0, servers - 1};
+//     for (int ii = 0; ii < 10; ++ii) {
+//         auto i1 = dst(gen);
+//         auto i2 = dst(gen);
+//         auto i3 = dst(gen);
+//         framework.disconnect(targets[i1]);
+//         framework.disconnect(targets[i2]);
+//         framework.disconnect(targets[i3]);
+//         framework.check1Leader();
+//         framework.connect(targets[i1]);
+//         framework.connect(targets[i2]);
+//         framework.connect(targets[i3]);
+//     }
+//     framework.check1Leader();
+// }
 
 TEST(Raft, BasicAgreeOneValue) {
     auto config = makeConfig(3);

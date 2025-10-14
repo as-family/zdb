@@ -45,10 +45,11 @@ RAFTTestFramework::RAFTTestFramework(
     for (auto& e : config) {
         threads.emplace_back([this, &e, ps] {
             leaders.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
+            persisters.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple("."));
             rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, leaders.at(e.raftTarget), policy, [this, &e](const std::string addr, zdb::RetryPolicy, std::atomic<bool>& sc) -> Client& {
                 clients[e.raftTarget].emplace(std::piecewise_construct, std::forward_as_tuple(addr), std::forward_as_tuple(addr, e.raftNetworkConfig, policy, getDefaultRaftProxyFunctions(), sc));
                 return clients[e.raftTarget].at(addr);
-            }));
+            }, persisters.at(e.raftTarget)));
             raftServices.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(rafts.at(e.raftTarget)));
             raftServers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, raftServices.at(e.raftTarget)));
             proxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, e.raftNetworkConfig, policy, getDefaultRaftProxyFunctions()));
@@ -85,9 +86,9 @@ int RAFTTestFramework::nRole(raft::Role role) {
 }
 
 std::string RAFTTestFramework::check1Leader() {
-    std::uniform_int_distribution<> dist{0, 400};
+    std::uniform_int_distribution<> dist{0, 800};
     for (int i = 0; i < 10; i++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds{static_cast<long>(400 + dist(gen))});
+        std::this_thread::sleep_for(std::chrono::milliseconds{static_cast<long>(800 + dist(gen))});
         std::unordered_map<uint64_t, std::vector<std::string>> termsMap{};
         for (const auto& [id, raft] : rafts) {
             if (proxies.at(id).getNetworkConfig().isConnected()) {

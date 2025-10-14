@@ -54,3 +54,9 @@ message RequestVoteReply {
     bool voteGranted = 1;
     uint64 term = 2;
 }
+
+message PersistentState {
+    uint64 currentTerm = 1;
+    optional string votedFor = 2;
+    repeated LogEntry log = 3;
+}

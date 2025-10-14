@@ -25,6 +25,8 @@
 #include "server/RPCServer.hpp"
 #include "common/Util.hpp"
 #include <random>
+#include <storage/FilePersister.hpp>
+
 #include "raft/SyncChannel.hpp"
 #include "raft/RaftImpl.hpp"
 #include "common/LockedUnorderedMap.hpp"
@@ -64,6 +66,7 @@ private:
     zdb::RetryPolicy policy;
     std::mt19937 gen;
     zdb::LockedUnorderedMap<std::string, raft::SyncChannel<std::shared_ptr<raft::Command>>> leaders;
+    zdb::LockedUnorderedMap<std::string, zdb::FilePersister> persisters;
     zdb::LockedUnorderedMap<std::string, raft::RaftImpl<Client>> rafts;
     zdb::LockedUnorderedMap<std::string, zdb::LockedUnorderedMap<std::string, Client>> clients;
     zdb::LockedUnorderedMap<std::string, raft::RaftServiceImpl> raftServices;

@@ -14,9 +14,7 @@
 #define GO_CHANNEL_HPP
 
 #include "raft/Channel.hpp"
-#include <string>
 #include <raft/Command.hpp>
-
 #include "raft_wrapper.hpp"
 
 class GoChannel : public raft::Channel<std::shared_ptr<raft::Command>> {

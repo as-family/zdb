@@ -78,7 +78,7 @@ struct Size : public raft::Command {
     bool operator!=(const raft::Command& other) const override;
 };
 
-struct TestCommand : raft::Command {
+struct TestCommand : public raft::Command {
     TestCommand(UUIDV7& u, std::string d);
     TestCommand(const zdb::proto::Command& cmd);
 
@@ -89,6 +89,15 @@ struct TestCommand : raft::Command {
     bool operator!=(const raft::Command& other) const override;
 private:
     std::string data;
+};
+
+struct NoOp : public raft::Command {
+    NoOp(UUIDV7& u);
+    NoOp(const proto::Command&);
+    std::string serialize() const override;
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
+    bool operator==(const raft::Command& other) const override;
+    bool operator!=(const raft::Command& other) const override;
 };
 
 std::shared_ptr<raft::Command> commandFactory(const std::string& s);

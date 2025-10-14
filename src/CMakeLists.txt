@@ -65,6 +65,7 @@ target_sources(zdb PRIVATE
   ${CMAKE_SOURCE_DIR}/src/common/Util.cpp
   ${CMAKE_SOURCE_DIR}/src/common/Command.cpp
   ${CMAKE_SOURCE_DIR}/src/common/KVStateMachine.cpp
+  ${CMAKE_SOURCE_DIR}/src/storage/FilePersister.cpp
 )
 
 target_link_libraries(zdb PRIVATE

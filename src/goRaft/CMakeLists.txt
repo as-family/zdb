@@ -71,6 +71,7 @@ add_library(zdb_raft SHARED
   ${CMAKE_SOURCE_DIR}/src/common/Command.cpp
   ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
   ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoChannel.cpp
+  ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoPersister.cpp
 )
 
 target_compile_options(zdb_raft PRIVATE
@@ -163,6 +164,18 @@ if(${BUILD_TESTING})
   )
 
   set_tests_properties(raft_3b_tests PROPERTIES
+          ENVIRONMENT "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
+          FIXTURES_REQUIRED "raft_setup"
+  )
+
+  add_test(
+          NAME raft_3c_tests
+          COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
+          ${GO_BIN} test -run "Test.*3C" -v
+          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/6.5840/src/raft1
+  )
+
+  set_tests_properties(raft_3c_tests PROPERTIES
           ENVIRONMENT "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
           FIXTURES_REQUIRED "raft_setup"
   )
