@@ -101,11 +101,12 @@ RaftImpl<Client>::RaftImpl(
     clusterSize = p.size();
     nextIndex = std::unordered_map<std::string, uint64_t>{};
     matchIndex = std::unordered_map<std::string, uint64_t>{};
-    p.erase(std::ranges::remove(p, selfId).begin(), p.end());
+    std::erase(p, selfId);
     for (const auto& a : p) {
         nextIndex[a] = 1;
         matchIndex[a] = 0;
     }
+    readPersist(persister.load());
     for (const auto& peer : p) {
         shouldStartHeartbeat.emplace(peer, false);
         appendNow.emplace(peer, false);
