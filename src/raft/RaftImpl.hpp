@@ -264,7 +264,7 @@ template <typename Client>
 void RaftImpl<Client>::applyCommittedEntries() {
     // std::println(stderr, "{} applyCommittedEntries: {} {} {}", std::chrono::system_clock::now(), selfId, lastApplied, commitIndex);
     while (lastApplied < commitIndex) {
-        int i = lastApplied + 1;
+        uint64_t i = lastApplied + 1;
         auto c = mainLog.at(i);
         try {
             auto payload = c->command ? c->command->serialize() : std::string{"<null>"};

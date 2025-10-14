@@ -45,35 +45,6 @@ jobs:
         key: vcpkg-binary-cache-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
           vcpkg-binary-cache-${{ runner.os }}-
-
-    - name: Install dependencies and static analysis tools
-      run: |
-        # Install LLVM 21
-        sudo tee /etc/apt/sources.list.d/llvm.list << EOF
-          deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main
-          deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main
-        EOF
-        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-
-        # Install other dependencies
-        sudo apt-get update -qq
-        sudo apt-get install -y --no-install-recommends \
-          cppcheck \
-          jq \
-          llvm-21 \
-          clang-21 \
-          clang-tools-21 \
-          clang-tidy-21 \
-          libc++-21-dev \
-          golang
-
-    - name: Install protoc-gen-go and setup Go environment
-      run: |
-        # Install protoc-gen-go
-        go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-        # Add Go bin to PATH for subsequent steps
-        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-
     - name: Setup vcpkg
       run: |
         chmod +x setup-vcpkg.sh
@@ -122,6 +93,32 @@ jobs:
           key: cmake-build-${{ runner.os }}-gcc-14-${{ hashFiles('**/CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'tst/**/*.cpp', 'vcpkg.json', 'CMakePresets.json') }}
           restore-keys: |
             cmake-build-${{ runner.os }}-gcc-14-
+      - name: Install dependencies and static analysis tools
+        run: |
+          # Install LLVM 21
+          sudo tee /etc/apt/sources.list.d/llvm.list << EOF
+          deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main
+          deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main
+          EOF
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          
+          # Install other dependencies
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+          cppcheck \
+          jq \
+          llvm-21 \
+          clang-21 \
+          clang-tools-21 \
+          clang-tidy-21 \
+          libc++-21-dev \
+          golang
+      - name: Install protoc-gen-go and setup Go environment
+        run: |
+          # Install protoc-gen-go
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          # Add Go bin to PATH for subsequent steps
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
       - name: Get build directory from CMake
         id: build-dir
         run: |

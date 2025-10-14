@@ -86,9 +86,9 @@ int RAFTTestFramework::nRole(raft::Role role) {
 }
 
 std::string RAFTTestFramework::check1Leader() {
-    std::uniform_int_distribution<> dist{0, 400};
+    std::uniform_int_distribution<> dist{0, 500};
     for (int i = 0; i < 10; i++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds{static_cast<long>(400 + dist(gen))});
+        std::this_thread::sleep_for(std::chrono::milliseconds{static_cast<long>(500 + dist(gen))});
         std::unordered_map<uint64_t, std::vector<std::string>> termsMap{};
         for (const auto& [id, raft] : rafts) {
             if (proxies.at(id).getNetworkConfig().isConnected()) {
