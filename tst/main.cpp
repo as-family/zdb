@@ -24,15 +24,15 @@ int main(int argc, char** argv) {
     spdlog::init_thread_pool(8192, 1);
     auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-        "logs/my_async_log.txt", 1024 * 1024 * 5, 3);
+        "logs/zdb.txt", 1024 * 1024 * 5, 3);
     std::vector<spdlog::sink_ptr> sinks {consoleSink, fileSink};
     const auto asyncLogger = std::make_shared<spdlog::async_logger>(
-        "global_async_logger", sinks.begin(), sinks.end(),
-        spdlog::thread_pool(), spdlog::async_overflow_policy::block);
+        "gAsync", sinks.begin(), sinks.end(),
+        spdlog::thread_pool(), spdlog::async_overflow_policy::overrun_oldest);
     spdlog::register_logger(asyncLogger);
     spdlog::set_default_logger(asyncLogger);
     testing::InitGoogleTest(&argc, argv);
-    int const result = RUN_ALL_TESTS();
+    const int result = RUN_ALL_TESTS();
     spdlog::shutdown();
     return result;
 }
