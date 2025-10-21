@@ -18,10 +18,12 @@
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/rotating_file_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
+#include <filesystem>
 
 int main(int argc, char** argv) {
     spdlog::init_thread_pool(8192, 1);
     auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    std::filesystem::create_directories("logs");
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
         "logs/my_async_log.txt", 1024 * 1024 * 5, 3);
     std::vector<spdlog::sink_ptr> sinks {consoleSink, fileSink};
