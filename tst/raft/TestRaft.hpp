@@ -19,7 +19,7 @@
 #include "raft/Log.hpp"
 
 struct TestRaft : raft::Raft {
-    TestRaft(raft::Channel<std::shared_ptr<raft::Command>>& c) : channel {c}, mainLog{} {}
+    TestRaft(raft::Channel<std::shared_ptr<raft::Command>>& c) : raft::Raft("", std::chrono::milliseconds(0L), std::chrono::milliseconds(0L), 0), channel {c}, mainLog{} {}
     bool start(std::shared_ptr<raft::Command> cmd) override {
         auto t = std::chrono::system_clock::now() + std::chrono::milliseconds{100L};
         if (!channel.sendUntil(cmd, t)) {

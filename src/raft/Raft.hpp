@@ -51,6 +51,8 @@ struct PersistentState {
 
 class Raft {
 public:
+    Raft(std::string id, std::chrono::milliseconds ht, std::chrono::milliseconds et, uint8_t cs)
+        :selfId{id}, heartbeatInterval(ht), electionTimeout(et), clusterSize(cs) {}
     virtual ~Raft() = default;
     virtual AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) = 0;
     virtual RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) = 0;
@@ -73,8 +75,8 @@ protected:
     uint64_t lastApplied = 0;
     std::unordered_map<std::string, uint64_t> nextIndex;
     std::unordered_map<std::string, uint64_t> matchIndex;
-    std::chrono::milliseconds electionTimeout;
     std::chrono::milliseconds heartbeatInterval;
+    std::chrono::milliseconds electionTimeout;
     uint8_t clusterSize;
 };
 
