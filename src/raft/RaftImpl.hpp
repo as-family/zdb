@@ -484,9 +484,9 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
         electionCond.notify_all();
         return false;
     }
-    spdlog::info("{}: start: command term={} index={}", selfId, command->term, command->index);
     command->term = currentTerm;
     command->index = mainLog.lastIndex() + 1;
+    spdlog::info("{}: start: command term={} index={}", selfId, command->term, command->index);
     LogEntry e {
         command->index,
         command->term,
