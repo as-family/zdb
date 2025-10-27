@@ -9,10 +9,10 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "Repeater.hpp"
-#include "Error.hpp"
-#include "ErrorConverter.hpp"
-#include "RetryPolicy.hpp"
+#include "common/Repeater.hpp"
+#include "common/Error.hpp"
+#include "common/ErrorConverter.hpp"
+#include "common/RetryPolicy.hpp"
 #include <functional>
 #include <optional>
 #include <chrono>

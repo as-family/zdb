@@ -9,7 +9,7 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "RetryPolicy.hpp"
+#include "common/RetryPolicy.hpp"
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <chrono>

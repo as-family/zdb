@@ -13,4 +13,4 @@ replace 6.5840 => /home/ahmed/ws/zdb/6.5840/src
 
 require github.com/as-family/zdb/proto v0.0.0-00010101000000-000000000000
 
-replace github.com/as-family/zdb/proto => /home/ahmed/ws/zdb/out/build/gcc-14/go-proto
+replace github.com/as-family/zdb/proto => /home/ahmed/ws/zdb/out/build/sys-gcc/go-proto

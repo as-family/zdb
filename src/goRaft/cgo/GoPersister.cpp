@@ -10,10 +10,10 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "GoPersister.hpp"
+#include "goRaft/cgo/GoPersister.hpp"
 #include "raft/Raft.hpp"
 #include "proto/raft.pb.h"
-#include "raft_wrapper.hpp"
+#include "goRaft/cgo/raft_wrapper.hpp"
 
 GoPersister::GoPersister(uintptr_t h) : handle(h) {
 }

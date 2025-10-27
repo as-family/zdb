@@ -96,7 +96,7 @@ target_compile_options(zdb_raft PRIVATE
 )
 
 target_include_directories(zdb_raft PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/include
     ${CMAKE_BINARY_DIR}
 )
 

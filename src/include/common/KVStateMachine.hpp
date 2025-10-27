@@ -16,7 +16,7 @@
 #include "common/Types.hpp"
 #include "raft/Channel.hpp"
 #include <thread>
-#include "interface/StorageEngine.hpp"
+#include "storage/StorageEngine.hpp"
 #include "raft/Raft.hpp"
 #include <chrono>
 #include <memory>

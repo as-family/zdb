@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
-#include "GoRPCClient.hpp"
+#include "goRaft/cgo/GoRPCClient.hpp"
 #include "storage/Persister.hpp"
 
 struct RaftHandle {

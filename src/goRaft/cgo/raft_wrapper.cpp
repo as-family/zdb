@@ -9,12 +9,12 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "raft_wrapper.hpp"
+#include "goRaft/cgo/raft_wrapper.hpp"
 #include "raft/Raft.hpp"
 #include "raft/RaftImpl.hpp"
 #include "raft/Channel.hpp"
 #include "proto/raft.pb.h"
-#include "GoRPCClient.hpp"
+#include "goRaft/cgo/GoRPCClient.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,9 +24,9 @@
 #include <queue>
 #include <unordered_map>
 #include "common/Command.hpp"
-#include "GoChannel.hpp"
-#include "GoPersister.hpp"
-#include "RaftHandle.hpp"
+#include "goRaft/cgo/GoChannel.hpp"
+#include "goRaft/cgo/GoPersister.hpp"
+#include "goRaft/cgo/RaftHandle.hpp"
 
 extern "C" {
 
