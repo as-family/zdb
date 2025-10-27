@@ -1,4 +1,4 @@
-# zDB: A High-Performance, Raft-Based, Sharded Key-Value Store in C++
+# zDB: A High-Performance, Raft-Based, Sharded Key-Value Store in C++ (Z for Zoza!)
 
 [![Release](https://github.com/as-family/zdb/actions/workflows/cmake-single-platform.yml/badge.svg?branch=master)](https://github.com/as-family/zdb/actions/workflows/cmake-single-platform.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)

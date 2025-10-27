@@ -30,7 +30,7 @@ USAGE:
 
 PARAMETERS:
     build_directory    Path to build directory with compile_commands.json
-                      (default: out/build/gcc-14)
+                      (default: out/build/sys-gcc)
     
     output_format     Report format: html, yaml, both
                       (default: html)
@@ -43,8 +43,8 @@ OUTPUT FORMATS:
 EXAMPLES:
     ./run-clang-tidy.sh                           # HTML report, default build dir
     ./run-clang-tidy.sh out/build/clang-21        # HTML report, custom build dir
-    ./run-clang-tidy.sh out/build/gcc-14 yaml     # YAML fixes file
-    ./run-clang-tidy.sh out/build/gcc-14 both     # Both HTML and YAML
+    ./run-clang-tidy.sh out/build/sys-gcc yaml     # YAML fixes file
+    ./run-clang-tidy.sh out/build/sys-gcc both     # Both HTML and YAML
 
 REQUIREMENTS:
     - clang-tidy-21 installed (with run-clang-tidy-21 if available)
@@ -61,7 +61,7 @@ EOF
 fi
 
 # Default build directory and output format
-BUILD_DIR="${1:-out/build/gcc-14}"
+BUILD_DIR="${1:-out/build/sys-gcc}"
 OUTPUT_FORMAT="${2:-html}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 OUTPUT_DIR="clang-tidy-reports"
