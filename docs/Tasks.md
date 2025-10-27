@@ -162,7 +162,7 @@ This is an excellent idea for accountability and managing such an ambitious plan
     *   [ ] **Project:** Fix the whole "Many threads in each call" issues!
       * [x] appendEntries need to use `>= clusterSize/2 + 1`
       * [x] More aggressive thread cleanup
-      * [x] Somehow notify threads when raft state changes and cancell them!
+      * [x] Somehow notify threads when raft state changes and cancel them!
     *   [ ] Refactor cgo_raft handle creation and deletion into a single set of generic functions
     *   [x] find a way to keep RaftImpl interface intact while adhering to go tests interfaces (like in start)
     *   [x] FIX raftImpl destruction when called from go! (it is too slow)

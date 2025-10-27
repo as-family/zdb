@@ -33,11 +33,11 @@ void Log::append(const LogEntry& entry) {
     entries.push_back(entry);
 }
 
-bool Log::merge(const Log& other) {
-    if (this == &other) return true;
+void Log::merge(const Log& other) {
+    if (this == &other) return;
     std::scoped_lock lk(m, other.m);
     if (other.entries.empty()) {
-        return true;
+        return;
     }
     size_t i = 0;
     while (i < other.entries.size()) {
@@ -53,7 +53,7 @@ bool Log::merge(const Log& other) {
         ++i;
     }
     entries.insert(entries.end(), other.entries.begin() + i, other.entries.end());
-    return true;
+    return;
 }
 
 uint64_t Log::lastIndex() const {

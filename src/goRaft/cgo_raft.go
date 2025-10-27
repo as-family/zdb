@@ -75,7 +75,7 @@ func deleteHandle(h uintptr) {
 
 func registerCallback(rf *Raft) C.uintptr_t {
 	cb := callbackFn(func(p int, s string, a interface{}, b interface{}) int {
-		if rf.dead == 1 {
+		if atomic.LoadInt32(&rf.dead) == 1 {
 			return 0
 		}
 		if v, ok := rafts.Load(p); !ok || !v.(bool) {
@@ -422,7 +422,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 }
 
 func (rf *Raft) Kill() {
-	rf.dead = 1
+	atomic.StoreInt32(&rf.dead, 1)
 	rafts.Store(rf.me, false)
 	if rf.handle == nil {
 		// fmt.Println("Go: Raft handle is nil, already killed", rf.me)
