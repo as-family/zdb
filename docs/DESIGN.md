@@ -3,13 +3,13 @@
 This document outlines the key technical decisions and architectural choices made in the implementation of zDB.
 
 ## System Architecture
-
+![arch](figures/arch.png)
 ### Core Components
 
 1. **Client Interface**
    - gRPC-based API for client interactions
    - Asynchronous operation support
-   - Connection pooling and retry mechanisms
+   - Retry mechanisms
 
 2. **Shard Master**
    - Manages shard assignments and reconfigurations
