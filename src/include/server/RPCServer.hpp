@@ -53,7 +53,7 @@ RPCServer<Service>::RPCServer(const std::string& address, Service& s)
 template<typename Service>
 void RPCServer<Service>::shutdown() {
     if (server) {
-        auto deadline = std::chrono::system_clock::now() + std::chrono::milliseconds{10L};
+        auto deadline = std::chrono::system_clock::now() + std::chrono::seconds{2};
         server->Shutdown(deadline);
     }
     if (serverThread.joinable()) {

@@ -16,7 +16,7 @@ cd "$(dirname "$0")/../.."
 ./run-clang-tidy.sh
 
 if [ $? -ne 0 ]; then
-    echo "cpp-check failed! Aborting commit."
-	exit 1
+    echo "clang-tidy failed! Aborting push."
+    exit 1
 fi
-echo "Pre-commit hook finished successfully."
+echo "Pre-push hook finished successfully."

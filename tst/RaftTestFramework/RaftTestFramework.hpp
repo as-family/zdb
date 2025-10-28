@@ -26,10 +26,8 @@
 #include "common/Util.hpp"
 #include <random>
 #include <storage/FilePersister.hpp>
-
 #include "raft/SyncChannel.hpp"
 #include "raft/RaftImpl.hpp"
-#include "common/LockedUnorderedMap.hpp"
 #include "raft/RaftServiceImpl.hpp"
 #include "server/RPCServer.hpp"
 
@@ -65,16 +63,16 @@ private:
     std::vector<EndPoints>& config;
     zdb::RetryPolicy policy;
     std::mt19937 gen;
-    zdb::LockedUnorderedMap<std::string, raft::SyncChannel<std::shared_ptr<raft::Command>>> leaders;
-    zdb::LockedUnorderedMap<std::string, zdb::FilePersister> persisters;
-    zdb::LockedUnorderedMap<std::string, raft::RaftImpl<Client>> rafts;
-    zdb::LockedUnorderedMap<std::string, zdb::LockedUnorderedMap<std::string, Client>> clients;
-    zdb::LockedUnorderedMap<std::string, raft::RaftServiceImpl> raftServices;
-    zdb::LockedUnorderedMap<std::string, Client> proxies;
-    zdb::LockedUnorderedMap<std::string, ProxyRaftService> raftProxies;
-    zdb::LockedUnorderedMap<std::string, zdb::RPCServer<ProxyRaftService>> raftProxyServers;
-    zdb::LockedUnorderedMap<std::string, zdb::RPCServer<raft::RaftServiceImpl>> raftServers;
-    zdb::LockedUnorderedMap<std::string, KVTestFramework> kvTests;
+    std::unordered_map<std::string, raft::SyncChannel<std::shared_ptr<raft::Command>>> leaders;
+    std::unordered_map<std::string, zdb::FilePersister> persisters;
+    std::unordered_map<std::string, raft::RaftImpl<Client>> rafts;
+    std::unordered_map<std::string, std::unordered_map<std::string, Client>> clients;
+    std::unordered_map<std::string, raft::RaftServiceImpl> raftServices;
+    std::unordered_map<std::string, Client> proxies;
+    std::unordered_map<std::string, ProxyRaftService> raftProxies;
+    std::unordered_map<std::string, zdb::RPCServer<ProxyRaftService>> raftProxyServers;
+    std::unordered_map<std::string, zdb::RPCServer<raft::RaftServiceImpl>> raftServers;
+    std::unordered_map<std::string, KVTestFramework> kvTests;
 };
 
 #endif // RAFT_TEST_FRAMEWORK_H

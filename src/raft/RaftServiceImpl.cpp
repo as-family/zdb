@@ -35,8 +35,8 @@ grpc::Status RaftServiceImpl::appendEntries(
     auto r = raft.appendEntriesHandler(arg);
     reply->set_success(r.success);
     reply->set_term(r.term);
-    reply->set_conflictindex(r.conflictIndex)
-    ;reply->set_conflictterm(r.conflictTerm);
+    reply->set_conflictindex(r.conflictIndex);
+    reply->set_conflictterm(r.conflictTerm);
     return grpc::Status::OK;
 }
 

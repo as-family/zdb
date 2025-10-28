@@ -19,7 +19,8 @@
 namespace raft {
 
 bool LogEntry::operator==(const LogEntry& other) const {
-    return index == other.index && term == other.term && command.get() == other.command.get();
+    return index == other.index && term == other.term &&
+        (command == other.command || (command && other.command && *command == *other.command));
 }
 
 Log::Log()

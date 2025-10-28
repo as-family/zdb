@@ -141,7 +141,7 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
 			}
 		}
 		//         fmt.Println("Go: channel callback invoked:", x)
-		if rf.dead == 1 {
+		if atomic.LoadInt32(&rf.dead) == 1 {
 			return 0
 		}
 		if rf.applyCh != nil {

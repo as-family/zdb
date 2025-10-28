@@ -114,14 +114,6 @@ RaftImpl<Client>::RaftImpl(
         appendNow.emplace(peer, false);
         shouldStartElection.emplace(peer, false);
         peers.emplace(peer, std::ref(g(peer, policy, stopCalls)));
-        leaderThreads.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(peer),
-            std::forward_as_tuple(
-                std::thread(&RaftImpl::requestVote, this, peer),
-                std::thread(&RaftImpl::appendEntries, this, peer)
-            )
-        );
     }
     electionTimer.start(
         [this] -> std::chrono::milliseconds {
@@ -146,6 +138,16 @@ RaftImpl<Client>::RaftImpl(
             }
         }
     );
+    for (const auto& peer : p) {
+        leaderThreads.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(peer),
+            std::forward_as_tuple(
+                std::thread(&RaftImpl::requestVote, this, peer),
+                std::thread(&RaftImpl::appendEntries, this, peer)
+            )
+        );
+    }
     spdlog::info("{}: RaftImpl started: peers: {}", selfId, peersList);
 }
 
