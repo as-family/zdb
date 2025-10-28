@@ -2,8 +2,10 @@
 
 This document outlines the key technical decisions and architectural choices made in the implementation of zDB.
 
-## System Architecture
-![arch](figures/arch.png)
+## Flows
+
+![arch](figures/flow.png)
+
 ### Core Components
 
 1. **Client Interface**

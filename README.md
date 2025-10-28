@@ -8,6 +8,9 @@
 
 zDB is a distributed, fault-tolerant key-value store implemented in modern C++23, based on the architecture described in the MIT 6.824 Distributed Systems course. It implements sharded replication using the Raft consensus protocol to provide strong consistency and fault tolerance. The implementation successfully passes the rigorous test suite provided by the course while extending the functionality with modern C++ features and performance optimizations.
 
+## System Architecture
+![arch](docs/figures/arch.png)
+
 ## Key Features
 
 - **Fault-Tolerant Consensus**
@@ -74,6 +77,17 @@ zDB is a distributed, fault-tolerant key-value store implemented in modern C++23
 - [ ] Metrics and monitoring integration
 - [ ] Client libraries in multiple languages
 - [ ] Dynamic membership changes
+
+## Lab Progress
+Following [MIT 6.5840 - Spring 2025](https://pdos.csail.mit.edu/6.824/schedule.html) labs
+- [x] Lab 2
+- [ ] Lab 3
+  - [x] A
+  - [x] B
+  - [x] C
+  - [ ] D
+- [ ] Lab 4
+- [ ] Lab 5
 
 ## License
 
