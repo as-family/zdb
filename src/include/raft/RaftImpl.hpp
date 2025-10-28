@@ -16,11 +16,11 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <fmt/ranges.h>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <print>
 #include <queue>
 #include <ranges>
 #include <string>
@@ -65,6 +65,8 @@ public:
 private:
     void initVote();
     void applyCommittedEntries();
+    bool hasVote(std::string candidateId);
+    bool upToDate(uint64_t lastLogIndex, uint64_t lastLogTerm);
     std::mutex m;
     std::condition_variable electionCond;
     std::condition_variable appendCond;
@@ -99,11 +101,7 @@ RaftImpl<Client>::RaftImpl(
   stateMachine {c},
   policy {r},
   persister {pers} {
-    std::string peersList;
-    for (size_t i = 0; i < p.size(); ++i) {
-        if (i) peersList += ", ";
-        peersList += p[i];
-    }
+    std::string peersList = fmt::format("{}", fmt::join(p, ", "));
     spdlog::info("{}: Init RaftImpl: peers: {}", selfId, peersList);
     std::erase(p, selfId);
     for (const auto& a : p) {
@@ -190,12 +188,12 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
         lastHeartbeat = std::chrono::steady_clock::now();
         votedFor.reset();
         persist();
-    spdlog::info("{}: requestVoteHandler: became follower for term {}", selfId, currentTerm);
+        spdlog::info("{}: requestVoteHandler: became follower for term {}", selfId, currentTerm);
         appendCond.notify_all();
         electionCond.notify_all();
     }
-    if ((votedFor.has_value() && votedFor.value() == arg.candidateId) || !votedFor.has_value()) {
-        if ((mainLog.lastTerm() == arg.lastLogTerm && mainLog.lastIndex() <= arg.lastLogIndex) || mainLog.lastTerm() < arg.lastLogTerm) {
+    if (hasVote(arg.candidateId)) {
+        if (upToDate(arg.lastLogIndex, arg.lastLogTerm)) {
             votedFor = arg.candidateId;
             role = Role::Follower;
             lastHeartbeat = std::chrono::steady_clock::now();
@@ -212,12 +210,23 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
 }
 
 template <typename Client>
+bool RaftImpl<Client>::hasVote(std::string candidateId) {
+    return (votedFor.has_value() && votedFor.value() == candidateId) || !votedFor.has_value();
+}
+
+template <typename Client>
+bool RaftImpl<Client>::upToDate(uint64_t lastLogIndex, uint64_t lastLogTerm) {
+    return (mainLog.lastTerm() == lastLogTerm && mainLog.lastIndex() <= lastLogIndex) || mainLog.lastTerm() < lastLogTerm;
+}
+
+template <typename Client>
 AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg& arg) {
     std::unique_lock lock{m};
     if (killed.load()) {
         return AppendEntriesReply{false, currentTerm};
     }
-    spdlog::debug("{}: appendEntriesHandler: term={} leader={} leaderTerm={} size={}", selfId, currentTerm, arg.leaderId, arg.term, arg.entries.data().size());
+    spdlog::debug("{}: appendEntriesHandler: term={} leader={} leaderTerm={} size={}",
+        selfId, currentTerm, arg.leaderId, arg.term, arg.entries.data().size());
     AppendEntriesReply reply;
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -249,19 +258,18 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         reply.term = currentTerm;
         reply.success = true;
         return reply;
-    } else {
-        reply.term = currentTerm;
-        reply.success = false;
-        if (e.has_value()) {
-            reply.conflictIndex = mainLog.termFirstIndex(e.value().term);
-            reply.conflictTerm = e.value().term;
-        } else {
-            reply.conflictIndex = mainLog.lastIndex() + 1;
-            reply.conflictTerm = 0;
-        }
-        spdlog::debug("{}: appendEntriesHandler: conflict at prevLogIndex={}, prevLogTerm={}, conflictTerm={}, conflictIndex={}", selfId, arg.prevLogIndex, arg.prevLogTerm, reply.conflictTerm, reply.conflictIndex);
-        return reply;
     }
+    reply.term = currentTerm;
+    reply.success = false;
+    if (e.has_value()) {
+        reply.conflictIndex = mainLog.termFirstIndex(e.value().term);
+        reply.conflictTerm = e.value().term;
+    } else {
+        reply.conflictIndex = mainLog.lastIndex() + 1;
+        reply.conflictTerm = 0;
+    }
+    spdlog::debug("{}: appendEntriesHandler: conflict at prevLogIndex={}, prevLogTerm={}, conflictTerm={}, conflictIndex={}", selfId, arg.prevLogIndex, arg.prevLogTerm, reply.conflictTerm, reply.conflictIndex);
+    return reply;
 }
 
 template <typename Client>
@@ -455,7 +463,7 @@ void RaftImpl<Client>::requestVote(std::string peerId) {
                 spdlog::info("{}: requestVote: became Leader for term {}", selfId, currentTerm);
                 role = Role::Leader;
                 stopCalls = true;
-                for (const auto& [a, _] : peers) {
+                for (const auto& a : peers | std::views::keys) {
                     nextIndex[a] = mainLog.lastIndex() + 1;
                     matchIndex[a] = 0;
                 }
@@ -472,13 +480,7 @@ void RaftImpl<Client>::requestVote(std::string peerId) {
 template <typename Client>
 bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
     std::unique_lock lock{m};
-    if (killed.load()) {
-        stopCalls = true;
-        appendCond.notify_all();
-        electionCond.notify_all();
-        return false;
-    }
-    if (role != Role::Leader) {
+    if (killed.load() || role != Role::Leader) {
         stopCalls = true;
         appendCond.notify_all();
         electionCond.notify_all();
