@@ -58,10 +58,10 @@ jobs:
     - name: Cache CMake build
       uses: actions/cache@v4
       with:
-        path: out/build/gcc-14
-        key: cmake-build-${{ runner.os }}-gcc-14-${{ hashFiles('**/CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'tst/**/*.cpp', 'vcpkg.json', 'CMakePresets.json') }}
+        path: out/build/sys-gcc
+        key: cmake-build-${{ runner.os }}-sys-gcc-${{ hashFiles('**/CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'tst/**/*.cpp', 'vcpkg.json', 'CMakePresets.json') }}
         restore-keys: |
-          cmake-build-${{ runner.os }}-gcc-14-
+          cmake-build-${{ runner.os }}-sys-gcc-
     - name: Install protoc-gen-go and setup Go environment
       run: |
         # Install protoc-gen-go
@@ -69,8 +69,8 @@ jobs:
         # Add Go bin to PATH for subsequent steps
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
     - name: Configure CMake using preset
-      # Use the gcc-14 preset from CMakePresets.json
-      run: cmake --preset gcc-14
+      # Use the sys-gcc preset from CMakePresets.json
+      run: cmake --preset sys-gcc
   build:
     needs: [config]
     runs-on: ubuntu-latest
@@ -94,10 +94,10 @@ jobs:
       - name: Restore CMake build
         uses: actions/cache@v4
         with:
-          path: out/build/gcc-14
-          key: cmake-build-${{ runner.os }}-gcc-14-${{ hashFiles('**/CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'tst/**/*.cpp', 'vcpkg.json', 'CMakePresets.json') }}
+          path: out/build/sys-gcc
+          key: cmake-build-${{ runner.os }}-sys-gcc-${{ hashFiles('**/CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'tst/**/*.cpp', 'vcpkg.json', 'CMakePresets.json') }}
           restore-keys: |
-            cmake-build-${{ runner.os }}-gcc-14-
+            cmake-build-${{ runner.os }}-sys-gcc-
       - name: Install protoc-gen-go and setup Go environment
         run: |
           # Install protoc-gen-go
@@ -107,16 +107,16 @@ jobs:
       - name: Get build directory from CMake
         id: build-dir
         run: |
-          BUILD_DIR=$(cmake -L --preset gcc-14 | grep ZDB_BUILD_DIR | cut -d= -f2)
+          BUILD_DIR=$(cmake -L --preset sys-gcc | grep ZDB_BUILD_DIR | cut -d= -f2)
           if [ -z "$BUILD_DIR" ]; then
-            BUILD_DIR="${{github.workspace}}/out/build/gcc-14"
+            BUILD_DIR="${{github.workspace}}/out/build/sys-gcc"
           fi
           echo "build_dir=$BUILD_DIR" >> $GITHUB_OUTPUT
           echo "Build directory: $BUILD_DIR"
 
       - name: Build using preset
-        # Build using the gcc-14 preset
-        run: cmake --build --preset gcc-14
+        # Build using the sys-gcc preset
+        run: cmake --build --preset sys-gcc
 
       - name: Run cppcheck (complementary analysis)
         run: |

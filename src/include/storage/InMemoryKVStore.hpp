@@ -9,32 +9,33 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef REPEATER_H
-#define REPEATER_H
+#ifndef IN_MEMORY_KV_STORE_H
+#define IN_MEMORY_KV_STORE_H
 
-#include <functional>
-#include "RetryPolicy.hpp"
-#include "ExponentialBackoff.hpp"
-#include "FullJitter.hpp"
-#include <grpcpp/support/status.h>
-#include <vector>
 #include <string>
-#include <atomic>
+#include <unordered_map>
+#include <shared_mutex>
+#include <mutex>
+#include <cctype>
+#include <expected>
+#include <optional>
+#include "common/Error.hpp"
+#include "storage/StorageEngine.hpp"
 
 namespace zdb {
 
-class Repeater {
+class InMemoryKVStore : public StorageEngine {
 public:
-    Repeater(const RetryPolicy p, std::atomic<bool>& sc);
-    std::vector<grpc::Status> attempt(const std::string& op, const std::function<grpc::Status()>& rpc);
-    void reset();
-    void stop() noexcept;
+    InMemoryKVStore();
+    std::expected<std::optional<Value>, Error> get(const Key& key) const override;
+    std::expected<std::monostate, Error> set(const Key& key, const Value& value) override;
+    std::expected<std::optional<Value>, Error> erase(const Key& key) override;
+    size_t size() const;
 private:
-    ExponentialBackoff backoff;
-    FullJitter fullJitter;
-    std::atomic<bool>& stopped;
+    std::unordered_map<Key, Value, KeyHash> store;
+    mutable std::shared_mutex m;
 };
 
 } // namespace zdb
 
-#endif // REPEATER_H
+#endif // IN_MEMORY_KV_STORE_H

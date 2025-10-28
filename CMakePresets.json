@@ -63,6 +63,26 @@
                 "CXX": "g++-14",
                 "VCPKG_ROOT": "${sourceDir}/vcpkg"
             }
+        },
+        {
+            "name": "sys-gcc",
+            "displayName": "Sys GCC Config",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/sys-gcc",
+            "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++",
+                "CMAKE_CXX_STANDARD": "23",
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
+            },
+            "environment": {
+                "CC": "gcc",
+                "CXX": "g++",
+                "VCPKG_ROOT": "${sourceDir}/vcpkg"
+            }
         }
     ],
     "buildPresets": [
@@ -77,6 +97,10 @@
         {
             "name": "gcc-14",
             "configurePreset": "gcc-14"
+        },
+        {
+            "name": "sys-gcc",
+            "configurePreset": "sys-gcc"
         }
     ],
     "testPresets": [
@@ -85,6 +109,12 @@
             "description": "",
             "displayName": "",
             "configurePreset": "gcc-14"
+        },
+        {
+            "name": "sys-gcc",
+            "description": "System GCC Test Preset",
+            "displayName": "Sys GCC Test",
+            "configurePreset": "sys-gcc"
         }
     ]
 }

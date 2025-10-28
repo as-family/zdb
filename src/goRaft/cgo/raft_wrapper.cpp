@@ -9,12 +9,12 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-#include "raft_wrapper.hpp"
+#include "goRaft/cgo/raft_wrapper.hpp"
 #include "raft/Raft.hpp"
 #include "raft/RaftImpl.hpp"
 #include "raft/Channel.hpp"
 #include "proto/raft.pb.h"
-#include "GoRPCClient.hpp"
+#include "goRaft/cgo/GoRPCClient.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,39 +24,20 @@
 #include <queue>
 #include <unordered_map>
 #include "common/Command.hpp"
-#include "GoChannel.hpp"
-#include "GoPersister.hpp"
-#include "RaftHandle.hpp"
+#include "goRaft/cgo/GoChannel.hpp"
+#include "goRaft/cgo/GoPersister.hpp"
+#include "goRaft/cgo/RaftHandle.hpp"
 
 extern "C" {
 
 void kill_raft(RaftHandle* h) {
-    // std::cerr << "C++: Killing Raft instance, handle=" << h << "\n";
     if (!h) {
-        // std::cerr << "C++: Handle is null, nothing to kill\n";
         return;
     }
-    
-    // Add some basic validation
-    // std::cerr << "C++: Checking handle validity\n";
     if (h->raft) {
-        // std::cerr << "C++: Raft instance exists, signaling kill\n";
-        // Properly signal the raft instance to stop its operations
         h->raft->kill();
-        // std::cerr << "C++: Raft instance kill signal sent\n";
-        
-        // Give threads a moment to recognize the kill signal
-        std::this_thread::sleep_for(std::chrono::milliseconds{10L});
-        
-        // Reset the unique_ptr, which will automatically call the destructor
         h->raft.reset();
-        // std::cerr << "C++: Raft instance destroyed\n";
-    } else {
-        // std::cerr << "C++: Raft instance was already null\n";
     }
-    
-    // std::cerr << "C++: Raft instance killed\n";
-    // std::cerr << "C++: Service channel closed\n";
     if (h->goChannel) {
         h->goChannel->close();
         h->goChannel.reset();
@@ -168,7 +149,6 @@ int raft_get_state(RaftHandle* handle, int* term, int* is_leader) {
 
         return 1;
     } catch (const std::exception& e) {
-        // std::cerr << "Error getting state: " << e.what() << std::endl;
         return 0;
     }
 }
@@ -183,7 +163,6 @@ int raft_start(RaftHandle* handle, void* command, int command_size, int* index, 
     *is_leader = handle->raft->start(c);
     *index = c->index;
     *term = c->term;
-    // std::cerr << "raft_start: " << *index << " " << *term << " " << *is_leader << " " << handle->raft->log().data().size() << " " << handle->raft->log().lastTerm() << "\n";
     return 1;
 }
 

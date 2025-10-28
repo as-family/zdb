@@ -44,15 +44,15 @@ public:
     uint64_t termFirstIndex(uint64_t term) const;
     uint64_t termLastIndex(uint64_t term) const;
     void append(const LogEntry& entry);
-    bool merge(const Log& other);
+    void merge(const Log& other);
     void clear();
     std::optional<LogEntry> at(uint64_t index) const;
-    std::optional<std::vector<LogEntry>::const_iterator> atIter(uint64_t index) const;
     Log suffix(uint64_t start) const;
     std::vector<LogEntry> data() const;
  private:
     mutable std::mutex m{};
     std::vector<LogEntry> entries;
+    std::optional<std::vector<LogEntry>::const_iterator> atIter(uint64_t index) const;
 };
 
 } // namespace raft

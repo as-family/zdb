@@ -9,38 +9,25 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef CIRCUIT_BREAKER_H
-#define CIRCUIT_BREAKER_H
+#ifndef EXPONENTIAL_BACKOFF_H
+#define EXPONENTIAL_BACKOFF_H
 
-#include <functional>
-#include "RetryPolicy.hpp"
-#include "Repeater.hpp"
-#include <grpcpp/support/status.h>
-#include <vector>
-#include <string>
+#include "common/RetryPolicy.hpp"
+#include <optional>
 #include <chrono>
 
 namespace zdb {
 
-class CircuitBreaker {
+class ExponentialBackoff {
 public:
-    enum class State : char {
-        Open,
-        Closed,
-        HalfOpen
-    };
-    CircuitBreaker(const RetryPolicy p, std::atomic<bool>& sc);
-    std::vector<grpc::Status> call(const std::string& op, const std::function<grpc::Status()>& rpc);
-    [[nodiscard]] bool open();
-    void stop();
+    explicit ExponentialBackoff(const RetryPolicy policy);
+    std::optional<std::chrono::microseconds> nextDelay();
+    void reset();
 private:
-    State state;
     RetryPolicy policy;
-    Repeater repeater;
-    std::chrono::steady_clock::time_point lastFailureTime;
-    std::atomic<bool>& stopCalls;
+    int attempt{0};
 };
 
 } // namespace zdb
 
-#endif // CIRCUIT_BREAKER_H
+#endif // EXPONENTIAL_BACKOFF_H

@@ -18,9 +18,9 @@ if(${BUILD_TESTING})
   enable_testing()
 
   target_include_directories(tests PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/include
   )
-    target_include_directories(tests PRIVATE
+  target_include_directories(tests PRIVATE
     ${CMAKE_SOURCE_DIR}/tst
   )
   target_include_directories(tests SYSTEM PRIVATE

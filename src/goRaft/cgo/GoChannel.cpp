@@ -16,7 +16,7 @@
 #include <chrono>
 #include <optional>
 #include "proto/types.pb.h"
-#include "RaftHandle.hpp"
+#include "goRaft/cgo/RaftHandle.hpp"
 
 extern "C" int channel_go_invoke_callback(uintptr_t handle, void *cmd, int cmd_size, int index);
 

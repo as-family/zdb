@@ -47,10 +47,10 @@ public:
         Stub* stubLocal = nullptr;
         function_t f;
         {
-            std::lock_guard<std::mutex> lock {m};
             if (!connected()) {
                 return std::unexpected(std::vector<Error>{Error{ErrorCode::ServiceTemporarilyUnavailable, "Not connected"}});
             }
+            std::lock_guard<std::mutex> lock {m};
             auto it = functions.find(op);
             if (it == functions.end() || !it->second) {
                 return std::unexpected(std::vector<Error>{Error{ErrorCode::Unknown, "Unknown operation: " + op}});
@@ -85,13 +85,13 @@ public:
     [[nodiscard]] bool connected() const;
     [[nodiscard]] std::string address() const;
 private:
-    std::mutex m;
+    mutable std::mutex m;
     std::string addr;
     RetryPolicy policy;
     CircuitBreaker circuitBreaker;
     std::unordered_map<std::string, function_t> functions;
     std::shared_ptr<grpc::Channel> channel;
-    std::unique_ptr<Stub> stub;
+    std::shared_ptr<Stub> stub;
     std::atomic<bool>& stopCalls;
 };
 
@@ -148,6 +148,7 @@ bool RPCService<Service>::available() {
 
 template<typename Service>
 bool RPCService<Service>::connected() const {
+    std::lock_guard<std::mutex> lock {m};
     if (!channel || !stub) {
         return false;
     }

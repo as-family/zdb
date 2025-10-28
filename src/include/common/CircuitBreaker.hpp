@@ -9,27 +9,38 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+#ifndef CIRCUIT_BREAKER_H
+#define CIRCUIT_BREAKER_H
 
-#ifndef GO_CHANNEL_HPP
-#define GO_CHANNEL_HPP
+#include <functional>
+#include "common/RetryPolicy.hpp"
+#include "common/Repeater.hpp"
+#include <grpcpp/support/status.h>
+#include <vector>
+#include <string>
+#include <chrono>
 
-#include "raft/Channel.hpp"
-#include <raft/Command.hpp>
-#include "raft_wrapper.hpp"
+namespace zdb {
 
-class GoChannel : public raft::Channel<std::shared_ptr<raft::Command>> {
+class CircuitBreaker {
 public:
-    GoChannel(uintptr_t h, RaftHandle* r);
-    ~GoChannel() override;
-    void send(std::shared_ptr<raft::Command>) override;
-    bool sendUntil(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t) override;
-    std::optional<std::shared_ptr<raft::Command>> receive() override;
-    std::optional<std::shared_ptr<raft::Command>> receiveUntil(std::chrono::system_clock::time_point t) override;
-    void close() override;
-    bool isClosed() override;
+    enum class State : char {
+        Open,
+        Closed,
+        HalfOpen
+    };
+    CircuitBreaker(const RetryPolicy p, std::atomic<bool>& sc);
+    std::vector<grpc::Status> call(const std::string& op, const std::function<grpc::Status()>& rpc);
+    [[nodiscard]] bool open();
+    void stop();
 private:
-    uintptr_t handle;
-    RaftHandle* raftHandle;
+    State state;
+    RetryPolicy policy;
+    Repeater repeater;
+    std::chrono::steady_clock::time_point lastFailureTime;
+    std::atomic<bool>& stopCalls;
 };
 
-#endif // GO_CHANNEL_HPP
+} // namespace zdb
+
+#endif // CIRCUIT_BREAKER_H

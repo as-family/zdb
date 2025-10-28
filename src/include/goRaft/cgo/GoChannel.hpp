@@ -9,25 +9,27 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef EXPONENTIAL_BACKOFF_H
-#define EXPONENTIAL_BACKOFF_H
 
-#include "RetryPolicy.hpp"
-#include <optional>
-#include <chrono>
+#ifndef GO_CHANNEL_HPP
+#define GO_CHANNEL_HPP
 
-namespace zdb {
+#include "raft/Channel.hpp"
+#include <raft/Command.hpp>
+#include "goRaft/cgo/raft_wrapper.hpp"
 
-class ExponentialBackoff {
+class GoChannel : public raft::Channel<std::shared_ptr<raft::Command>> {
 public:
-    explicit ExponentialBackoff(const RetryPolicy policy);
-    std::optional<std::chrono::microseconds> nextDelay();
-    void reset();
+    GoChannel(uintptr_t h, RaftHandle* r);
+    ~GoChannel() override;
+    void send(std::shared_ptr<raft::Command>) override;
+    bool sendUntil(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t) override;
+    std::optional<std::shared_ptr<raft::Command>> receive() override;
+    std::optional<std::shared_ptr<raft::Command>> receiveUntil(std::chrono::system_clock::time_point t) override;
+    void close() override;
+    bool isClosed() override;
 private:
-    RetryPolicy policy;
-    int attempt{0};
+    uintptr_t handle;
+    RaftHandle* raftHandle;
 };
 
-} // namespace zdb
-
-#endif // EXPONENTIAL_BACKOFF_H
+#endif // GO_CHANNEL_HPP

@@ -251,7 +251,7 @@ std::string NoOp::serialize() const {
     c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
     std::string s;
     if (!c.SerializeToString(&s)) {
-        throw std::runtime_error("failed to serialize TestCommand command");
+        throw std::runtime_error("failed to serialize NoOp command");
     }
     return s;
 }

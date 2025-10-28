@@ -20,6 +20,7 @@ namespace raft {
 AsyncTimer::AsyncTimer() : running(false), mtx{}, cv{} {}
 
 void AsyncTimer::start(std::function<std::chrono::milliseconds()> intervalProvider, std::function<void()> callback) {
+    stop();
     {
         std::lock_guard<std::mutex> lock(mtx);
         running = true;

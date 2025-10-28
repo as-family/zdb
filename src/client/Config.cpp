@@ -18,7 +18,6 @@
 #include "common/Error.hpp"
 #include <tuple>
 #include <expected>
-#include "client/Config.hpp"
 #include <mutex>
 #include <unordered_map>
 
