@@ -29,7 +29,7 @@ The core Raft consensus module (MIT 6.824 Lab 3) is fully implemented and consis
   - Log compaction via snapshotting
 
 - **Strong Consistency**
-  - Linearizable Get/Put/Erase operations
+  - Linearizable Get/Set/Erase operations
   - Atomic multi-key operations within shards
   - Consistent reads across replicas
 
