@@ -10,15 +10,9 @@ This document outlines the key technical decisions and architectural choices mad
 
 1. **Client Interface**
    - gRPC-based API for client interactions
-   - Asynchronous operation support
    - Retry mechanisms
 
-2. **Shard Master**
-   - Manages shard assignments and reconfigurations
-   - Maintains global view of system topology
-   - Handles shard rebalancing decisions
-
-3. **Raft Groups**
+2. **Raft Groups**
    - Independent Raft clusters per shard
    - Leader-based consensus protocol
    - Persistent state management
@@ -49,28 +43,11 @@ This document outlines the key technical decisions and architectural choices mad
 - Thread pool for request processing
 - Asynchronous I/O operations
 
-#### Sharding Strategy
-- Consistent hashing for key distribution
-- Virtual nodes for better balance
-- Dynamic shard splitting and merging
-- Background rebalancing
-
 ### Performance Optimizations
 
 1. **Request Batching**
    - Batch client requests for higher throughput
    - Coalesce disk writes
-   - Group commit optimization
-
-2. **Memory Management**
-   - Custom memory allocators
-   - Memory pooling for common objects
-   - Zero-copy operations where possible
-
-3. **Network Optimizations**
-   - Connection pooling
-   - Protocol-level compression
-   - Efficient serialization
 
 ## Implementation Challenges
 
@@ -78,11 +55,6 @@ This document outlines the key technical decisions and architectural choices mad
 - Careful handling of edge cases in leader election
 - Proper implementation of log matching property
 - Efficient log compaction mechanism
-
-### Sharding
-- Complex state transfer during reconfigurations
-- Maintaining consistency during migrations
-- Handling network partitions
 
 ### Performance
 - Balancing between consistency and performance
@@ -109,16 +81,12 @@ This document outlines the key technical decisions and architectural choices mad
 ## Future Considerations
 
 1. **Scalability Improvements**
-   - Read-only replicas
-   - Geographic distribution
-   - Multi-datacenter support
+   - Read Ops via leader leases
 
 2. **Feature Extensions**
    - Transactional support
-   - Advanced querying capabilities
    - Pluggable storage engines
 
 3. **Operational Improvements**
    - Enhanced monitoring
    - Automated operations
-   - Self-healing capabilities
