@@ -27,6 +27,7 @@ int raft_get_state(RaftHandle* handle, int* term, int* is_leader);
 int raft_start(RaftHandle* handle, void* command, int command_size, int* index, int* term, int* is_leader);
 void raft_persist(RaftHandle* handle);
 void raft_read_persist(RaftHandle* handle, void* data, int data_size);
+void raft_snapshot(RaftHandle* handle, uint64_t index, char* snapshot_data, int snapshot_size);
 #ifdef __cplusplus
 }
 #endif

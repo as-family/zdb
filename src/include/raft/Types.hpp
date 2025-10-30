@@ -92,6 +92,33 @@ private:
     std::shared_ptr<proto::RequestVoteReply> protoReply;
 };
 
+struct InstallSnapshotArg : Arg {
+    std::string leaderId;
+    uint64_t term;
+    uint64_t lastIncludedIndex;
+    uint64_t lastIncludedTerm;
+    std::string data;
+    InstallSnapshotArg(std::string, uint64_t, uint64_t, uint64_t, std::string);
+    InstallSnapshotArg(const proto::InstallSnapshotArg& arg);
+    operator google::protobuf::Message&() override;
+    operator const google::protobuf::Message&() const override;
+    ~InstallSnapshotArg() override = default;
+private:
+    std::shared_ptr<proto::InstallSnapshotArg> protoArg;
+};
+
+struct InstallSnapshotReply : Reply {
+    uint64_t term;
+    InstallSnapshotReply() = default;
+    InstallSnapshotReply(uint64_t uint64);
+    InstallSnapshotReply(const google::protobuf::Message& m);
+    operator google::protobuf::Message&() override;
+    operator const google::protobuf::Message&() const override;
+    ~InstallSnapshotReply() override = default;
+private:
+    std::shared_ptr<proto::InstallSnapshotReply> protoReply;
+};
+
 } // namespace raft
 
 #endif // RAFT_TYPES_H

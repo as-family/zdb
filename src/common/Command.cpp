@@ -22,16 +22,16 @@ std::shared_ptr<raft::Command> commandFactory(const std::string& s) {
     if (!cmd.ParseFromString(s)) {
         throw std::invalid_argument{"commandFactory: deserialization failed"};
     }
-    if (cmd.op() == "get") {
+    if (cmd.op() == "g") {
         return std::make_shared<Get>(cmd);
     }
-    if (cmd.op() == "set") {
+    if (cmd.op() == "s") {
         return std::make_shared<Set>(cmd);
     }
-    if (cmd.op() == "erase") {
+    if (cmd.op() == "e") {
         return std::make_shared<Erase>(cmd);
     }
-    if (cmd.op() == "size") {
+    if (cmd.op() == "z") {
         return std::make_shared<Size>(cmd);
     }
     if (cmd.op() == "t") {
@@ -39,6 +39,9 @@ std::shared_ptr<raft::Command> commandFactory(const std::string& s) {
     }
     if (cmd.op() == "n") {
         return std::make_shared<NoOp>(cmd);
+    }
+    if (cmd.op() == "i") {
+        return std::make_shared<InstallSnapshotCommand>(cmd);
     }
     throw std::invalid_argument{"commandFactory: unknown command"};
 }
@@ -55,7 +58,7 @@ Get::Get(const proto::Command& cmd) : key{cmd.key()} {
 
 std::string Get::serialize() const {
     auto c = proto::Command {};
-    c.set_op("get");
+    c.set_op("g");
     c.mutable_key()->set_data(key.data);
     c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
     c.set_index(index);
@@ -93,7 +96,7 @@ Set::Set(const proto::Command& cmd) : key{cmd.key()}, value{cmd.value()} {
 
 std::string Set::serialize() const {
     auto c = proto::Command {};
-    c.set_op("set");
+    c.set_op("s");
     c.mutable_key()->set_data(key.data);
     c.mutable_value()->set_data(value.data);
     c.mutable_value()->set_version(value.version);
@@ -133,7 +136,7 @@ Erase::Erase(const proto::Command& cmd) : key{cmd.key()} {
 
 std::string Erase::serialize() const {
     auto c = proto::Command {};
-    c.set_op("erase");
+    c.set_op("e");
     c.mutable_key()->set_data(key.data);
     c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
     c.set_index(index);
@@ -171,7 +174,7 @@ Size::Size(const proto::Command& cmd) {
 
 std::string Size::serialize() const {
     auto c = proto::Command {};
-    c.set_op("size");
+    c.set_op("z");
     c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
     c.set_index(index);
     std::string s;
@@ -271,5 +274,48 @@ bool NoOp::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
+InstallSnapshotCommand::InstallSnapshotCommand(UUIDV7& u, uint64_t lii, uint64_t lit, const std::string& d)
+    : lastIncludedIndex{lii}, lastIncludedTerm{lit}, data{d} {
+        uuid = u;
+    }
+
+InstallSnapshotCommand::InstallSnapshotCommand(const proto::Command& cmd)
+    : lastIncludedIndex{cmd.index()}, lastIncludedTerm{cmd.value().version()}, data{cmd.value().data()} {
+        uuid = string_to_uuid_v7(cmd.requestid().uuid());
+        index = cmd.index();
+    }
+
+std::string InstallSnapshotCommand::serialize() const {
+    auto c = proto::Command {};
+    c.set_op("i");
+    c.set_index(lastIncludedIndex);
+    c.mutable_value()->set_version(lastIncludedTerm);
+    c.mutable_value()->set_data(data);
+    c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
+    std::string s;
+    if (!c.SerializeToString(&s)) {
+        throw std::runtime_error("failed to serialize InstallSnapshotCommand command");
+    }
+    return s;
+}
+
+std::unique_ptr<raft::State> InstallSnapshotCommand::apply(raft::StateMachine& stateMachine) {
+    auto& kvState = dynamic_cast<zdb::KVStateMachine&>(stateMachine);
+    kvState.installSnapshot(lastIncludedIndex, lastIncludedTerm, data);
+    return std::make_unique<zdb::State>(0L);
+}
+
+bool InstallSnapshotCommand::operator==(const raft::Command& other) const {
+    if (const auto o = dynamic_cast<const InstallSnapshotCommand*>(&other)) {
+        return lastIncludedIndex == o->lastIncludedIndex &&
+               lastIncludedTerm == o->lastIncludedTerm &&
+               data == o->data;
+    }
+    return false;
+}
+
+bool InstallSnapshotCommand::operator!=(const raft::Command& other) const {
+    return !(*this == other);
+}
 
 } // namespace zdb

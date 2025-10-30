@@ -144,5 +144,57 @@ RequestVoteReply::operator const google::protobuf::Message&() const {
     return const_cast<RequestVoteReply*>(this)->operator google::protobuf::Message&();
 }
 
+InstallSnapshotArg::InstallSnapshotArg(std::string l, uint64_t t, uint64_t si, uint64_t st, const std::string sd)
+    : leaderId{l},
+      term{t},
+      lastIncludedIndex{si},
+      lastIncludedTerm{st},
+      data{sd} {}
+
+InstallSnapshotArg::InstallSnapshotArg(const proto::InstallSnapshotArg& arg)
+    : leaderId(arg.leaderid()),
+      term(arg.term()),
+      lastIncludedIndex(arg.lastincludedindex()),
+      lastIncludedTerm(arg.lastincludedterm()),
+      data(arg.data()) {}
+
+InstallSnapshotArg::operator google::protobuf::Message&() {
+    if (!protoArg) {
+        protoArg = std::make_shared<proto::InstallSnapshotArg>();
+    }
+    protoArg->set_leaderid(leaderId);
+    protoArg->set_term(term);
+    protoArg->set_lastincludedindex(lastIncludedIndex);
+    protoArg->set_lastincludedterm(lastIncludedTerm);
+    protoArg->set_data(data);
+    return *protoArg;
+}
+
+InstallSnapshotArg::operator const google::protobuf::Message&() const {
+    return const_cast<InstallSnapshotArg*>(this)->operator google::protobuf::Message&();
+}
+
+InstallSnapshotReply::InstallSnapshotReply(uint64_t t)
+    : term{t} {}
+
+InstallSnapshotReply::InstallSnapshotReply(const google::protobuf::Message& m) {
+    auto *reply = dynamic_cast<const proto::InstallSnapshotReply*>(&m);
+    if (!reply) {
+        throw std::runtime_error("Invalid message type");
+    }
+    term = reply->term();
+}
+
+InstallSnapshotReply::operator google::protobuf::Message&() {
+    if (!protoReply) {
+        protoReply = std::make_shared<proto::InstallSnapshotReply>();
+    }
+    protoReply->set_term(term);
+    return *protoReply;
+}
+
+InstallSnapshotReply::operator const google::protobuf::Message&() const {
+    return const_cast<InstallSnapshotReply*>(this)->operator google::protobuf::Message&();
+}
 
 } // namespace raft

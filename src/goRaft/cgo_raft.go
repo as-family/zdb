@@ -442,7 +442,7 @@ func (rf *Raft) Kill() {
 }
 
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
-	// Your code here, if desired.
+	C.raft_snapshot(rf.handle, C.uint64_t(index), (*C.char)(unsafe.Pointer(&snapshot[0])), C.int(len(snapshot)))
 }
 
 func (rf *Raft) persist() {

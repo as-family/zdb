@@ -48,6 +48,7 @@ public:
     void clear();
     std::optional<LogEntry> at(uint64_t index) const;
     Log suffix(uint64_t start) const;
+    void trimPrefix(uint64_t index);
     std::vector<LogEntry> data() const;
  private:
     mutable std::mutex m{};

@@ -27,13 +27,14 @@ struct TestRaft : raft::Raft {
         }
         return true;
     }
-    raft::AppendEntriesReply appendEntriesHandler(const raft::AppendEntriesArg& arg) override {
-        std::ignore = arg;
+    raft::AppendEntriesReply appendEntriesHandler(const raft::AppendEntriesArg&) override {
         return raft::AppendEntriesReply{false, 0};
     }
-    raft::RequestVoteReply requestVoteHandler(const raft::RequestVoteArg& arg) override {
-        std::ignore = arg;
+    raft::RequestVoteReply requestVoteHandler(const raft::RequestVoteArg& ) override {
         return raft::RequestVoteReply{false, 0};
+    }
+    raft::InstallSnapshotReply installSnapshotHandler(const raft::InstallSnapshotArg&) override {
+        return raft::InstallSnapshotReply{0};
     }
     void appendEntries(std::string) override {
     }
@@ -47,6 +48,8 @@ struct TestRaft : raft::Raft {
     void persist() override {
     }
     void readPersist(raft::PersistentState) override {
+    }
+    void snapshot(const uint64_t, const std::string&) override {
     }
     raft::Channel<std::shared_ptr<raft::Command>>& channel;
 private:

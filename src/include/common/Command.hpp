@@ -100,6 +100,23 @@ struct NoOp : public raft::Command {
     bool operator!=(const raft::Command& other) const override;
 };
 
+struct InstallSnapshotCommand : public raft::Command {
+    uint64_t lastIncludedIndex;
+    uint64_t lastIncludedTerm;
+    std::string data;
+
+    InstallSnapshotCommand(UUIDV7& u, uint64_t lii, uint64_t lit, const std::string& d);
+    InstallSnapshotCommand(const proto::Command& cmd);
+
+    std::string serialize() const override;
+
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
+
+    bool operator==(const raft::Command& other) const override;
+    bool operator!=(const raft::Command& other) const override;
+
+};
+
 std::shared_ptr<raft::Command> commandFactory(const std::string& s);
 
 } // namespace zdb

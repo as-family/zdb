@@ -107,6 +107,12 @@ Log Log::suffix(uint64_t start) const {
     return Log {es};
 }
 
+void Log::trimPrefix(uint64_t index) {
+    std::lock_guard g{m};
+    auto i = std::ranges::find_if(entries, [index](const LogEntry& e) { return e.index == index; });
+    entries.erase(entries.begin(), i);
+}
+
 std::optional<LogEntry> Log::at(uint64_t index) const {
     std::lock_guard g{m};
     auto i = std::ranges::find_if(entries, [index](const LogEntry& e) { return e.index == index; });

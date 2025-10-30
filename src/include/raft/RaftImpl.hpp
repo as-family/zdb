@@ -33,6 +33,7 @@
 #include <spdlog/spdlog.h>
 #include "common/FullJitter.hpp"
 #include "common/RetryPolicy.hpp"
+#include "common/Util.hpp"
 #include "raft/AsyncTimer.hpp"
 #include "raft/Channel.hpp"
 #include "raft/Log.hpp"
@@ -56,7 +57,9 @@ public:
     void requestVote(std::string peerId) override;
     AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) override;
     RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) override;
+    InstallSnapshotReply installSnapshotHandler(const InstallSnapshotArg& arg) override;
     bool start(std::shared_ptr<Command> command) override;
+    void snapshot(const uint64_t index, const std::string& snapshotData) override;
     void kill() override;
     Log& log() override;
     void persist() override;
@@ -271,6 +274,38 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         reply.conflictTerm = 0;
     }
     spdlog::debug("{}: appendEntriesHandler: conflict at prevLogIndex={}, prevLogTerm={}, conflictTerm={}, conflictIndex={}", selfId, arg.prevLogIndex, arg.prevLogTerm, reply.conflictTerm, reply.conflictIndex);
+    return reply;
+}
+
+template <typename Client>
+InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnapshotArg& arg) {
+    std::unique_lock lock{m};
+    if (killed.load()) {
+        return {currentTerm};
+    }
+    spdlog::debug("{}: installSnapshotHandler: term={} leader={}", selfId, currentTerm, arg.leaderId);
+    InstallSnapshotReply reply;
+    if (arg.term < currentTerm) {
+        reply.term = currentTerm;
+        return reply;
+    }
+    if (arg.term > currentTerm) {
+        currentTerm = arg.term;
+        votedFor.reset();
+        persist();
+        role = Role::Follower;
+        spdlog::info("{}: installSnapshotHandler: became follower for term {}", selfId, currentTerm);
+        appendCond.notify_all();
+        electionCond.notify_all();
+    }
+    lastHeartbeat = std::chrono::steady_clock::now();
+    mainLog.trimPrefix(arg.lastIncludedIndex);
+    lastApplied = std::max(lastApplied, arg.lastIncludedIndex);
+    commitIndex = std::max(commitIndex, arg.lastIncludedIndex);
+    persist();
+    auto uuid = generate_uuid_v7();
+    stateMachine.send(std::make_shared<zdb::InstallSnapshotCommand>(uuid, arg.lastIncludedIndex, arg.lastIncludedTerm, arg.data));
+    reply.term = currentTerm;
     return reply;
 }
 
@@ -503,6 +538,19 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
     }
     appendCond.notify_all();
     return true;
+}
+
+template <typename Client>
+void RaftImpl<Client>::snapshot(const uint64_t index, const std::string& snapshotData) {
+    spdlog::info("{}: snapshot called: index={}", selfId, index);
+    std::unique_lock lock{m};
+    spdlog::info("{}: snapshot: before trimPrefix lastIndex={}", selfId, mainLog.lastIndex());
+    if (killed.load()) {
+        return;
+    }
+    spdlog::info("{}: snapshot: index={}", selfId, index);
+    mainLog.trimPrefix(index);
+    persist();
 }
 
 template <typename Client>

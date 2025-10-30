@@ -38,6 +38,10 @@ public:
         grpc::ServerContext* context,
         const proto::RequestVoteArg* request,
         proto::RequestVoteReply* response) override;
+    grpc::Status installSnapshot(
+        grpc::ServerContext* context,
+        const proto::InstallSnapshotArg* request,
+        proto::InstallSnapshotReply* response) override;
 private:
     Raft& raft;
 };
