@@ -70,6 +70,7 @@ private:
     void applyCommittedEntries();
     bool hasVote(std::string candidateId);
     bool upToDate(uint64_t lastLogIndex, uint64_t lastLogTerm);
+    bool becameFollower(uint64_t term, std::string peerId);
     std::mutex m;
     std::mutex applyMutex;
     std::condition_variable electionCond;
@@ -158,10 +159,7 @@ RaftImpl<Client>::RaftImpl(
 template <typename Client>
 RaftImpl<Client>::~RaftImpl() {
     spdlog::info("{}: ~RaftImpl", selfId);
-    killed = true;
-    stopCalls = true;
-    appendCond.notify_all();
-    electionCond.notify_all();
+    kill();
     heartbeatTimer.stop();
     electionTimer.stop();
     for (auto& th : leaderThreads | std::views::values) {
@@ -173,6 +171,25 @@ RaftImpl<Client>::~RaftImpl() {
         }
     }
     spdlog::info("{}: Destroyed RaftImpl", selfId);
+}
+
+template <typename Client>
+bool RaftImpl<Client>::becameFollower(uint64_t term, std::string peerId) {
+    if (term > currentTerm) {
+        currentTerm = term;
+        role = Role::Follower;
+        votedFor.reset();
+        persist();
+        lastHeartbeat = std::chrono::steady_clock::now();
+        spdlog::info("{}: becameFollower: became follower for term {} leader {}", selfId, currentTerm, peerId);
+        stopCalls = true;
+        appendNow[peerId] = false;
+        shouldStartHeartbeat[peerId] = false;
+        appendCond.notify_all();
+        electionCond.notify_all();
+        return true;
+    }
+    return false;
 }
 
 template <typename Client>
@@ -188,16 +205,7 @@ RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg)
         reply.voteGranted = false;
         return reply;
     }
-    if (arg.term > currentTerm) {
-        currentTerm = arg.term;
-        role = Role::Follower;
-        lastHeartbeat = std::chrono::steady_clock::now();
-        votedFor.reset();
-        persist();
-        spdlog::info("{}: requestVoteHandler: became follower for term {}", selfId, currentTerm);
-        appendCond.notify_all();
-        electionCond.notify_all();
-    }
+    becameFollower(arg.term, arg.candidateId);
     if (hasVote(arg.candidateId)) {
         if (upToDate(arg.lastLogIndex, arg.lastLogTerm)) {
             votedFor = arg.candidateId;
@@ -239,15 +247,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         reply.success = false;
         return reply;
     }
-    if (arg.term > currentTerm) {
-        currentTerm = arg.term;
-        votedFor.reset();
-        persist();
-        role = Role::Follower;
-        spdlog::info("{}: appendEntriesHandler: became follower for term {}", selfId, currentTerm);
-        appendCond.notify_all();
-        electionCond.notify_all();
-    }
+    becameFollower(arg.term, arg.leaderId);
     lastHeartbeat = std::chrono::steady_clock::now();
     auto e = mainLog.at(arg.prevLogIndex);
     if (arg.prevLogIndex == 0 || (e.has_value() && e.value().term == arg.prevLogTerm) || (!e.has_value() && arg.prevLogIndex <= lastIncludedIndex && arg.prevLogTerm == lastIncludedTerm)) {
@@ -292,15 +292,7 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
         reply.term = currentTerm;
         return reply;
     }
-    if (arg.term > currentTerm) {
-        currentTerm = arg.term;
-        votedFor.reset();
-        persist();
-        role = Role::Follower;
-        spdlog::info("{}: installSnapshotHandler: became follower for term {}", selfId, currentTerm);
-        appendCond.notify_all();
-        electionCond.notify_all();
-    }
+    becameFollower(arg.term, arg.leaderId);
     lastHeartbeat = std::chrono::steady_clock::now();
     mainLog.trimPrefix(arg.lastIncludedIndex);
     lastApplied = std::max(lastApplied, arg.lastIncludedIndex);
@@ -398,18 +390,7 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
             appendNow[peerId] = true;
             continue;
         }
-        if (reply.value().term > currentTerm) {
-            currentTerm = reply.value().term;
-            role = Role::Follower;
-            votedFor.reset();
-            persist();
-            stopCalls = true;
-            appendNow[peerId] = false;
-            shouldStartHeartbeat[peerId] = false;
-            lastHeartbeat = std::chrono::steady_clock::now();
-            spdlog::info("{}: appendEntries: to {} became follower for term {}", selfId, peerId, currentTerm);
-            appendCond.notify_all();
-            electionCond.notify_all();
+        if (becameFollower(reply.value().term, peerId)) {
             continue;
         }
         if (reply.value().term < currentTerm || arg.term != currentTerm) {
@@ -511,15 +492,7 @@ void RaftImpl<Client>::requestVote(std::string peerId) {
             spdlog::warn("{}: requestVote: no Response: {}", selfId, peerId);
             continue;
         }
-        if (reply.value().term > currentTerm) {
-            stopCalls = true;
-            currentTerm = reply.value().term;
-            role = Role::Follower;
-            votedFor.reset();
-            persist();
-            lastHeartbeat = std::chrono::steady_clock::now();
-            spdlog::info("{}: requestVote: became follower for term {}", selfId, currentTerm);
-            electionCond.notify_all();
+        if (becameFollower(reply.value().term, peerId)) {
             continue;
         }
         if (reply.value().term < currentTerm || arg.term != currentTerm) {
@@ -617,8 +590,8 @@ void RaftImpl<Client>::readPersist(PersistentState s) {
 
 template <typename Client>
 void RaftImpl<Client>::kill(){
-    killed = true;
-    stopCalls = true;
+    killed.store(true);
+    stopCalls.store(true);
     appendCond.notify_all();
     electionCond.notify_all();
 }
