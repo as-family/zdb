@@ -125,7 +125,6 @@ type goChannelCallbackFn func(string, int) int
 
 func channelRegisterCallback(rf *Raft) C.uintptr_t {
 	cb := goChannelCallbackFn(func(s string, i int) int {
-		// 	    fmt.Println("Go: channel callback invoked with:", i)
 		protoC := &proto_raft.Command{}
 		err := protobuf.Unmarshal([]byte(s), protoC)
 		if err != nil {
@@ -150,7 +149,7 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
 				Command:      x,
 				CommandIndex: i,
 			}
-			//             fmt.Println("Go: command sent to applyCh:", x)
+			fmt.Println(rf.me, "Go: channel callback invoked with:", i, x)
 			return 1
 		}
 		return 0

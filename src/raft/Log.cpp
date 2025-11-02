@@ -59,11 +59,11 @@ void Log::merge(const Log& other) {
 
 uint64_t Log::lastIndex() const {
     std::lock_guard g{m};
-    return entries.empty() ? 0 : entries.back().index;
+    return entries.empty() ? lastIncludedIndex : entries.back().index;
 }
 uint64_t Log::lastTerm() const {
     std::lock_guard g{m};
-    return entries.empty() ? 0 : entries.back().term;
+    return entries.empty() ? lastIncludedTerm : entries.back().term;
 }
 
 uint64_t Log::firstIndex() const {
@@ -110,7 +110,13 @@ Log Log::suffix(uint64_t start) const {
 void Log::trimPrefix(uint64_t index) {
     std::lock_guard g{m};
     auto i = std::ranges::find_if(entries, [index](const LogEntry& e) { return e.index == index; });
-    entries.erase(entries.begin(), i);
+    lastIncludedIndex = index;
+    if (i == entries.end()) {
+        entries.clear();
+    } else {
+        lastIncludedTerm = i->term;
+        entries.erase(entries.begin(), i + 1);
+    }
 }
 
 std::optional<LogEntry> Log::at(uint64_t index) const {

@@ -71,6 +71,7 @@ private:
     bool hasVote(std::string candidateId);
     bool upToDate(uint64_t lastLogIndex, uint64_t lastLogTerm);
     std::mutex m;
+    std::mutex applyMutex;
     std::condition_variable electionCond;
     std::condition_variable appendCond;
     Channel<std::shared_ptr<raft::Command>>& stateMachine;
@@ -249,19 +250,20 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
     }
     lastHeartbeat = std::chrono::steady_clock::now();
     auto e = mainLog.at(arg.prevLogIndex);
-    if (arg.prevLogIndex == 0 || (e.has_value() && e.value().term == arg.prevLogTerm)) {
+    if (arg.prevLogIndex == 0 || (e.has_value() && e.value().term == arg.prevLogTerm) || (!e.has_value() && arg.prevLogIndex <= lastIncludedIndex && arg.prevLogTerm == lastIncludedTerm)) {
         mainLog.merge(arg.entries);
         role = Role::Follower;
         appendCond.notify_all();
         electionCond.notify_all();
+        reply.term = currentTerm;
+        reply.success = true;
         persist();
         spdlog::info("{}: appendEntriesHandler: new lastIndex={}", selfId, mainLog.lastIndex());
         if (arg.leaderCommit > commitIndex) {
             commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
+            lock.unlock();
             applyCommittedEntries();
         }
-        reply.term = currentTerm;
-        reply.success = true;
         return reply;
     }
     reply.term = currentTerm;
@@ -273,12 +275,13 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         reply.conflictIndex = mainLog.lastIndex() + 1;
         reply.conflictTerm = 0;
     }
-    spdlog::debug("{}: appendEntriesHandler: conflict at prevLogIndex={}, prevLogTerm={}, conflictTerm={}, conflictIndex={}", selfId, arg.prevLogIndex, arg.prevLogTerm, reply.conflictTerm, reply.conflictIndex);
+    spdlog::info("{}: appendEntriesHandler: conflict at prevLogIndex={}, prevLogTerm={}, conflictTerm={}, conflictIndex={}", selfId, arg.prevLogIndex, arg.prevLogTerm, reply.conflictTerm, reply.conflictIndex);
     return reply;
 }
 
 template <typename Client>
 InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnapshotArg& arg) {
+    return {currentTerm};
     std::unique_lock lock{m};
     if (killed.load()) {
         return {currentTerm};
@@ -304,21 +307,38 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
     commitIndex = std::max(commitIndex, arg.lastIncludedIndex);
     persist();
     auto uuid = generate_uuid_v7();
-    stateMachine.send(std::make_shared<zdb::InstallSnapshotCommand>(uuid, arg.lastIncludedIndex, arg.lastIncludedTerm, arg.data));
+    stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, arg.lastIncludedIndex, arg.lastIncludedTerm, arg.data), std::chrono::system_clock::now() + policy.rpcTimeout);
     reply.term = currentTerm;
     return reply;
 }
 
 template <typename Client>
 void RaftImpl<Client>::applyCommittedEntries() {
-    spdlog::debug("{}: applyCommittedEntries: commitIndex={}, lastApplied={}", selfId, commitIndex, lastApplied);
-    while (lastApplied < commitIndex) {
-        uint64_t i = lastApplied + 1;
-        auto c = mainLog.at(i);
-        if (!stateMachine.sendUntil(c->command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
+    std::unique_lock applyLock{applyMutex};
+    if (lastApplied >= commitIndex) {
+        return;
+    }
+    spdlog::info("{}: applyCommittedEntries: commitIndex={}, lastApplied={}", selfId, commitIndex, lastApplied);
+    while (true) {
+        std::unique_lock lock1{m};
+        if (lastApplied >= commitIndex) {
             break;
         }
-        lastApplied = i;
+        uint64_t i = lastApplied + 1;
+        auto c = mainLog.at(i);
+        if (!c.has_value()) {
+            spdlog::error("{}: applyCommittedEntries: no log entry at index {}", selfId, i);
+            break;
+        }
+        lock1.unlock();
+        if (!stateMachine.sendUntil(c->command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
+            spdlog::error("{}: applyCommittedEntries: failed to apply command at index {}", selfId, i);
+            break;
+        }
+        {
+            std::unique_lock lock2{m};
+            lastApplied = i;
+        }
     }
 }
 
@@ -342,11 +362,20 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
         auto n = nextIndex.at(peerId);
         auto g = mainLog.suffix(n);
         auto prevLogIndex = n - 1;
+        auto mainLogAtPrev = mainLog.at(prevLogIndex);
+        auto prevLogTerm = 0;
+        if (mainLogAtPrev.has_value()) {
+            prevLogTerm = mainLogAtPrev.value().term;
+        } else if (prevLogIndex <= lastIncludedIndex) {
+            prevLogTerm = lastIncludedTerm;
+        } else if (prevLogIndex != 0) {
+            spdlog::error("{}: appendEntries: to {} prevLogIndex {} has no entry", selfId, peerId, prevLogIndex);
+        }
         AppendEntriesArg arg {
             selfId,
             currentTerm,
             prevLogIndex,
-            prevLogIndex == 0? 0 : mainLog.at(prevLogIndex).value().term,
+            prevLogTerm,
             commitIndex,
             g
         };
@@ -399,7 +428,9 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
                 }
                 if (matches >= clusterSize / 2 + 1) {
                     commitIndex = i;
+                    resLock.unlock();
                     applyCommittedEntries();
+                    resLock.lock();
                     break;
                 }
             }
@@ -533,8 +564,8 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
     };
     mainLog.append(e);
     persist();
-    for (auto& app : appendNow | std::views::values) {
-        app = true;
+    for (auto& a : appendNow | std::views::values) {
+        a = true;
     }
     appendCond.notify_all();
     return true;
@@ -542,13 +573,26 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
 
 template <typename Client>
 void RaftImpl<Client>::snapshot(const uint64_t index, const std::string& snapshotData) {
-    spdlog::info("{}: snapshot called: index={}", selfId, index);
+    // for (auto& a : appendNow | std::views::values) {
+    //     a = true;
+    // }
+    // appendCond.notify_all();
+    // std::this_thread::sleep_for(2 * policy.rpcTimeout);
     std::unique_lock lock{m};
-    spdlog::info("{}: snapshot: before trimPrefix lastIndex={}", selfId, mainLog.lastIndex());
     if (killed.load()) {
         return;
     }
+    lastIncludedIndex = index;
+    if (index < mainLog.firstIndex()) {
+        spdlog::error("{}: snapshot: index {} <= firstIndex {}, no trimming needed", selfId, index, mainLog.firstIndex());
+        return;
+    }
+    if (index > mainLog.lastIndex()) {
+        spdlog::error("{}: snapshot: index {} > lastIndex {}, cannot trim", selfId, index, mainLog.lastIndex());
+        return;
+    }
     spdlog::info("{}: snapshot: index={}", selfId, index);
+    lastIncludedTerm = mainLog.at(index).value().term;
     mainLog.trimPrefix(index);
     persist();
 }

@@ -80,6 +80,8 @@ protected:
     std::chrono::milliseconds heartbeatInterval;
     std::chrono::milliseconds electionTimeout;
     uint8_t clusterSize;
+    uint64_t lastIncludedIndex = 0;
+    uint64_t lastIncludedTerm = 0;
 };
 
 } // namespace raft
