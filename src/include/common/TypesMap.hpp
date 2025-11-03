@@ -13,6 +13,7 @@ template<> struct map_to<raft::AppendEntriesArg> { using type = raft::AppendEntr
 template<> struct map_to<raft::RequestVoteArg> { using type = raft::RequestVoteReply; };
 template<> struct map_to<raft::proto::AppendEntriesArg> { using type = raft::proto::AppendEntriesReply; };
 template<> struct map_to<raft::proto::RequestVoteArg> { using type = raft::proto::RequestVoteReply; };
+template<> struct map_to<raft::InstallSnapshotArg> { using type = raft::InstallSnapshotReply; };
 template<> struct map_to<kvStore::GetRequest> { using type = kvStore::GetReply; };
 template<> struct map_to<kvStore::SetRequest> { using type = kvStore::SetReply; };
 template<> struct map_to<kvStore::EraseRequest> { using type = kvStore::EraseReply; };

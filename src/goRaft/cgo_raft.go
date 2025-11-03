@@ -25,6 +25,7 @@ package zdb
 // We declare it here so the C++ library can link against it.
 int go_invoke_callback(uintptr_t handle, int v, char*, void*, int, void*, int);
 int channel_go_invoke_callback(uintptr_t handle, void*, int, int);
+int persister_go_read_callback(uintptr_t handle, void*, int);
 */
 import "C"
 
@@ -102,7 +103,7 @@ func GoInvokeCallback(h C.uintptr_t, p int, s string, a interface{}, b interface
 		fmt.Printf("GoInvokeCallback: invalid handle %d\n", uintptr(h))
 		return 0
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	done := make(chan int, 1)
 	go func() {
@@ -248,14 +249,54 @@ func go_invoke_append_entries(handle C.uintptr_t, p C.int, s string, args unsafe
 	return C.int(len(replyBytes))
 }
 
+func go_invoke_install_snapshot(handle C.uintptr_t, p C.int, s string, args unsafe.Pointer, args_len C.int, reply unsafe.Pointer, reply_len C.int) C.int {
+	protoArg := &proto_raft.InstallSnapshotArg{}
+	err := protobuf.Unmarshal(C.GoBytes(args, args_len), protoArg)
+	if err != nil {
+		fmt.Println("Error: failed to unmarshal InstallSnapshotArg")
+		return C.int(-1)
+	}
+	arg := &InstallSnapshotArg{
+		LeaderId:          protoArg.LeaderId,
+		Term:              protoArg.Term,
+		LastIncludedIndex: protoArg.LastIncludedIndex,
+		LastIncludedTerm:  protoArg.LastIncludedTerm,
+		Data:              protoArg.Data,
+	}
+	rep := &InstallSnapshotReply{}
+	result := GoInvokeCallback(handle, int(p), s, arg, rep)
+	if result == 0 {
+		return C.int(-1)
+	}
+	protoReply := &proto_raft.InstallSnapshotReply{
+		Term: rep.Term,
+	}
+	replyBytes, err := protobuf.Marshal(protoReply)
+	if err != nil {
+		fmt.Println("Error: failed to marshal")
+		return C.int(-1)
+	}
+	if len(replyBytes) != 0 {
+		if len(replyBytes) > int(reply_len) {
+			fmt.Println("Error: reply buffer too small for InstallSnapshotReply")
+			return C.int(-1)
+		}
+		C.memmove(reply, unsafe.Pointer(&replyBytes[0]), C.size_t(len(replyBytes)))
+	}
+	return C.int(len(replyBytes))
+}
+
 //export go_invoke_callback
 func go_invoke_callback(handle C.uintptr_t, p C.int, s *C.char, args unsafe.Pointer, args_len C.int, reply unsafe.Pointer, reply_len C.int) C.int {
 	f := C.GoString(s)
-	if f == "Raft.RequestVote" {
+	switch f {
+	case "Raft.RequestVote":
 		return go_invoke_request_vote(handle, p, f, args, args_len, reply, reply_len)
-	} else if f == "Raft.AppendEntries" {
+	case "Raft.AppendEntries":
 		return go_invoke_append_entries(handle, p, f, args, args_len, reply, reply_len)
-	} else {
+	case "Raft.InstallSnapshot":
+		return go_invoke_install_snapshot(handle, p, f, args, args_len, reply, reply_len)
+	default:
 		fmt.Printf("Go: unknown callback function: %s\n", f)
 		return C.int(-1)
 	}
@@ -317,6 +358,26 @@ func persister_go_invoke_callback(handle C.uintptr_t, data unsafe.Pointer, data_
 	return C.int(p.RaftStateSize())
 }
 
+//export persister_go_read_callback
+func persister_go_read_callback(handle C.uintptr_t, data unsafe.Pointer, data_len C.int) C.int {
+	ps, ok := getCallback(uintptr(handle))
+	if !ok {
+		fmt.Printf("persister_go_read_callback: invalid handle %d\n", uintptr(handle))
+		return C.int(0)
+	}
+	p := ps.(*tester.Persister)
+	raftstate := p.ReadRaftState()
+	if len(raftstate) == 0 {
+		return C.int(0)
+	}
+	if len(raftstate) > int(data_len) {
+		fmt.Println("Error: buffer too small in persister_go_read_callback")
+		return C.int(0)
+	}
+	C.memmove(data, unsafe.Pointer(&raftstate[0]), C.size_t(len(raftstate)))
+	return C.int(len(raftstate))
+}
+
 type Raft struct {
 	handle      *C.RaftHandle
 	mu          sync.Mutex
@@ -370,6 +431,18 @@ type PersistentState struct {
 	CurrentTerm uint64
 	VotedFor    string
 	Log         Log
+}
+
+type InstallSnapshotArg struct {
+	LeaderId          string
+	Term              uint64
+	LastIncludedIndex uint64
+	LastIncludedTerm  uint64
+	Data              []byte
+}
+
+type InstallSnapshotReply struct {
+	Term uint64
 }
 
 func (rf *Raft) GetState() (int, bool) {

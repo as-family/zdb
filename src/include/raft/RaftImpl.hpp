@@ -337,6 +337,7 @@ void RaftImpl<Client>::applyCommittedEntries() {
 template <typename Client>
 void RaftImpl<Client>::appendEntries(std::string peerId){
     auto& peer = peers.at(peerId).get();
+    bool sendSnapshot = false;
     while (!killed.load()) {
         std::unique_lock initLock{m};
         appendCond.wait(initLock, [this, peerId] { return killed.load() || (role == Role::Leader && (appendNow.at(peerId) || shouldStartHeartbeat.at(peerId))); });
@@ -350,8 +351,12 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
             continue;
         }
         spdlog::debug("{}: appendEntries: to {} term={} nextIndex={}", selfId, peerId, currentTerm, nextIndex.at(peerId));
-        stopCalls = false;
         auto n = nextIndex.at(peerId);
+        if (mainLog.firstIndex() > n) {
+            spdlog::warn("{}: appendEntries: to {} nextIndex {} less than firstIndex {}", selfId, peerId, n, mainLog.firstIndex());
+            sendSnapshot = true;
+            n = mainLog.firstIndex();
+        }
         auto g = mainLog.suffix(n);
         auto prevLogIndex = n - 1;
         auto mainLogAtPrev = mainLog.at(prevLogIndex);
@@ -371,7 +376,36 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
             commitIndex,
             g
         };
+        stopCalls = false;
         initLock.unlock();
+        if (sendSnapshot) {
+            spdlog::info("{}: appendEntries: sending InstallSnapshot to {}", selfId, peerId);
+            auto buffer = persister.loadBuffer();
+            InstallSnapshotArg snapArg {
+                selfId,
+                currentTerm,
+                lastIncludedIndex,
+                lastIncludedTerm,
+                buffer
+            };
+            auto snapReply = peer.call(
+                "installSnapshot",
+                snapArg
+            );
+            if (snapReply.has_value()) {
+                if (becameFollower(snapReply.value().term, peerId)) {
+                    continue;
+                }
+                if (snapReply.value().term < currentTerm || snapArg.term != currentTerm) {
+                    continue;
+                }
+                nextIndex[peerId] = lastIncludedIndex + 1;
+                sendSnapshot = false;
+            } else {
+                spdlog::warn("{}: appendEntries: no InstallSnapshot Response from {}", selfId, peerId);
+                continue;
+            }
+        }
         auto reply = peer.call(
             "appendEntries",
             arg
@@ -546,11 +580,6 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
 
 template <typename Client>
 void RaftImpl<Client>::snapshot(const uint64_t index, const std::string& snapshotData) {
-    // for (auto& a : appendNow | std::views::values) {
-    //     a = true;
-    // }
-    // appendCond.notify_all();
-    // std::this_thread::sleep_for(2 * policy.rpcTimeout);
     std::unique_lock lock{m};
     if (killed.load()) {
         return;

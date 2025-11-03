@@ -33,6 +33,8 @@ public:
             name = "Raft.RequestVote";
         } else if (name == "appendEntries") {
             name = "Raft.AppendEntries";
+        } else if (name == "installSnapshot") {
+            name = "Raft.InstallSnapshot";
         } else {
             throw std::invalid_argument{"Unknown function " + name};
         }
@@ -67,11 +69,15 @@ public:
             auto reply = raft::proto::RequestVoteReply{};
             reply.ParseFromString(p);
             return raft::RequestVoteReply{reply};
-        } else {
+        } else if constexpr (std::is_same_v<Rep, raft::AppendEntriesReply>) {
             auto reply = raft::proto::AppendEntriesReply{};
             reply.ParseFromString(p);
             // std::cerr << "reply: " << reply.DebugString() << "\n";
             return raft::AppendEntriesReply{reply};
+        } else if constexpr (std::is_same_v<Rep, raft::InstallSnapshotReply>) {
+            auto reply = raft::proto::InstallSnapshotReply{};
+            reply.ParseFromString(p);
+            return raft::InstallSnapshotReply{reply};
         }
         return std::nullopt;
     }

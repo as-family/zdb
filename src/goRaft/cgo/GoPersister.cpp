@@ -18,6 +18,19 @@
 GoPersister::GoPersister(uintptr_t h) : handle(h) {
 }
 
+std::string GoPersister::loadBuffer() {
+    constexpr int bufferSize = 65536;
+    void* buffer = malloc(bufferSize);
+    int len = persister_go_read_callback(handle, buffer, bufferSize);
+    if (len <= 0) {
+        free(buffer);
+        return {};
+    }
+    std::string result(static_cast<char*>(buffer), len);
+    free(buffer);
+    return result;
+}
+
 raft::PersistentState GoPersister::load() {
     return {};
 }
