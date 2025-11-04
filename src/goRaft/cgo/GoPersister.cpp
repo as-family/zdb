@@ -47,6 +47,7 @@ void GoPersister::save(raft::PersistentState s) {
         entry->set_index(e.index);
         entry->set_command(e.command->serialize());
     }
+    p.set_snapshot(s.snapshotData);
     auto str = p.SerializeAsString();
     persister_go_invoke_callback(handle, str.data(), str.size());
 }

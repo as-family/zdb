@@ -129,6 +129,7 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
 		protoC := &proto_raft.Command{}
 		err := protobuf.Unmarshal([]byte(s), protoC)
 		if err != nil {
+			fmt.Println("Error: failed to unmarshal Command in channel callback", err)
 			return 0
 		}
 		if protoC.Op != "i" {
@@ -350,8 +351,9 @@ func persister_go_invoke_callback(handle C.uintptr_t, data unsafe.Pointer, data_
 		return C.int(0)
 	}
 	state := PersistentState{
-		CurrentTerm: protoState.CurrentTerm,
-		Log:         make(Log, len(protoState.Log)),
+		CurrentTerm:  protoState.CurrentTerm,
+		Log:          make(Log, len(protoState.Log)),
+		SnapshotData: protoState.Snapshot,
 	}
 	if protoState.VotedFor != nil {
 		state.VotedFor = *protoState.VotedFor
@@ -369,7 +371,7 @@ func persister_go_invoke_callback(handle C.uintptr_t, data unsafe.Pointer, data_
 	e.Encode(state.VotedFor)
 	e.Encode(state.Log)
 	raftstate := w.Bytes()
-	p.Save(raftstate, nil)
+	p.Save(raftstate, state.SnapshotData)
 	return C.int(p.RaftStateSize())
 }
 
@@ -381,7 +383,7 @@ func persister_go_read_callback(handle C.uintptr_t, data unsafe.Pointer, data_le
 		return C.int(0)
 	}
 	p := ps.(*tester.Persister)
-	raftstate := p.ReadRaftState()
+	raftstate := p.ReadSnapshot()
 	if len(raftstate) == 0 {
 		return C.int(0)
 	}
@@ -443,9 +445,10 @@ type RequestVoteReply struct {
 }
 
 type PersistentState struct {
-	CurrentTerm uint64
-	VotedFor    string
-	Log         Log
+	CurrentTerm  uint64
+	VotedFor     string
+	Log          Log
+	SnapshotData []byte
 }
 
 type InstallSnapshotArg struct {
@@ -551,6 +554,7 @@ func (rf *Raft) readPersist(data []byte) {
 	} else {
 		protoState.CurrentTerm = state.CurrentTerm
 		protoState.VotedFor = &state.VotedFor
+		protoState.Snapshot = state.SnapshotData
 		protoState.Log = make([]*proto_raft.LogEntry, len(state.Log))
 		for i, entry := range state.Log {
 			protoState.Log[i] = &proto_raft.LogEntry{

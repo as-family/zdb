@@ -215,6 +215,7 @@ void raft_read_persist(RaftHandle* handle, void* data, int data_size) {
             zdb::commandFactory(e.command())
         });
     }
+    p.snapshotData = protoState.snapshot();
     handle->raft->readPersist(p);
 }
 
@@ -222,7 +223,6 @@ void raft_snapshot(RaftHandle* handle, uint64_t index, char* snapshot_data, int 
     if (!handle || !handle->raft) {
         return;
     }
-    spdlog::info("CGO: raft_snapshot called with index {}", index);
     std::string snapshot_str{snapshot_data, static_cast<size_t>(snapshot_size)};
     handle->raft->snapshot(index, snapshot_str);
 }

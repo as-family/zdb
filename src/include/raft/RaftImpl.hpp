@@ -92,6 +92,7 @@ private:
     std::unordered_map<std::string, std::pair<std::thread, std::thread>> leaderThreads;
     std::atomic<bool> stopCalls{false};
     zdb::Persister& persister;
+    std::string snapshotData;
 };
 
 template <typename Client>
@@ -300,8 +301,11 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
     lastIncludedTerm = arg.lastIncludedTerm;
     persist();
     auto uuid = generate_uuid_v7();
-    stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, arg.lastIncludedIndex, arg.lastIncludedTerm, arg.data), std::chrono::system_clock::now() + policy.rpcTimeout);
     reply.term = currentTerm;
+    lock.unlock();
+    if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, arg.lastIncludedIndex, arg.lastIncludedTerm, arg.data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
+        spdlog::error("{}: installSnapshotHandler: failed to apply snapshot", selfId);
+    }
     return reply;
 }
 
@@ -583,7 +587,7 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
 }
 
 template <typename Client>
-void RaftImpl<Client>::snapshot(const uint64_t index, const std::string& snapshotData) {
+void RaftImpl<Client>::snapshot(const uint64_t index, const std::string& sd) {
     std::unique_lock lock{m};
     if (killed.load()) {
         return;
@@ -600,6 +604,7 @@ void RaftImpl<Client>::snapshot(const uint64_t index, const std::string& snapsho
     spdlog::info("{}: snapshot: index={}", selfId, index);
     lastIncludedTerm = mainLog.at(index).value().term;
     mainLog.trimPrefix(index);
+    snapshotData = sd;
     persist();
 }
 
@@ -608,7 +613,8 @@ void RaftImpl<Client>::persist() {
     persister.save(PersistentState {
         currentTerm,
         votedFor,
-        Log {mainLog.data()}
+        Log {mainLog.data()},
+        snapshotData
     });
 }
 
@@ -619,6 +625,7 @@ void RaftImpl<Client>::readPersist(PersistentState s) {
     votedFor = s.votedFor;
     mainLog.clear();
     mainLog.merge(s.log);
+    snapshotData = s.snapshotData;
 }
 
 template <typename Client>

@@ -35,9 +35,10 @@ struct PersistentState {
     uint64_t currentTerm = 0;
     std::optional<std::string> votedFor = std::nullopt;
     Log log;
+    std::string snapshotData;
     PersistentState() = default;
-    PersistentState(uint64_t term, std::optional<std::string> v, Log l)
-        : currentTerm(term), votedFor(v) {
+    PersistentState(uint64_t term, std::optional<std::string> v, Log l, std::string sd)
+        : currentTerm(term), votedFor(v), snapshotData(std::move(sd)) {
         log.clear();
         log.merge(l);
     }
@@ -46,6 +47,7 @@ struct PersistentState {
         votedFor = p.votedFor;
         log.clear();
         log.merge(p.log);
+        snapshotData = p.snapshotData;
     }
 };
 
