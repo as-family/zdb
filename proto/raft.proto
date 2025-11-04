@@ -61,6 +61,8 @@ message PersistentState {
     optional string votedFor = 2;
     repeated LogEntry log = 3;
     bytes snapshot = 4;
+    uint64 lastIncludedIndex = 5;
+    uint64 lastIncludedTerm = 6;
 }
 
 message InstallSnapshotArg {

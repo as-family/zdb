@@ -539,7 +539,7 @@ func (rf *Raft) persist() {
 	C.raft_persist(rf.handle)
 }
 
-func (rf *Raft) readPersist(data []byte) {
+func (rf *Raft) readPersist(data []byte, sd []byte) {
 	if data == nil || len(data) < 1 {
 		return
 	}
@@ -554,7 +554,28 @@ func (rf *Raft) readPersist(data []byte) {
 	} else {
 		protoState.CurrentTerm = state.CurrentTerm
 		protoState.VotedFor = &state.VotedFor
-		protoState.Snapshot = state.SnapshotData
+		protoState.Snapshot = sd
+		var lastIncludedIndex uint64
+		var lastIncludedTerm uint64
+		if sd == nil {
+			lastIncludedIndex = 0
+			lastIncludedTerm = 0
+		} else {
+			var xlog []any
+			r2 := bytes.NewBuffer(sd)
+			d2 := labgob.NewDecoder(r2)
+			if d2.Decode(&lastIncludedIndex) != nil ||
+				d2.Decode(&xlog) != nil {
+				return
+			}
+			if len(xlog) > 0 {
+				lastIncludedTerm = xlog[len(xlog)-1].(LogEntry).Term
+			} else {
+				lastIncludedTerm = 0
+			}
+		}
+		protoState.LastIncludedIndex = lastIncludedIndex
+		protoState.LastIncludedTerm = lastIncludedTerm
 		protoState.Log = make([]*proto_raft.LogEntry, len(state.Log))
 		for i, entry := range state.Log {
 			protoState.Log[i] = &proto_raft.LogEntry{
@@ -723,6 +744,6 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 		GoFreeCallback(rf.persisterCB)
 		return nil
 	}
-	rf.readPersist(rf.persister.ReadRaftState())
+	rf.readPersist(rf.persister.ReadRaftState(), rf.persister.ReadSnapshot())
 	return rf
 }

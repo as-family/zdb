@@ -614,18 +614,25 @@ void RaftImpl<Client>::persist() {
         currentTerm,
         votedFor,
         Log {mainLog.data()},
-        snapshotData
+        snapshotData,
+        lastIncludedIndex,
+        lastIncludedTerm
     });
 }
 
 template <typename Client>
 void RaftImpl<Client>::readPersist(PersistentState s) {
     std::unique_lock lock{m};
+    spdlog::info("{}: readPersist: currentTerm={}, votedFor={}, logSize={}", selfId, s.currentTerm, s.votedFor.has_value() ? s.votedFor.value() : "null", s.log.data().size());
     currentTerm = s.currentTerm;
     votedFor = s.votedFor;
     mainLog.clear();
     mainLog.merge(s.log);
-    snapshotData = s.snapshotData;
+    auto uuid = generate_uuid_v7();
+    lock.unlock();
+    if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, s.lastIncludedIndex, s.lastIncludedTerm, s.snapshotData), std::chrono::system_clock::now() + policy.rpcTimeout)) {
+        spdlog::error("{}: installSnapshotHandler: failed to apply snapshot", selfId);
+    }
 }
 
 template <typename Client>
