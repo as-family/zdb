@@ -23,6 +23,7 @@ RaftHandle* create_raft(int id, int servers, uintptr_t handle, uintptr_t channel
 void kill_raft(RaftHandle* h);
 int handle_request_vote(RaftHandle* h, char* args, int args_size, char* reply);
 int handle_append_entries(RaftHandle* h, char* args, int args_size, char* reply);
+int handle_install_snapshot(RaftHandle* h, char* args, int args_size, char* reply);
 int raft_get_state(RaftHandle* handle, int* term, int* is_leader);
 int raft_start(RaftHandle* handle, void* command, int command_size, int* index, int* term, int* is_leader);
 void raft_persist(RaftHandle* handle);

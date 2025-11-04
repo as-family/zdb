@@ -135,6 +135,26 @@ int handle_append_entries(RaftHandle* h, char* args, int args_size, char* reply)
     return reply_str.size();
 }
 
+int handle_install_snapshot(RaftHandle* h, char* args, int args_size, char* reply) {
+    if (!h || !h->raft) {
+        return 0;
+    }
+    raft::proto::InstallSnapshotArg protoArgs{};
+    auto s = std::string {args, static_cast<size_t>(args_size)};
+    if (!protoArgs.ParseFromString(s)) {
+        return 0;
+    }
+    auto r = h->raft->installSnapshotHandler(protoArgs);
+    raft::proto::InstallSnapshotReply protoReply{};
+    protoReply.set_term(r.term);
+    std::string reply_str;
+    if (!protoReply.SerializeToString(&reply_str)) {
+        return 0;
+    }
+    memcpy(reply, reply_str.data(), reply_str.size());
+    return reply_str.size();
+}
+
 
 int raft_get_state(RaftHandle* handle, int* term, int* is_leader) {
     if (!handle || !handle->raft) {

@@ -281,12 +281,11 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
 
 template <typename Client>
 InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnapshotArg& arg) {
-    return {currentTerm};
     std::unique_lock lock{m};
     if (killed.load()) {
         return {currentTerm};
     }
-    spdlog::debug("{}: installSnapshotHandler: term={} leader={}", selfId, currentTerm, arg.leaderId);
+    spdlog::info("{}: installSnapshotHandler: term={} leader={} lastIncludedIndex={} lastIncludedTerm={}", selfId, currentTerm, arg.leaderId, arg.lastIncludedIndex, arg.lastIncludedTerm);
     InstallSnapshotReply reply;
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -297,6 +296,8 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
     mainLog.trimPrefix(arg.lastIncludedIndex);
     lastApplied = std::max(lastApplied, arg.lastIncludedIndex);
     commitIndex = std::max(commitIndex, arg.lastIncludedIndex);
+    lastIncludedIndex = arg.lastIncludedIndex;
+    lastIncludedTerm = arg.lastIncludedTerm;
     persist();
     auto uuid = generate_uuid_v7();
     stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, arg.lastIncludedIndex, arg.lastIncludedTerm, arg.data), std::chrono::system_clock::now() + policy.rpcTimeout);
@@ -363,7 +364,7 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
         auto prevLogTerm = 0;
         if (mainLogAtPrev.has_value()) {
             prevLogTerm = mainLogAtPrev.value().term;
-        } else if (prevLogIndex <= lastIncludedIndex) {
+        } else if (sendSnapshot || prevLogIndex == lastIncludedIndex) {
             prevLogTerm = lastIncludedTerm;
         } else if (prevLogIndex != 0) {
             spdlog::error("{}: appendEntries: to {} prevLogIndex {} has no entry", selfId, peerId, prevLogIndex);
@@ -377,7 +378,6 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
             g
         };
         stopCalls = false;
-        initLock.unlock();
         if (sendSnapshot) {
             spdlog::info("{}: appendEntries: sending InstallSnapshot to {}", selfId, peerId);
             auto buffer = persister.loadBuffer();
@@ -388,10 +388,12 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
                 lastIncludedTerm,
                 buffer
             };
+            initLock.unlock();
             auto snapReply = peer.call(
                 "installSnapshot",
                 snapArg
             );
+            initLock.lock();
             if (snapReply.has_value()) {
                 if (becameFollower(snapReply.value().term, peerId)) {
                     continue;
@@ -400,12 +402,14 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
                     continue;
                 }
                 nextIndex[peerId] = lastIncludedIndex + 1;
+                matchIndex[peerId] = lastIncludedIndex;
                 sendSnapshot = false;
             } else {
                 spdlog::warn("{}: appendEntries: no InstallSnapshot Response from {}", selfId, peerId);
                 continue;
             }
         }
+        initLock.unlock();
         auto reply = peer.call(
             "appendEntries",
             arg

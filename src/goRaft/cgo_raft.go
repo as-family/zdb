@@ -131,27 +131,42 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
 		if err != nil {
 			return 0
 		}
-		var x interface{}
-		if (protoC.Key == nil) || (protoC.Key.Data == "") {
-			x = 0
+		if protoC.Op != "i" {
+			var x interface{}
+			if (protoC.Key == nil) || (protoC.Key.Data == "") {
+				x = 0
+			} else {
+				x, err = strconv.Atoi(protoC.Key.Data)
+				if err != nil {
+					x = protoC.Key.Data
+				}
+			}
+			//         fmt.Println("Go: channel callback invoked:", x)
+			if atomic.LoadInt32(&rf.dead) == 1 {
+				return 0
+			}
+			if rf.applyCh != nil {
+				rf.applyCh <- raftapi.ApplyMsg{
+					CommandValid: true,
+					Command:      x,
+					CommandIndex: i,
+				}
+				fmt.Println(rf.me, "Go: channel callback invoked with:", i, x)
+				return 1
+			}
 		} else {
-			x, err = strconv.Atoi(protoC.Key.Data)
-			if err != nil {
-				x = protoC.Key.Data
+			if rf.applyCh != nil {
+				bytes := []byte(protoC.Value.Data)
+				rf.applyCh <- raftapi.ApplyMsg{
+					CommandValid:  false,
+					SnapshotValid: true,
+					Snapshot:      bytes,
+					SnapshotIndex: int(protoC.Index),
+					SnapshotTerm:  int(protoC.Value.Version),
+				}
+				fmt.Println(rf.me, "Go: snapshot callback invoked")
+				return 1
 			}
-		}
-		//         fmt.Println("Go: channel callback invoked:", x)
-		if atomic.LoadInt32(&rf.dead) == 1 {
-			return 0
-		}
-		if rf.applyCh != nil {
-			rf.applyCh <- raftapi.ApplyMsg{
-				CommandValid: true,
-				Command:      x,
-				CommandIndex: i,
-			}
-			fmt.Println(rf.me, "Go: channel callback invoked with:", i, x)
-			return 1
 		}
 		return 0
 	})
@@ -647,6 +662,43 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArg, reply *AppendEntriesReply)
 	reply.Term = protoReply.Term
 	reply.ConflictIndex = protoReply.ConflictIndex
 	reply.ConflictTerm = protoReply.ConflictTerm
+}
+
+func (rf *Raft) InstallSnapshot(args *InstallSnapshotArg, reply *InstallSnapshotReply) {
+	if rf.handle == nil {
+		return
+	}
+
+	protoArgs := &proto_raft.InstallSnapshotArg{
+		Term:              args.Term,
+		LeaderId:          args.LeaderId,
+		LastIncludedIndex: args.LastIncludedIndex,
+		LastIncludedTerm:  args.LastIncludedTerm,
+		Data:              args.Data,
+	}
+	strArgs, err := protobuf.Marshal(protoArgs)
+	if err != nil || len(strArgs) <= 0 {
+		fmt.Println("Error: failed to marshal InstallSnapshotArg")
+		return
+	}
+
+	// Call C++ without holding any Go locks - C++ should handle its own synchronization
+	replyBuf := make([]byte, 1024)
+	n := C.handle_install_snapshot(rf.handle,
+		(*C.char)(unsafe.Pointer(&strArgs[0])), C.int(len(strArgs)),
+		(*C.char)(unsafe.Pointer(&replyBuf[0])))
+	if n <= 0 || int(n) > len(replyBuf) {
+		fmt.Println("Error: invalid reply size for InstallSnapshot")
+		return
+	}
+	// Process the response
+	protoReply := &proto_raft.InstallSnapshotReply{}
+	err = protobuf.Unmarshal(replyBuf[:n], protoReply)
+	if err != nil {
+		fmt.Println("Error: failed to unmarshal InstallSnapshotReply")
+		return
+	}
+	reply.Term = protoReply.Term
 }
 
 func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyCh chan raftapi.ApplyMsg) raftapi.Raft {

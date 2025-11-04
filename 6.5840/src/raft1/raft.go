@@ -111,21 +111,9 @@ type RequestVoteReply struct {
 	// Your data here (3A).
 }
 
-type InstallSnapshotArgs struct {
-	// Your data here (3D).
-}
-
-type InstallSnapshotReply struct {
-	// Your data here (3D).
-}
-
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (3A, 3B).
-}
-
-func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapshotReply) {
-	// Your code here (3D).
 }
 
 // example code to send a RequestVote RPC to a server.
