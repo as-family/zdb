@@ -208,7 +208,6 @@ void raft_read_persist(RaftHandle* handle, void* data, int data_size) {
         p.votedFor = std::nullopt;
     }
     for (const auto& e : protoState.log()) {
-
         p.log.append(raft::LogEntry{
             e.index(),
             e.term(),
@@ -216,6 +215,8 @@ void raft_read_persist(RaftHandle* handle, void* data, int data_size) {
         });
     }
     p.snapshotData = protoState.snapshot();
+    p.lastIncludedIndex = protoState.lastincludedindex();
+    p.lastIncludedTerm = protoState.lastincludedterm();
     handle->raft->readPersist(p);
 }
 

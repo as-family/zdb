@@ -259,7 +259,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         reply.term = currentTerm;
         reply.success = true;
         persist();
-        spdlog::info("{}: appendEntriesHandler: new lastIndex={}", selfId, mainLog.lastIndex());
+        spdlog::debug("{}: appendEntriesHandler: new lastIndex={}", selfId, mainLog.lastIndex());
         if (arg.leaderCommit > commitIndex) {
             commitIndex = std::min(arg.leaderCommit, mainLog.lastIndex());
             lock.unlock();
@@ -368,10 +368,11 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
         auto prevLogTerm = 0;
         if (mainLogAtPrev.has_value()) {
             prevLogTerm = mainLogAtPrev.value().term;
-        } else if (sendSnapshot || prevLogIndex == lastIncludedIndex) {
+        } else if (sendSnapshot || prevLogIndex <= lastIncludedIndex) {
             prevLogTerm = lastIncludedTerm;
         } else if (prevLogIndex != 0) {
             spdlog::error("{}: appendEntries: to {} prevLogIndex {} has no entry", selfId, peerId, prevLogIndex);
+            throw std::runtime_error("prevLogIndex has no entry");
         }
         AppendEntriesArg arg {
             selfId,
@@ -398,6 +399,14 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
                 snapArg
             );
             initLock.lock();
+            if (killed.load() || role != Role::Leader) {
+                stopCalls = true;
+                appendNow[peerId] = false;
+                shouldStartHeartbeat[peerId] = false;
+                appendCond.notify_all();
+                electionCond.notify_all();
+                continue;
+            }
             if (snapReply.has_value()) {
                 if (becameFollower(snapReply.value().term, peerId)) {
                     continue;
@@ -623,13 +632,20 @@ void RaftImpl<Client>::persist() {
 template <typename Client>
 void RaftImpl<Client>::readPersist(PersistentState s) {
     std::unique_lock lock{m};
-    spdlog::info("{}: readPersist: currentTerm={}, votedFor={}, logSize={}", selfId, s.currentTerm, s.votedFor.has_value() ? s.votedFor.value() : "null", s.log.data().size());
+    spdlog::info("{}: readPersist: currentTerm={}, votedFor={}, logSize={} lastIncludedIndex={}, lastIncludedTerm={}", selfId, s.currentTerm, s.votedFor.has_value() ? s.votedFor.value() : "null", s.log.data().size(), s.lastIncludedIndex, s.lastIncludedTerm);
     currentTerm = s.currentTerm;
     votedFor = s.votedFor;
     mainLog.clear();
     mainLog.merge(s.log);
     auto uuid = generate_uuid_v7();
+    lastApplied = std::max(lastApplied, s.lastIncludedIndex);
+    commitIndex = std::max(commitIndex, s.lastIncludedIndex);
+    lastIncludedIndex = s.lastIncludedIndex;
+    lastIncludedTerm = s.lastIncludedTerm;
     lock.unlock();
+    if (s.snapshotData.empty()) {
+        return;
+    }
     if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, s.lastIncludedIndex, s.lastIncludedTerm, s.snapshotData), std::chrono::system_clock::now() + policy.rpcTimeout)) {
         spdlog::error("{}: installSnapshotHandler: failed to apply snapshot", selfId);
     }

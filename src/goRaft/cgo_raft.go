@@ -566,12 +566,15 @@ func (rf *Raft) readPersist(data []byte, sd []byte) {
 			d2 := labgob.NewDecoder(r2)
 			if d2.Decode(&lastIncludedIndex) != nil ||
 				d2.Decode(&xlog) != nil {
-				return
-			}
-			if len(xlog) > 0 {
-				lastIncludedTerm = xlog[len(xlog)-1].(LogEntry).Term
-			} else {
+				lastIncludedIndex = 0
 				lastIncludedTerm = 0
+				fmt.Println("Error: failed to decode snapshot data")
+			} else {
+				if len(xlog) > 0 {
+					lastIncludedTerm = xlog[len(xlog)-1].(LogEntry).Term
+				} else {
+					lastIncludedTerm = 0
+				}
 			}
 		}
 		protoState.LastIncludedIndex = lastIncludedIndex
