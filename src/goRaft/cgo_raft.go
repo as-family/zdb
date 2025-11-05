@@ -157,16 +157,23 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
 			}
 		} else {
 			if rf.applyCh != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+				defer cancel()
 				bytes := []byte(protoC.Value.Data)
-				rf.applyCh <- raftapi.ApplyMsg{
+				select {
+				case <-ctx.Done():
+					fmt.Println(rf.me, "Go: channel callback snapshot timed out")
+					return 0
+				case rf.applyCh <- raftapi.ApplyMsg{
 					CommandValid:  false,
 					SnapshotValid: true,
 					Snapshot:      bytes,
 					SnapshotIndex: int(protoC.Index),
 					SnapshotTerm:  int(protoC.Value.Version),
+				}:
+					fmt.Println(rf.me, "Go: snapshot callback invoked")
+					return 1
 				}
-				fmt.Println(rf.me, "Go: snapshot callback invoked")
-				return 1
 			}
 		}
 		return 0
@@ -351,9 +358,11 @@ func persister_go_invoke_callback(handle C.uintptr_t, data unsafe.Pointer, data_
 		return C.int(0)
 	}
 	state := PersistentState{
-		CurrentTerm:  protoState.CurrentTerm,
-		Log:          make(Log, len(protoState.Log)),
-		SnapshotData: protoState.Snapshot,
+		CurrentTerm:       protoState.CurrentTerm,
+		Log:               make(Log, len(protoState.Log)),
+		SnapshotData:      protoState.Snapshot,
+		LastIncludedIndex: protoState.LastIncludedIndex,
+		LastIncludedTerm:  protoState.LastIncludedTerm,
 	}
 	if protoState.VotedFor != nil {
 		state.VotedFor = *protoState.VotedFor
@@ -370,6 +379,8 @@ func persister_go_invoke_callback(handle C.uintptr_t, data unsafe.Pointer, data_
 	e.Encode(state.CurrentTerm)
 	e.Encode(state.VotedFor)
 	e.Encode(state.Log)
+	e.Encode(state.LastIncludedIndex)
+	e.Encode(state.LastIncludedTerm)
 	raftstate := w.Bytes()
 	p.Save(raftstate, state.SnapshotData)
 	return C.int(p.RaftStateSize())
@@ -445,10 +456,12 @@ type RequestVoteReply struct {
 }
 
 type PersistentState struct {
-	CurrentTerm  uint64
-	VotedFor     string
-	Log          Log
-	SnapshotData []byte
+	CurrentTerm       uint64
+	VotedFor          string
+	Log               Log
+	SnapshotData      []byte
+	LastIncludedIndex uint64
+	LastIncludedTerm  uint64
 }
 
 type InstallSnapshotArg struct {
@@ -549,36 +562,16 @@ func (rf *Raft) readPersist(data []byte, sd []byte) {
 	state := PersistentState{}
 	if d.Decode(&state.CurrentTerm) != nil ||
 		d.Decode(&state.VotedFor) != nil ||
-		d.Decode(&state.Log) != nil {
+		d.Decode(&state.Log) != nil ||
+		d.Decode(&state.LastIncludedIndex) != nil ||
+		d.Decode(&state.LastIncludedTerm) != nil {
 		panic("Failed to decode persisted state")
 	} else {
 		protoState.CurrentTerm = state.CurrentTerm
 		protoState.VotedFor = &state.VotedFor
 		protoState.Snapshot = sd
-		var lastIncludedIndex uint64
-		var lastIncludedTerm uint64
-		if sd == nil {
-			lastIncludedIndex = 0
-			lastIncludedTerm = 0
-		} else {
-			var xlog []any
-			r2 := bytes.NewBuffer(sd)
-			d2 := labgob.NewDecoder(r2)
-			if d2.Decode(&lastIncludedIndex) != nil ||
-				d2.Decode(&xlog) != nil {
-				lastIncludedIndex = 0
-				lastIncludedTerm = 0
-				fmt.Println("Error: failed to decode snapshot data")
-			} else {
-				if len(xlog) > 0 {
-					lastIncludedTerm = xlog[len(xlog)-1].(LogEntry).Term
-				} else {
-					lastIncludedTerm = 0
-				}
-			}
-		}
-		protoState.LastIncludedIndex = lastIncludedIndex
-		protoState.LastIncludedTerm = lastIncludedTerm
+		protoState.LastIncludedIndex = state.LastIncludedIndex
+		protoState.LastIncludedTerm = state.LastIncludedTerm
 		protoState.Log = make([]*proto_raft.LogEntry, len(state.Log))
 		for i, entry := range state.Log {
 			protoState.Log[i] = &proto_raft.LogEntry{
@@ -730,6 +723,7 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArg, reply *InstallSnapshot
 }
 
 func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyCh chan raftapi.ApplyMsg) raftapi.Raft {
+	fmt.Println("Go: Making Raft node", me)
 	rafts.Store(me, true)
 	rf := &Raft{}
 	rf.peers = peers
@@ -741,12 +735,14 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	rf.persisterCB = registerPersister(rf)
 	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), C.uintptr_t(rf.cb), C.uintptr_t(rf.channelCb), C.uintptr_t(rf.persisterCB))
 	if rf.handle == nil {
+		fmt.Println("Go: Failed to create Raft node", me)
 		// Avoid returning a half-initialized Raft
 		GoFreeCallback(rf.cb)
 		GoFreeCallback(rf.channelCb)
 		GoFreeCallback(rf.persisterCB)
 		return nil
 	}
+	fmt.Println("Go: Raft node created", me)
 	rf.readPersist(rf.persister.ReadRaftState(), rf.persister.ReadSnapshot())
 	return rf
 }

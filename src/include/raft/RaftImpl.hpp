@@ -71,6 +71,7 @@ private:
     bool hasVote(std::string candidateId);
     bool upToDate(uint64_t lastLogIndex, uint64_t lastLogTerm);
     bool becameFollower(uint64_t term, std::string peerId);
+    void asyncInstallSnapshot();
     std::mutex m;
     std::mutex applyMutex;
     std::condition_variable electionCond;
@@ -90,9 +91,11 @@ private:
     int votesGranted{0};
     RequestVoteArg requestVoteArg {"", 0, 0, 0};
     std::unordered_map<std::string, std::pair<std::thread, std::thread>> leaderThreads;
+    std::thread snapshotThread;
     std::atomic<bool> stopCalls{false};
     zdb::Persister& persister;
     std::string snapshotData;
+    std::atomic<bool> pendingSnapshot{false};
 };
 
 template <typename Client>
@@ -154,6 +157,7 @@ RaftImpl<Client>::RaftImpl(
             )
         );
     }
+    snapshotThread = std::thread(&RaftImpl::asyncInstallSnapshot, this);
     spdlog::info("{}: RaftImpl started: peers: {}", selfId, peersList);
 }
 
@@ -171,7 +175,24 @@ RaftImpl<Client>::~RaftImpl() {
             th.second.join();
         }
     }
+    if (snapshotThread.joinable()) {
+        snapshotThread.join();
+    }
     spdlog::info("{}: Destroyed RaftImpl", selfId);
+}
+
+template <typename Client>
+void RaftImpl<Client>::asyncInstallSnapshot() {
+    while (!killed.load()) {
+        if (pendingSnapshot.load()) {
+            auto uuid = generate_uuid_v7();
+            if (stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, lastIncludedIndex, lastIncludedTerm, snapshotData), std::chrono::system_clock::now() + policy.rpcTimeout)) {
+                spdlog::info("{}: readPersist: applied snapshot asynchronously", selfId);
+                pendingSnapshot.store(false);
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
 }
 
 template <typename Client>
@@ -306,6 +327,16 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
     if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, arg.lastIncludedIndex, arg.lastIncludedTerm, arg.data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
         spdlog::error("{}: installSnapshotHandler: failed to apply snapshot", selfId);
     }
+        // // Apply snapshot asynchronously: the caller (tests / Go harness)
+        // // may not have started the apply-loop (receiver) yet. Sending
+        // // synchronously here can block creation and cause only some
+        // // nodes to start. Launch a detached thread that will retry
+        // // sending the InstallSnapshotCommand until it succeeds or the
+        // // raft is killed.
+        // auto snapData = arg.data; // copy for thread-safety
+        // std::thread([this, uuid, snapIndex = arg.lastIncludedIndex, snapTerm = arg.lastIncludedTerm, snapData]() mutable {
+
+        // }).detach();
     return reply;
 }
 
@@ -642,13 +673,26 @@ void RaftImpl<Client>::readPersist(PersistentState s) {
     commitIndex = std::max(commitIndex, s.lastIncludedIndex);
     lastIncludedIndex = s.lastIncludedIndex;
     lastIncludedTerm = s.lastIncludedTerm;
-    lock.unlock();
     if (s.snapshotData.empty()) {
         return;
     }
+    lock.unlock();
     if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, s.lastIncludedIndex, s.lastIncludedTerm, s.snapshotData), std::chrono::system_clock::now() + policy.rpcTimeout)) {
         spdlog::error("{}: installSnapshotHandler: failed to apply snapshot", selfId);
     }
+    // // Apply persisted snapshot asynchronously to avoid blocking during
+    // // Raft construction (the apply-loop on the Go side may not be
+    // // running yet). Retry until applied or the raft is killed.
+    // auto snapData = s.snapshotData;
+    // std::thread([this, uuid, snapIndex = s.lastIncludedIndex, snapTerm = s.lastIncludedTerm, snapData]() mutable {
+    //     while (!killed.load()) {
+    //         if (stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, snapIndex, snapTerm, snapData), std::chrono::system_clock::now() + policy.rpcTimeout)) {
+    //             spdlog::info("{}: readPersist: applied persisted snapshot asynchronously", selfId);
+    //             break;
+    //         }
+    //         std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    //     }
+    // }).detach();
 }
 
 template <typename Client>
