@@ -292,7 +292,8 @@ func go_invoke_install_snapshot(handle C.uintptr_t, p C.int, s string, args unsa
 		return C.int(-1)
 	}
 	protoReply := &proto_raft.InstallSnapshotReply{
-		Term: rep.Term,
+		Term:    rep.Term,
+		Success: rep.Success,
 	}
 	replyBytes, err := protobuf.Marshal(protoReply)
 	if err != nil {
@@ -473,7 +474,8 @@ type InstallSnapshotArg struct {
 }
 
 type InstallSnapshotReply struct {
-	Term uint64
+	Term    uint64
+	Success bool
 }
 
 func (rf *Raft) GetState() (int, bool) {
@@ -726,6 +728,7 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArg, reply *InstallSnapshot
 		return
 	}
 	reply.Term = protoReply.Term
+	reply.Success = protoReply.Success
 }
 
 func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyCh chan raftapi.ApplyMsg) raftapi.Raft {

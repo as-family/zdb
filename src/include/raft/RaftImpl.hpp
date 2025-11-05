@@ -312,18 +312,26 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
 template <typename Client>
 InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnapshotArg& arg) {
     std::unique_lock lock{m};
+    InstallSnapshotReply reply;
     if (killed.load()) {
-        return {currentTerm};
+        reply.term = currentTerm;
+        reply.success = false;
+        return reply;
+    }
+    if (pendingSnapshot.load()) {
+        reply.term = currentTerm;
+        reply.success = false;
+        return reply;
     }
     spdlog::info("{}: installSnapshotHandler: term={} leader={} lastIncludedIndex={} lastIncludedTerm={}", selfId, currentTerm, arg.leaderId, arg.lastIncludedIndex, arg.lastIncludedTerm);
-    InstallSnapshotReply reply;
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
+        reply.success = false;
         return reply;
     }
     becameFollower(arg.term, arg.leaderId);
     lastHeartbeat = std::chrono::steady_clock::now();
-    mainLog.trimPrefix(arg.lastIncludedIndex);
+    mainLog.trimPrefix(arg.lastIncludedIndex, arg.lastIncludedTerm);
     lastApplied = std::max(lastApplied, arg.lastIncludedIndex);
     commitIndex = std::max(commitIndex, arg.lastIncludedIndex);
     lastIncludedIndex = arg.lastIncludedIndex;
@@ -332,6 +340,7 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
     persist();
     auto uuid = generate_uuid_v7();
     reply.term = currentTerm;
+    reply.success = true;
     lock.unlock();
     if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, arg.lastIncludedIndex, arg.lastIncludedTerm, arg.data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
         spdlog::error("{}: installSnapshotHandler: failed to apply snapshot", selfId);
@@ -452,9 +461,14 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
                 if (snapReply.value().term < currentTerm || snapArg.term != currentTerm) {
                     continue;
                 }
-                nextIndex[peerId] = lastIncludedIndex + 1;
-                matchIndex[peerId] = lastIncludedIndex;
-                sendSnapshot = false;
+                if (snapReply.value().success) {
+                    nextIndex[peerId] = lastIncludedIndex + 1;
+                    matchIndex[peerId] = lastIncludedIndex;
+                    sendSnapshot = false;
+                } else {
+                    spdlog::warn("{}: appendEntries: InstallSnapshot to {} was not successful", selfId, peerId);
+                    continue;
+                }
             } else {
                 spdlog::warn("{}: appendEntries: no InstallSnapshot Response from {}", selfId, peerId);
                 continue;
@@ -660,19 +674,22 @@ void RaftImpl<Client>::snapshot(const uint64_t index, const std::string& sd) {
     }
     if (index < mainLog.firstIndex()) {
         spdlog::error("{}: snapshot: index {} <= firstIndex {}, no trimming needed", selfId, index, mainLog.firstIndex());
-        lastIncludedIndex = index;
-        snapshotData = sd;
-        persist();
         return;
     }
     if (index > mainLog.lastIndex()) {
         spdlog::error("{}: snapshot: index {} > lastIndex {}, cannot trim", selfId, index, mainLog.lastIndex());
         return;
     }
+    if (index == lastIncludedIndex) {
+        snapshotData = sd;
+        persist();
+        spdlog::info("{}: snapshot: refreshed snapshot data at index {}", selfId, index);
+        return;
+    }
     spdlog::info("{}: snapshot: index={}", selfId, index);
     lastIncludedIndex = index;
     lastIncludedTerm = mainLog.at(index).value().term;
-    mainLog.trimPrefix(index);
+    mainLog.trimPrefix(index, lastIncludedTerm);
     snapshotData = sd;
     persist();
 }

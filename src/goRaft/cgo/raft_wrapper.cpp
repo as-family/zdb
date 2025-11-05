@@ -147,6 +147,7 @@ int handle_install_snapshot(RaftHandle* h, char* args, int args_size, char* repl
     auto r = h->raft->installSnapshotHandler(protoArgs);
     raft::proto::InstallSnapshotReply protoReply{};
     protoReply.set_term(r.term);
+    protoReply.set_success(r.success);
     std::string reply_str;
     if (!protoReply.SerializeToString(&reply_str)) {
         return 0;

@@ -175,7 +175,7 @@ InstallSnapshotArg::operator const google::protobuf::Message&() const {
 }
 
 InstallSnapshotReply::InstallSnapshotReply(uint64_t t)
-    : term{t} {}
+    : term{t}, success{true} {}
 
 InstallSnapshotReply::InstallSnapshotReply(const google::protobuf::Message& m) {
     auto *reply = dynamic_cast<const proto::InstallSnapshotReply*>(&m);
@@ -183,6 +183,7 @@ InstallSnapshotReply::InstallSnapshotReply(const google::protobuf::Message& m) {
         throw std::runtime_error("Invalid message type");
     }
     term = reply->term();
+    success = reply->success();
 }
 
 InstallSnapshotReply::operator google::protobuf::Message&() {
@@ -190,6 +191,7 @@ InstallSnapshotReply::operator google::protobuf::Message&() {
         protoReply = std::make_shared<proto::InstallSnapshotReply>();
     }
     protoReply->set_term(term);
+    protoReply->set_success(success);
     return *protoReply;
 }
 

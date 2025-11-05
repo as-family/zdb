@@ -108,6 +108,7 @@ private:
 };
 
 struct InstallSnapshotReply : Reply {
+    bool success;
     uint64_t term;
     InstallSnapshotReply() = default;
     InstallSnapshotReply(uint64_t uint64);

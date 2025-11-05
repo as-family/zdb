@@ -107,14 +107,14 @@ Log Log::suffix(uint64_t start) const {
     return Log {es};
 }
 
-void Log::trimPrefix(uint64_t index) {
+void Log::trimPrefix(uint64_t index, uint64_t term) {
     std::lock_guard g{m};
     auto i = std::ranges::find_if(entries, [index](const LogEntry& e) { return e.index == index; });
     lastIncludedIndex = index;
+    lastIncludedTerm = term;
     if (i == entries.end()) {
         entries.clear();
     } else {
-        lastIncludedTerm = i->term;
         entries.erase(entries.begin(), i + 1);
     }
 }

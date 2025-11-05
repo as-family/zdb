@@ -41,7 +41,7 @@ void KVStateMachine::snapshot() {
     // Create a snapshot of the current state
 }
 
-void KVStateMachine::installSnapshot(long lastIncludedIndex, long lastIncludedTerm, const std::string& data) {
+void KVStateMachine::installSnapshot(uint64_t lastIncludedIndex, uint64_t lastIncludedTerm, const std::string& data) {
     // Restore the state from a snapshot
 }
 

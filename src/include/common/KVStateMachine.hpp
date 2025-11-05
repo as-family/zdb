@@ -39,7 +39,7 @@ public:
     State set(Key key, Value value);
     State erase(Key key);
     State size();
-    void installSnapshot(long lastIncludedIndex, long lastIncludedTerm, const std::string& data) override;
+    void installSnapshot(uint64_t lastIncludedIndex, uint64_t lastIncludedTerm, const std::string& data) override;
     ~KVStateMachine() override;
 private:
     std::mutex m;

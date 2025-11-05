@@ -32,7 +32,7 @@ public:
     virtual std::unique_ptr<State> applyCommand(raft::Command& command) = 0;
     virtual void consumeChannel() = 0;
     virtual void snapshot() = 0;
-    virtual void installSnapshot(long lastIncludedIndex, long lastIncludedTerm, const std::string& data) = 0;
+    virtual void installSnapshot(uint64_t lastIncludedIndex, uint64_t lastIncludedTerm, const std::string& data) = 0;
 };
 
 } // namespace raft
