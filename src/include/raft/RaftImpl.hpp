@@ -117,7 +117,8 @@ RaftImpl<Client>::RaftImpl(
         nextIndex[a] = 1;
         matchIndex[a] = 0;
     }
-    // RaftImpl<Client>::readPersist(persister.load());
+    snapshotThread = std::thread(&RaftImpl::asyncInstallSnapshot, this);
+    RaftImpl<Client>::readPersist(persister.load());
     for (const auto& peer : p) {
         shouldStartHeartbeat.emplace(peer, false);
         appendNow.emplace(peer, false);
@@ -157,7 +158,6 @@ RaftImpl<Client>::RaftImpl(
             )
         );
     }
-    snapshotThread = std::thread(&RaftImpl::asyncInstallSnapshot, this);
     spdlog::info("{}: RaftImpl started: peers: {}", selfId, peersList);
 }
 
@@ -178,6 +178,7 @@ RaftImpl<Client>::~RaftImpl() {
     if (snapshotThread.joinable()) {
         snapshotThread.join();
     }
+    persist();
     spdlog::info("{}: Destroyed RaftImpl", selfId);
 }
 
@@ -199,7 +200,7 @@ void RaftImpl<Client>::asyncInstallSnapshot() {
                 pendingSnapshot.store(false);
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
 
@@ -280,7 +281,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
     becameFollower(arg.term, arg.leaderId);
     lastHeartbeat = std::chrono::steady_clock::now();
     auto e = mainLog.at(arg.prevLogIndex);
-    if (arg.prevLogIndex == 0 || (e.has_value() && e.value().term == arg.prevLogTerm) || (!e.has_value() && arg.prevLogIndex <= lastIncludedIndex && arg.prevLogTerm == lastIncludedTerm)) {
+    if (arg.prevLogIndex == 0 || (e.has_value() && e.value().term == arg.prevLogTerm) || (!e.has_value() && arg.prevLogIndex == lastIncludedIndex && arg.prevLogTerm == lastIncludedTerm)) {
         mainLog.merge(arg.entries);
         role = Role::Follower;
         appendCond.notify_all();
@@ -318,11 +319,6 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
         reply.success = false;
         return reply;
     }
-    if (pendingSnapshot.load()) {
-        reply.term = currentTerm;
-        reply.success = false;
-        return reply;
-    }
     spdlog::info("{}: installSnapshotHandler: term={} leader={} lastIncludedIndex={} lastIncludedTerm={}", selfId, currentTerm, arg.leaderId, arg.lastIncludedIndex, arg.lastIncludedTerm);
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -332,8 +328,8 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
     becameFollower(arg.term, arg.leaderId);
     lastHeartbeat = std::chrono::steady_clock::now();
     mainLog.trimPrefix(arg.lastIncludedIndex, arg.lastIncludedTerm);
-    lastApplied = std::max(lastApplied, arg.lastIncludedIndex);
-    commitIndex = std::max(commitIndex, arg.lastIncludedIndex);
+    lastApplied = arg.lastIncludedIndex;
+    commitIndex = arg.lastIncludedIndex;
     lastIncludedIndex = arg.lastIncludedIndex;
     lastIncludedTerm = arg.lastIncludedTerm;
     snapshotData = arg.data;
@@ -343,7 +339,7 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
     reply.success = true;
     lock.unlock();
     if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, arg.lastIncludedIndex, arg.lastIncludedTerm, arg.data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
-        spdlog::error("{}: installSnapshotHandler: failed to apply snapshot", selfId);
+        spdlog::error("{}: installSnapshotHandler: failed to apply snapshot lastIncludedIndex={}", selfId, arg.lastIncludedIndex);
         pendingSnapshot.store(true);
     }
     return reply;
@@ -352,12 +348,14 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
 template <typename Client>
 void RaftImpl<Client>::applyCommittedEntries() {
     std::unique_lock applyLock{applyMutex};
+    std::unique_lock lock1{m};
     if (lastApplied >= commitIndex || pendingSnapshot.load()) {
         return;
     }
+    lock1.unlock();
     spdlog::info("{}: applyCommittedEntries: commitIndex={}, lastApplied={}", selfId, commitIndex, lastApplied);
     while (true) {
-        std::unique_lock lock1{m};
+        lock1.lock();
         if (lastApplied >= commitIndex) {
             break;
         }
@@ -429,7 +427,7 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
         stopCalls = false;
         if (sendSnapshot) {
             spdlog::info("{}: appendEntries: sending InstallSnapshot to {}", selfId, peerId);
-            auto buffer = persister.loadBuffer();
+            auto buffer = persister.load().snapshotData;
             InstallSnapshotArg snapArg {
                 selfId,
                 currentTerm,
@@ -646,7 +644,7 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
         return false;
     }
     command->term = currentTerm;
-    command->index = mainLog.lastIndex() + 1;
+    command->index = std::max(mainLog.lastIndex() + 1, lastIncludedIndex + 1);
     spdlog::info("{}: start: command term={} index={}", selfId, command->term, command->index);
     LogEntry e {
         command->index,
@@ -732,7 +730,7 @@ void RaftImpl<Client>::readPersist(PersistentState s) {
     }
     lock.unlock();
     if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, s.lastIncludedIndex, s.lastIncludedTerm, s.snapshotData), std::chrono::system_clock::now() + policy.rpcTimeout)) {
-        spdlog::error("{}: installSnapshotHandler: failed to apply snapshot", selfId);
+        spdlog::error("{}: readPersist: failed to apply snapshot", selfId);
         pendingSnapshot.store(true);
     }
 }

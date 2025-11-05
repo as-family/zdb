@@ -103,7 +103,7 @@ func GoInvokeCallback(h C.uintptr_t, p int, s string, a interface{}, b interface
 		fmt.Printf("GoInvokeCallback: invalid handle %d\n", uintptr(h))
 		return 0
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 	defer cancel()
 	done := make(chan int, 1)
 	go func() {
@@ -157,7 +157,7 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
 			}
 		} else {
 			if rf.applyCh != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 				defer cancel()
 				bytes := []byte(protoC.Value.Data)
 				select {
@@ -388,23 +388,54 @@ func persister_go_invoke_callback(handle C.uintptr_t, data unsafe.Pointer, data_
 }
 
 //export persister_go_read_callback
-func persister_go_read_callback(handle C.uintptr_t, data unsafe.Pointer, data_len C.int) C.int {
+func persister_go_read_callback(handle C.uintptr_t, out unsafe.Pointer, out_len C.int) C.int {
 	ps, ok := getCallback(uintptr(handle))
 	if !ok {
 		fmt.Printf("persister_go_read_callback: invalid handle %d\n", uintptr(handle))
 		return C.int(0)
 	}
 	p := ps.(*tester.Persister)
-	raftstate := p.ReadSnapshot()
-	if len(raftstate) == 0 {
+	data := p.ReadRaftState()
+	sd := p.ReadSnapshot()
+	if len(data) < 1 || len(sd) < 1 {
 		return C.int(0)
 	}
-	if len(raftstate) > int(data_len) {
-		fmt.Println("Error: buffer too small in persister_go_read_callback")
-		return C.int(0)
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	protoState := &proto_raft.PersistentState{}
+	state := PersistentState{}
+	if d.Decode(&state.CurrentTerm) != nil ||
+		d.Decode(&state.VotedFor) != nil ||
+		d.Decode(&state.Log) != nil ||
+		d.Decode(&state.LastIncludedIndex) != nil ||
+		d.Decode(&state.LastIncludedTerm) != nil {
+		panic("Failed to decode persisted state")
+	} else {
+		protoState.CurrentTerm = state.CurrentTerm
+		protoState.VotedFor = &state.VotedFor
+		protoState.Snapshot = sd
+		protoState.LastIncludedIndex = state.LastIncludedIndex
+		protoState.LastIncludedTerm = state.LastIncludedTerm
+		protoState.Log = make([]*proto_raft.LogEntry, len(state.Log))
+		for i, entry := range state.Log {
+			protoState.Log[i] = &proto_raft.LogEntry{
+				Index:   entry.Index,
+				Term:    entry.Term,
+				Command: []byte(entry.Command),
+			}
+		}
+		protoState.Snapshot = sd
+		stateBytes, err := protobuf.Marshal(protoState)
+		if err != nil {
+			panic("Failed to marshal protoState")
+		}
+		if len(stateBytes) > int(out_len) {
+			fmt.Println("Error: buffer too small in persister_go_read_callback")
+			return C.int(0)
+		}
+		C.memmove(out, unsafe.Pointer(&stateBytes[0]), C.size_t(len(stateBytes)))
+		return C.int(len(stateBytes))
 	}
-	C.memmove(data, unsafe.Pointer(&raftstate[0]), C.size_t(len(raftstate)))
-	return C.int(len(raftstate))
 }
 
 type Raft struct {
@@ -561,7 +592,10 @@ func (rf *Raft) persist() {
 }
 
 func (rf *Raft) readPersist(data []byte, sd []byte) {
-	if data == nil || len(data) < 1 {
+	if len(data) == 0 {
+		return
+	}
+	if len(sd) == 0 {
 		return
 	}
 	r := bytes.NewBuffer(data)

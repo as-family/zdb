@@ -14,6 +14,8 @@
 #include "raft/Raft.hpp"
 #include "proto/raft.pb.h"
 #include "goRaft/cgo/raft_wrapper.hpp"
+#include "common/Command.hpp"
+#include <spdlog/spdlog.h>
 
 GoPersister::GoPersister(uintptr_t h) : handle(h) {
 }
@@ -30,7 +32,25 @@ std::string GoPersister::loadBuffer() {
 }
 
 raft::PersistentState GoPersister::load() {
-    return {};
+    auto buffer = loadBuffer();
+    raft::proto::PersistentState p;
+    if (p.ParseFromString(buffer)) {
+        raft::PersistentState state;
+        state.currentTerm = p.currentterm();
+        if (p.has_votedfor()) {
+            state.votedFor = p.votedfor();
+        }
+        for (int i = 0; i < p.log_size(); ++i) {
+            const auto& entry = p.log(i);
+            state.log.append(raft::LogEntry{entry.index(), entry.term(), zdb::commandFactory(entry.command())});
+        }
+        state.snapshotData = p.snapshot();
+        state.lastIncludedIndex = p.lastincludedindex();
+        state.lastIncludedTerm = p.lastincludedterm();
+        return state;
+    }
+    spdlog::info("Failed to parse PersistentState from string: {}", buffer);
+    throw std::runtime_error("Failed to parse PersistentState from string");
 }
 
 void GoPersister::save(const raft::PersistentState& s) {
