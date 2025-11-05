@@ -348,10 +348,6 @@ func persister_go_invoke_callback(handle C.uintptr_t, data unsafe.Pointer, data_
 		return C.int(0)
 	}
 	p := ps.(*tester.Persister)
-	if data == nil || data_len <= 0 {
-		p.Save(nil, nil)
-		return C.int(0)
-	}
 	protoState := &proto_raft.PersistentState{}
 	err := protobuf.Unmarshal(C.GoBytes(data, data_len), protoState)
 	if err != nil {

@@ -719,6 +719,7 @@ void RaftImpl<Client>::readPersist(PersistentState s) {
     votedFor = s.votedFor;
     mainLog.clear();
     mainLog.merge(s.log);
+    mainLog.setLastIncluded(s.lastIncludedIndex, s.lastIncludedTerm);
     auto uuid = generate_uuid_v7();
     lastApplied = std::max(lastApplied, s.lastIncludedIndex);
     commitIndex = std::max(commitIndex, s.lastIncludedIndex);

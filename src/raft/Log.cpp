@@ -119,6 +119,12 @@ void Log::trimPrefix(uint64_t index, uint64_t term) {
     }
 }
 
+void Log::setLastIncluded(uint64_t index, uint64_t term) {
+    std::lock_guard g{m};
+    lastIncludedIndex = index;
+    lastIncludedTerm = term;
+}
+
 std::optional<LogEntry> Log::at(uint64_t index) const {
     std::lock_guard g{m};
     auto i = std::ranges::find_if(entries, [index](const LogEntry& e) { return e.index == index; });
