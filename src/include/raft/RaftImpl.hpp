@@ -185,8 +185,16 @@ template <typename Client>
 void RaftImpl<Client>::asyncInstallSnapshot() {
     while (!killed.load()) {
         if (pendingSnapshot.load()) {
+            std::string data;
+            uint64_t index, term;
+            {
+                std::unique_lock lock{m};
+                data = snapshotData;
+                index = lastIncludedIndex;
+                term = lastIncludedTerm;
+            }
             auto uuid = generate_uuid_v7();
-            if (stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, lastIncludedIndex, lastIncludedTerm, snapshotData), std::chrono::system_clock::now() + policy.rpcTimeout)) {
+            if (stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, index, term, data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
                 spdlog::info("{}: readPersist: applied snapshot asynchronously", selfId);
                 pendingSnapshot.store(false);
             }
@@ -649,9 +657,11 @@ void RaftImpl<Client>::snapshot(const uint64_t index, const std::string& sd) {
         spdlog::warn("{}: snapshot: another snapshot is pending, skipping", selfId);
         return;
     }
-    lastIncludedIndex = index;
     if (index < mainLog.firstIndex()) {
         spdlog::error("{}: snapshot: index {} <= firstIndex {}, no trimming needed", selfId, index, mainLog.firstIndex());
+        lastIncludedIndex = index;
+        snapshotData = sd;
+        persist();
         return;
     }
     if (index > mainLog.lastIndex()) {
@@ -659,6 +669,7 @@ void RaftImpl<Client>::snapshot(const uint64_t index, const std::string& sd) {
         return;
     }
     spdlog::info("{}: snapshot: index={}", selfId, index);
+    lastIncludedIndex = index;
     lastIncludedTerm = mainLog.at(index).value().term;
     mainLog.trimPrefix(index);
     snapshotData = sd;
