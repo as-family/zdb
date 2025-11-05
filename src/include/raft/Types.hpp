@@ -98,7 +98,7 @@ struct InstallSnapshotArg : Arg {
     uint64_t lastIncludedIndex;
     uint64_t lastIncludedTerm;
     std::string data;
-    InstallSnapshotArg(std::string, uint64_t, uint64_t, uint64_t, std::string);
+    InstallSnapshotArg(std::string, uint64_t, uint64_t, uint64_t, const std::string&);
     InstallSnapshotArg(const proto::InstallSnapshotArg& arg);
     operator google::protobuf::Message&() override;
     operator const google::protobuf::Message&() const override;

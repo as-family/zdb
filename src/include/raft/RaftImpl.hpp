@@ -399,14 +399,15 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
         auto g = mainLog.suffix(n);
         auto prevLogIndex = n - 1;
         auto mainLogAtPrev = mainLog.at(prevLogIndex);
-        auto prevLogTerm = 0;
+        uint64_t prevLogTerm = 0;
         if (mainLogAtPrev.has_value()) {
             prevLogTerm = mainLogAtPrev.value().term;
         } else if (sendSnapshot || prevLogIndex <= lastIncludedIndex) {
             prevLogTerm = lastIncludedTerm;
         } else if (prevLogIndex != 0) {
             spdlog::error("{}: appendEntries: to {} prevLogIndex {} has no entry", selfId, peerId, prevLogIndex);
-            throw std::runtime_error("prevLogIndex has no entry");
+            appendNow[peerId] = true;
+            continue;
         }
         AppendEntriesArg arg {
             selfId,

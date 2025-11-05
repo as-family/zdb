@@ -25,6 +25,7 @@ std::string GoPersister::loadBuffer() {
     if (len <= 0) {
         return {};
     }
+    buffer.resize(len);
     return buffer;
 }
 
@@ -32,7 +33,7 @@ raft::PersistentState GoPersister::load() {
     return {};
 }
 
-void GoPersister::save(raft::PersistentState s) {
+void GoPersister::save(const raft::PersistentState& s) {
     raft::proto::PersistentState p;
     p.set_currentterm(s.currentTerm);
     if (s.votedFor.has_value()) {

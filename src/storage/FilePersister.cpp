@@ -25,7 +25,7 @@ raft::PersistentState FilePersister::load() {
     return {};
 }
 
-void FilePersister::save(raft::PersistentState s) {
+void FilePersister::save(const raft::PersistentState& s) {
 }
 
 FilePersister::~FilePersister() {}

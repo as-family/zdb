@@ -20,7 +20,7 @@ class Persister {
 public:
     virtual std::string loadBuffer() = 0;
     virtual raft::PersistentState load() = 0;
-    virtual void save(raft::PersistentState) = 0;
+    virtual void save(const raft::PersistentState& state) = 0;
     virtual ~Persister() = default;
 };
 

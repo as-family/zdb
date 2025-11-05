@@ -25,10 +25,10 @@ int main(int argc, char** argv) {
     auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     std::filesystem::create_directories("logs");
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-        "logs/my_async_log.txt", 1024 * 1024 * 5, 3);
+        "logs/zdb.txt", 1024 * 1024 * 5, 3);
     std::vector<spdlog::sink_ptr> sinks {consoleSink, fileSink};
     const auto asyncLogger = std::make_shared<spdlog::async_logger>(
-        "global_async_logger", sinks.begin(), sinks.end(),
+        "gAsync", sinks.begin(), sinks.end(),
         spdlog::thread_pool(), spdlog::async_overflow_policy::block);
     spdlog::register_logger(asyncLogger);
     spdlog::set_default_logger(asyncLogger);

@@ -80,7 +80,7 @@ ERROR_COUNT=$(grep -c 'severity="error"' "${OUTPUT_XML}" || true)
 
 if [[ "${ERROR_COUNT}" -gt 0 ]]; then
   echo "cppcheck: ${ERROR_COUNT} errors found" >&2
-  exit "${ERROR_COUNT}"
+  exit 1
 else
   echo "cppcheck: no errors found"
   exit 0

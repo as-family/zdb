@@ -144,7 +144,7 @@ RequestVoteReply::operator const google::protobuf::Message&() const {
     return const_cast<RequestVoteReply*>(this)->operator google::protobuf::Message&();
 }
 
-InstallSnapshotArg::InstallSnapshotArg(std::string l, uint64_t t, uint64_t si, uint64_t st, const std::string sd)
+InstallSnapshotArg::InstallSnapshotArg(std::string l, uint64_t t, uint64_t si, uint64_t st, const std::string& sd)
     : leaderId{l},
       term{t},
       lastIncludedIndex{si},

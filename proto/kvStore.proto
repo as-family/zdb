@@ -50,7 +50,7 @@ message EraseReply {
 }
 
 message SizeRequest {
-    zdb.proto.RequestID requestID = 2;
+    zdb.proto.RequestID requestID = 1;
 }
 
 message SizeReply {

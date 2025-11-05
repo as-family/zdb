@@ -9,8 +9,8 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef LOCK_H
-#define LOCK_H
+#ifndef ZDB_LOCK_H
+#define ZDB_LOCK_H
 
 #include "client/KVStoreClient.hpp"
 #include <string>
@@ -31,4 +31,4 @@ private:
 
 } // namespace zdb
 
-#endif // LOCK_H
+#endif // ZDB_LOCK_H

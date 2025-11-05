@@ -34,7 +34,6 @@ void KVStateMachine::consumeChannel() {
         if (c.has_value()) {
             applyCommand(*c.value());
         }
-        lock.unlock();
     }
 }
 

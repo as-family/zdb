@@ -25,7 +25,7 @@ public:
     GoPersister(uintptr_t h);
     std::string loadBuffer() override;
     raft::PersistentState load() override;
-    void save(raft::PersistentState) override;
+    void save(const raft::PersistentState&) override;
     ~GoPersister() override;
 private:
     uintptr_t handle;

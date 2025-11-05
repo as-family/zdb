@@ -545,6 +545,12 @@ func (rf *Raft) Kill() {
 }
 
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
+	if rf.handle == nil {
+		return
+	}
+	if len(snapshot) == 0 {
+		return
+	}
 	C.raft_snapshot(rf.handle, C.uint64_t(index), (*C.char)(unsafe.Pointer(&snapshot[0])), C.int(len(snapshot)))
 }
 
