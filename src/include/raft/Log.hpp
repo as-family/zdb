@@ -48,8 +48,8 @@ public:
     void clear();
     std::optional<LogEntry> at(uint64_t index) const;
     Log suffix(uint64_t start) const;
-    void trimPrefix(uint64_t index, u_int64_t term);
     void setLastIncluded(uint64_t index, uint64_t term);
+    void trimPrefix(uint64_t index, u_int64_t term);
     std::vector<LogEntry> data() const;
  private:
     mutable std::mutex m{};

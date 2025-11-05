@@ -33,6 +33,9 @@ std::string GoPersister::loadBuffer() {
 
 raft::PersistentState GoPersister::load() {
     auto buffer = loadBuffer();
+    if (buffer.empty()) {
+        return raft::PersistentState{};
+    }
     raft::proto::PersistentState p;
     if (p.ParseFromString(buffer)) {
         raft::PersistentState state;
@@ -49,8 +52,8 @@ raft::PersistentState GoPersister::load() {
         state.lastIncludedTerm = p.lastincludedterm();
         return state;
     }
-    spdlog::info("Failed to parse PersistentState from string: {}", buffer);
-    throw std::runtime_error("Failed to parse PersistentState from string");
+    spdlog::error("Failed to parse PersistentState from string");
+    return raft::PersistentState{};
 }
 
 void GoPersister::save(const raft::PersistentState& s) {

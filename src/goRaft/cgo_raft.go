@@ -393,7 +393,7 @@ func persister_go_read_callback(handle C.uintptr_t, out unsafe.Pointer, out_len 
 	p := ps.(*tester.Persister)
 	data := p.ReadRaftState()
 	sd := p.ReadSnapshot()
-	if len(data) < 1 || len(sd) < 1 {
+	if len(data) < 1 {
 		return C.int(0)
 	}
 	r := bytes.NewBuffer(data)
@@ -782,6 +782,5 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 		return nil
 	}
 	fmt.Println("Go: Raft node created", me)
-	rf.readPersist(rf.persister.ReadRaftState(), rf.persister.ReadSnapshot())
 	return rf
 }

@@ -178,7 +178,6 @@ RaftImpl<Client>::~RaftImpl() {
     if (snapshotThread.joinable()) {
         snapshotThread.join();
     }
-    persist();
     spdlog::info("{}: Destroyed RaftImpl", selfId);
 }
 
@@ -306,7 +305,7 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
         reply.conflictIndex = mainLog.lastIndex() + 1;
         reply.conflictTerm = 0;
     }
-    spdlog::info("{}: appendEntriesHandler: conflict at prevLogIndex={}, prevLogTerm={}, conflictTerm={}, conflictIndex={}", selfId, arg.prevLogIndex, arg.prevLogTerm, reply.conflictTerm, reply.conflictIndex);
+    spdlog::debug("{}: appendEntriesHandler: conflict at prevLogIndex={}, prevLogTerm={}, conflictTerm={}, conflictIndex={}", selfId, arg.prevLogIndex, arg.prevLogTerm, reply.conflictTerm, reply.conflictIndex);
     return reply;
 }
 
@@ -319,7 +318,7 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
         reply.success = false;
         return reply;
     }
-    spdlog::info("{}: installSnapshotHandler: term={} leader={} lastIncludedIndex={} lastIncludedTerm={}", selfId, currentTerm, arg.leaderId, arg.lastIncludedIndex, arg.lastIncludedTerm);
+    spdlog::debug("{}: installSnapshotHandler: term={} leader={} lastIncludedIndex={} lastIncludedTerm={}", selfId, currentTerm, arg.leaderId, arg.lastIncludedIndex, arg.lastIncludedTerm);
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
         reply.success = false;
@@ -353,7 +352,7 @@ void RaftImpl<Client>::applyCommittedEntries() {
         return;
     }
     lock1.unlock();
-    spdlog::info("{}: applyCommittedEntries: commitIndex={}, lastApplied={}", selfId, commitIndex, lastApplied);
+    spdlog::debug("{}: applyCommittedEntries: commitIndex={}, lastApplied={}", selfId, commitIndex, lastApplied);
     while (true) {
         lock1.lock();
         if (lastApplied >= commitIndex) {
@@ -426,7 +425,7 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
         };
         stopCalls = false;
         if (sendSnapshot) {
-            spdlog::info("{}: appendEntries: sending InstallSnapshot to {}", selfId, peerId);
+            spdlog::debug("{}: appendEntries: sending InstallSnapshot to {}", selfId, peerId);
             auto buffer = persister.load().snapshotData;
             InstallSnapshotArg snapArg {
                 selfId,
@@ -645,7 +644,7 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
     }
     command->term = currentTerm;
     command->index = std::max(mainLog.lastIndex() + 1, lastIncludedIndex + 1);
-    spdlog::info("{}: start: command term={} index={}", selfId, command->term, command->index);
+    spdlog::debug("{}: start: command term={} index={}", selfId, command->term, command->index);
     LogEntry e {
         command->index,
         command->term,
@@ -681,10 +680,10 @@ void RaftImpl<Client>::snapshot(const uint64_t index, const std::string& sd) {
     if (index == lastIncludedIndex) {
         snapshotData = sd;
         persist();
-        spdlog::info("{}: snapshot: refreshed snapshot data at index {}", selfId, index);
+        spdlog::debug("{}: snapshot: refreshed snapshot data at index {}", selfId, index);
         return;
     }
-    spdlog::info("{}: snapshot: index={}", selfId, index);
+    spdlog::debug("{}: snapshot: index={}", selfId, index);
     lastIncludedIndex = index;
     lastIncludedTerm = mainLog.at(index).value().term;
     mainLog.trimPrefix(index, lastIncludedTerm);
