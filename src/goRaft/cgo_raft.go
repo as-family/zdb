@@ -591,9 +591,6 @@ func (rf *Raft) readPersist(data []byte, sd []byte) {
 	if len(data) == 0 {
 		return
 	}
-	if len(sd) == 0 {
-		return
-	}
 	r := bytes.NewBuffer(data)
 	d := labgob.NewDecoder(r)
 	protoState := &proto_raft.PersistentState{}
