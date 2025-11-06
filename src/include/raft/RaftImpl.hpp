@@ -197,9 +197,13 @@ void RaftImpl<Client>::asyncInstallSnapshot() {
             if (stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, index, term, data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
                 spdlog::info("{}: asyncInstallSnapshot: applied snapshot asynchronously", selfId);
                 lock.lock();
-                lastApplied = index;
-                commitIndex = index;
-                pendingSnapshot.store(false);
+                if (lastIncludedIndex == index && lastIncludedTerm == term) {
+                    lastApplied = index;
+                    commitIndex = index;
+                    pendingSnapshot.store(false);
+                } else {
+                    spdlog::warn("{}: asyncInstallSnapshot: snapshot changed while applying asynchronously", selfId);
+                }
             }
         }
     }
