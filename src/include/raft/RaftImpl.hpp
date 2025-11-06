@@ -196,6 +196,8 @@ void RaftImpl<Client>::asyncInstallSnapshot() {
             auto uuid = generate_uuid_v7();
             if (stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, index, term, data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
                 spdlog::info("{}: readPersist: applied snapshot asynchronously", selfId);
+                lastApplied = index;
+                commitIndex = index;
                 pendingSnapshot.store(false);
             }
         }
@@ -327,8 +329,6 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
     becameFollower(arg.term, arg.leaderId);
     lastHeartbeat = std::chrono::steady_clock::now();
     mainLog.trimPrefix(arg.lastIncludedIndex, arg.lastIncludedTerm);
-    lastApplied = arg.lastIncludedIndex;
-    commitIndex = arg.lastIncludedIndex;
     lastIncludedIndex = arg.lastIncludedIndex;
     lastIncludedTerm = arg.lastIncludedTerm;
     snapshotData = arg.data;
@@ -340,6 +340,10 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
     if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, arg.lastIncludedIndex, arg.lastIncludedTerm, arg.data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
         spdlog::error("{}: installSnapshotHandler: failed to apply snapshot lastIncludedIndex={}", selfId, arg.lastIncludedIndex);
         pendingSnapshot.store(true);
+    } else {
+        lock.lock();
+        lastApplied = arg.lastIncludedIndex;
+        commitIndex = arg.lastIncludedIndex;
     }
     return reply;
 }
@@ -720,8 +724,6 @@ void RaftImpl<Client>::readPersist(PersistentState s) {
     mainLog.merge(s.log);
     mainLog.setLastIncluded(s.lastIncludedIndex, s.lastIncludedTerm);
     auto uuid = generate_uuid_v7();
-    lastApplied = std::max(lastApplied, s.lastIncludedIndex);
-    commitIndex = std::max(commitIndex, s.lastIncludedIndex);
     lastIncludedIndex = s.lastIncludedIndex;
     lastIncludedTerm = s.lastIncludedTerm;
     snapshotData = s.snapshotData;
@@ -732,6 +734,10 @@ void RaftImpl<Client>::readPersist(PersistentState s) {
     if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, s.lastIncludedIndex, s.lastIncludedTerm, s.snapshotData), std::chrono::system_clock::now() + policy.rpcTimeout)) {
         spdlog::error("{}: readPersist: failed to apply snapshot", selfId);
         pendingSnapshot.store(true);
+    } else {
+        lock.lock();
+        lastApplied = std::max(lastApplied, s.lastIncludedIndex);
+        commitIndex = std::max(commitIndex, s.lastIncludedIndex);
     }
 }
 
