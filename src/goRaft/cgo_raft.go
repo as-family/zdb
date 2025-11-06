@@ -77,15 +77,15 @@ func deleteHandle(h uintptr) {
 func registerCallback(rf *Raft) C.uintptr_t {
 	cb := callbackFn(func(p int, s string, a interface{}, b interface{}) int {
 		if atomic.LoadInt32(&rf.dead) == 1 {
-			return 0
-		}
-		if v, ok := rafts.Load(p); !ok || !v.(bool) {
-			return 0
-		}
-		if rf.peers[p].Call(s, a, b) {
 			return 1
 		}
-		return 0
+		if v, ok := rafts.Load(p); !ok || !v.(bool) {
+			return 1
+		}
+		if rf.peers[p].Call(s, a, b) {
+			return 0
+		}
+		return 1
 	})
 	h := newHandle(cb)
 	return C.uintptr_t(h)
@@ -101,7 +101,7 @@ func GoInvokeCallback(h C.uintptr_t, p int, s string, a interface{}, b interface
 	cb, ok := getCallback(uintptr(h))
 	if !ok {
 		fmt.Printf("GoInvokeCallback: invalid handle %d\n", uintptr(h))
-		return 0
+		return 1
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -110,11 +110,10 @@ func GoInvokeCallback(h C.uintptr_t, p int, s string, a interface{}, b interface
 		done <- cb.(callbackFn)(p, s, a, b)
 	}()
 	select {
-	case res := <-done:
-		return res
-	case <-ctx.Done():
-		//         fmt.Printf("GoInvokeCallback: callback timed out for handle %d\n", uintptr(h))
+	case <-done:
 		return 0
+	case <-ctx.Done():
+		return 1
 	}
 }
 
@@ -122,15 +121,15 @@ func GoFreeCallback(h C.uintptr_t) {
 	deleteHandle(uintptr(h))
 }
 
-type goChannelCallbackFn func(string, int) int
+type goChannelCallbackFn func([]byte, int) int
 
 func channelRegisterCallback(rf *Raft) C.uintptr_t {
-	cb := goChannelCallbackFn(func(s string, i int) int {
+	cb := goChannelCallbackFn(func(s []byte, i int) int {
 		protoC := &proto_raft.Command{}
-		err := protobuf.Unmarshal([]byte(s), protoC)
+		err := protobuf.Unmarshal(s, protoC)
 		if err != nil {
 			fmt.Println("Error: failed to unmarshal Command in channel callback", err)
-			return 0
+			return 1
 		}
 		if protoC.Op != "i" {
 			var x interface{}
@@ -142,9 +141,8 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
 					x = protoC.Key.Data
 				}
 			}
-			//         fmt.Println("Go: channel callback invoked:", x)
 			if atomic.LoadInt32(&rf.dead) == 1 {
-				return 0
+				return 1
 			}
 			if rf.applyCh != nil {
 				rf.applyCh <- raftapi.ApplyMsg{
@@ -152,31 +150,31 @@ func channelRegisterCallback(rf *Raft) C.uintptr_t {
 					Command:      x,
 					CommandIndex: i,
 				}
-				fmt.Println(rf.me, "Go: channel callback invoked with:", i, x)
-				return 1
+				return 0
 			}
 		} else {
 			if rf.applyCh != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 				defer cancel()
-				bytes := []byte(protoC.Value.Data)
+				if atomic.LoadInt32(&rf.dead) == 1 {
+					return 1
+				}
 				select {
 				case <-ctx.Done():
 					fmt.Println(rf.me, "Go: channel callback snapshot timed out")
-					return 0
+					return 1
 				case rf.applyCh <- raftapi.ApplyMsg{
 					CommandValid:  false,
 					SnapshotValid: true,
-					Snapshot:      bytes,
+					Snapshot:      protoC.Value.Data,
 					SnapshotIndex: int(protoC.Index),
 					SnapshotTerm:  int(protoC.Value.Version),
 				}:
-					fmt.Println(rf.me, "Go: snapshot callback invoked")
-					return 1
+					return 0
 				}
 			}
 		}
-		return 0
+		return 1
 	})
 	h := newHandle(cb)
 	return C.uintptr_t(h)
@@ -196,10 +194,7 @@ func go_invoke_request_vote(handle C.uintptr_t, p C.int, s string, args unsafe.P
 		LastLogTerm:  protoArg.LastLogTerm,
 	}
 	rep := &RequestVoteReply{}
-	// 	start := time.Now()
-	result := GoInvokeCallback(handle, int(p), s, arg, rep)
-	// 	fmt.Println(int(p), " Go: RequestVote callback took", time.Since(start))
-	if result == 0 {
+	if GoInvokeCallback(handle, int(p), s, arg, rep) != 0 {
 		return C.int(-1)
 	}
 	protoReply := &proto_raft.RequestVoteReply{
@@ -245,10 +240,7 @@ func go_invoke_append_entries(handle C.uintptr_t, p C.int, s string, args unsafe
 		Entries:      entries,
 	}
 	rep := &AppendEntriesReply{}
-	// 	start := time.Now()
-	result := GoInvokeCallback(handle, int(p), s, arg, rep)
-	// 	fmt.Println(int(p), " Go: AppendEntries callback took", time.Since(start))
-	if result == 0 {
+	if GoInvokeCallback(handle, int(p), s, arg, rep) != 0 {
 		return C.int(-1)
 	}
 	protoReply := &proto_raft.AppendEntriesReply{
@@ -287,8 +279,7 @@ func go_invoke_install_snapshot(handle C.uintptr_t, p C.int, s string, args unsa
 		Data:              protoArg.Data,
 	}
 	rep := &InstallSnapshotReply{}
-	result := GoInvokeCallback(handle, int(p), s, arg, rep)
-	if result == 0 {
+	if GoInvokeCallback(handle, int(p), s, arg, rep) != 0 {
 		return C.int(-1)
 	}
 	protoReply := &proto_raft.InstallSnapshotReply{
@@ -329,15 +320,15 @@ func go_invoke_callback(handle C.uintptr_t, p C.int, s *C.char, args unsafe.Poin
 //export channel_go_invoke_callback
 func channel_go_invoke_callback(handle C.uintptr_t, s unsafe.Pointer, s_len C.int, i C.int) C.int {
 	if s == nil || s_len <= 0 {
-		return C.int(0)
+		return C.int(1)
 	}
-	str := C.GoStringN((*C.char)(s), s_len)
+	bytes := C.GoBytes(s, s_len)
 	cb, ok := getCallback(uintptr(handle))
 	if !ok {
 		fmt.Printf("channel_go_invoke_callback: invalid handle %d\n", uintptr(handle))
-		return 0
+		return 1
 	}
-	return C.int(cb.(goChannelCallbackFn)(str, int(i)))
+	return C.int(cb.(goChannelCallbackFn)(bytes, int(i)))
 }
 
 //export persister_go_invoke_callback
@@ -345,14 +336,14 @@ func persister_go_invoke_callback(handle C.uintptr_t, data unsafe.Pointer, data_
 	ps, ok := getCallback(uintptr(handle))
 	if !ok {
 		fmt.Printf("persister_go_invoke_callback: invalid handle %d\n", uintptr(handle))
-		return C.int(0)
+		return C.int(1)
 	}
 	p := ps.(*tester.Persister)
 	protoState := &proto_raft.PersistentState{}
 	err := protobuf.Unmarshal(C.GoBytes(data, data_len), protoState)
 	if err != nil {
 		fmt.Println("Error: failed to unmarshal PersistentState")
-		return C.int(0)
+		return C.int(1)
 	}
 	state := PersistentState{
 		CurrentTerm:       protoState.CurrentTerm,
@@ -380,7 +371,7 @@ func persister_go_invoke_callback(handle C.uintptr_t, data unsafe.Pointer, data_
 	e.Encode(state.LastIncludedTerm)
 	raftstate := w.Bytes()
 	p.Save(raftstate, state.SnapshotData)
-	return C.int(p.RaftStateSize())
+	return C.int(0)
 }
 
 //export persister_go_read_callback
@@ -388,13 +379,13 @@ func persister_go_read_callback(handle C.uintptr_t, out unsafe.Pointer, out_len 
 	ps, ok := getCallback(uintptr(handle))
 	if !ok {
 		fmt.Printf("persister_go_read_callback: invalid handle %d\n", uintptr(handle))
-		return C.int(0)
+		return C.int(-1)
 	}
 	p := ps.(*tester.Persister)
 	data := p.ReadRaftState()
 	sd := p.ReadSnapshot()
 	if len(data) < 1 {
-		return C.int(0)
+		return C.int(-1)
 	}
 	r := bytes.NewBuffer(data)
 	d := labgob.NewDecoder(r)
@@ -405,7 +396,8 @@ func persister_go_read_callback(handle C.uintptr_t, out unsafe.Pointer, out_len 
 		d.Decode(&state.Log) != nil ||
 		d.Decode(&state.LastIncludedIndex) != nil ||
 		d.Decode(&state.LastIncludedTerm) != nil {
-		panic("Failed to decode persisted state")
+		fmt.Println("Error: failed to decode persisted state in persister_go_read_callback")
+		return C.int(-1)
 	} else {
 		protoState.CurrentTerm = state.CurrentTerm
 		protoState.VotedFor = &state.VotedFor
@@ -423,11 +415,12 @@ func persister_go_read_callback(handle C.uintptr_t, out unsafe.Pointer, out_len 
 		protoState.Snapshot = sd
 		stateBytes, err := protobuf.Marshal(protoState)
 		if err != nil {
-			panic("Failed to marshal protoState")
+			fmt.Println("Error: failed to marshal protoState in persister_go_read_callback")
+			return C.int(-1)
 		}
 		if len(stateBytes) > int(out_len) {
 			fmt.Println("Error: buffer too small in persister_go_read_callback")
-			return C.int(0)
+			return C.int(-1)
 		}
 		C.memmove(out, unsafe.Pointer(&stateBytes[0]), C.size_t(len(stateBytes)))
 		return C.int(len(stateBytes))
@@ -511,8 +504,8 @@ func (rf *Raft) GetState() (int, bool) {
 	}
 	var term C.int
 	var isleader C.int
-	if C.raft_get_state(rf.handle, &term, &isleader) == 0 {
-		panic("Could not get state")
+	if C.raft_get_state(rf.handle, &term, &isleader) != 0 {
+		return 0, false
 	}
 	return int(term), isleader == 1
 }
@@ -521,13 +514,10 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	if rf.handle == nil {
 		return 0, 0, false
 	}
-
-	// Convert command to string (similar to how it's handled in other parts of the code)
 	var commandStr string
 	if cmd, ok := command.(string); ok {
 		commandStr = cmd
 	} else {
-		// Convert to string representation if not already a string
 		commandStr = fmt.Sprintf("%v", command)
 	}
 	index := 0
@@ -546,8 +536,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	}
 
 	r := C.raft_start(rf.handle, commandPtr, C.int(commandSize), (*C.int)(unsafe.Pointer(&index)), (*C.int)(unsafe.Pointer(&term)), (*C.int)(unsafe.Pointer(&isLeader)))
-	if r == 0 {
-		// Could not start
+	if r != 0 {
 		return 0, 0, false
 	}
 	return index, term, isLeader
@@ -557,20 +546,14 @@ func (rf *Raft) Kill() {
 	atomic.StoreInt32(&rf.dead, 1)
 	rafts.Store(rf.me, false)
 	if rf.handle == nil {
-		// fmt.Println("Go: Raft handle is nil, already killed", rf.me)
 		return
 	}
-	// fmt.Println("Go: Raft is being killed", rf.me)
-
-	// Set handle to nil first to prevent double-kill
 	handle := rf.handle
 	rf.handle = nil
-
 	C.kill_raft(handle)
 	GoFreeCallback(rf.cb)
 	GoFreeCallback(rf.channelCb)
 	GoFreeCallback(rf.persisterCB)
-	// fmt.Println("Go: Raft killed", rf.me)
 }
 
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
@@ -583,51 +566,6 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 	C.raft_snapshot(rf.handle, C.uint64_t(index), (*C.char)(unsafe.Pointer(&snapshot[0])), C.int(len(snapshot)))
 }
 
-func (rf *Raft) persist() {
-	C.raft_persist(rf.handle)
-}
-
-func (rf *Raft) readPersist(data []byte, sd []byte) {
-	if len(data) == 0 {
-		return
-	}
-	r := bytes.NewBuffer(data)
-	d := labgob.NewDecoder(r)
-	protoState := &proto_raft.PersistentState{}
-	state := PersistentState{}
-	if d.Decode(&state.CurrentTerm) != nil ||
-		d.Decode(&state.VotedFor) != nil ||
-		d.Decode(&state.Log) != nil ||
-		d.Decode(&state.LastIncludedIndex) != nil ||
-		d.Decode(&state.LastIncludedTerm) != nil {
-		panic("Failed to decode persisted state")
-	} else {
-		protoState.CurrentTerm = state.CurrentTerm
-		protoState.VotedFor = &state.VotedFor
-		protoState.Snapshot = sd
-		protoState.LastIncludedIndex = state.LastIncludedIndex
-		protoState.LastIncludedTerm = state.LastIncludedTerm
-		protoState.Log = make([]*proto_raft.LogEntry, len(state.Log))
-		for i, entry := range state.Log {
-			protoState.Log[i] = &proto_raft.LogEntry{
-				Index:   entry.Index,
-				Term:    entry.Term,
-				Command: []byte(entry.Command),
-			}
-		}
-		stateBytes, err := protobuf.Marshal(protoState)
-		if err != nil {
-			panic("Failed to marshal protoState")
-		}
-		if len(stateBytes) == 0 {
-			C.raft_read_persist(rf.handle, unsafe.Pointer(nil), C.int(0))
-			return
-		}
-		C.raft_read_persist(rf.handle, unsafe.Pointer(&stateBytes[0]), C.int(len(stateBytes)))
-	}
-
-}
-
 func (rf *Raft) PersistBytes() int {
 	return rf.persister.RaftStateSize()
 }
@@ -636,8 +574,6 @@ func (rf *Raft) RequestVote(args *RequestVoteArg, reply *RequestVoteReply) {
 	if rf.handle == nil {
 		return
 	}
-
-	// Prepare the protobuf request
 	protoArgs := &proto_raft.RequestVoteArg{
 		CandidateId:  args.CandidateId,
 		Term:         args.Term,
@@ -649,14 +585,12 @@ func (rf *Raft) RequestVote(args *RequestVoteArg, reply *RequestVoteReply) {
 		fmt.Println("Error: failed to marshal RequestVoteArg")
 		return
 	}
-
-	replyBuf := make([]byte, 1024)
+	replyBuf := make([]byte, 64)
 	n := C.handle_request_vote(rf.handle,
 		(*C.char)(unsafe.Pointer(&strArgs[0])), C.int(len(strArgs)),
 		(*C.char)(unsafe.Pointer(&replyBuf[0])))
 
-	// Process the response
-	if int(n) <= 0 || int(n) > len(replyBuf) {
+	if int(n) < 0 || int(n) > len(replyBuf) {
 		fmt.Println("Error: invalid reply size for RequestVote")
 		return
 	}
@@ -674,8 +608,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArg, reply *AppendEntriesReply)
 	if rf.handle == nil {
 		return
 	}
-
-	// Prepare the protobuf request
 	protoEntries := make([]*proto_raft.LogEntry, len(args.Entries))
 	for i, entry := range args.Entries {
 		protoEntries[i] = &proto_raft.LogEntry{
@@ -697,17 +629,14 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArg, reply *AppendEntriesReply)
 		fmt.Println("Error: failed to marshal AppendEntriesArg")
 		return
 	}
-
-	// Call C++ without holding any Go locks - C++ should handle its own synchronization
-	replyBuf := make([]byte, 1024)
+	replyBuf := make([]byte, 64)
 	n := C.handle_append_entries(rf.handle,
 		(*C.char)(unsafe.Pointer(&strArgs[0])), C.int(len(strArgs)),
 		(*C.char)(unsafe.Pointer(&replyBuf[0])))
-	if n <= 0 || int(n) > len(replyBuf) {
+	if n < 0 || int(n) > len(replyBuf) {
 		fmt.Println("Error: invalid reply size for AppendEntries")
 		return
 	}
-	// Process the response
 	protoReply := &proto_raft.AppendEntriesReply{}
 	err = protobuf.Unmarshal(replyBuf[:n], protoReply)
 	if err != nil {
@@ -724,7 +653,6 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArg, reply *InstallSnapshot
 	if rf.handle == nil {
 		return
 	}
-
 	protoArgs := &proto_raft.InstallSnapshotArg{
 		Term:              args.Term,
 		LeaderId:          args.LeaderId,
@@ -737,17 +665,14 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArg, reply *InstallSnapshot
 		fmt.Println("Error: failed to marshal InstallSnapshotArg")
 		return
 	}
-
-	// Call C++ without holding any Go locks - C++ should handle its own synchronization
-	replyBuf := make([]byte, 1024)
+	replyBuf := make([]byte, 64)
 	n := C.handle_install_snapshot(rf.handle,
 		(*C.char)(unsafe.Pointer(&strArgs[0])), C.int(len(strArgs)),
 		(*C.char)(unsafe.Pointer(&replyBuf[0])))
-	if n <= 0 || int(n) > len(replyBuf) {
+	if n < 0 || int(n) > len(replyBuf) {
 		fmt.Println("Error: invalid reply size for InstallSnapshot")
 		return
 	}
-	// Process the response
 	protoReply := &proto_raft.InstallSnapshotReply{}
 	err = protobuf.Unmarshal(replyBuf[:n], protoReply)
 	if err != nil {
@@ -759,7 +684,6 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArg, reply *InstallSnapshot
 }
 
 func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyCh chan raftapi.ApplyMsg) raftapi.Raft {
-	fmt.Println("Go: Making Raft node", me)
 	rafts.Store(me, true)
 	rf := &Raft{}
 	rf.peers = peers
@@ -772,12 +696,10 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), C.uintptr_t(rf.cb), C.uintptr_t(rf.channelCb), C.uintptr_t(rf.persisterCB))
 	if rf.handle == nil {
 		fmt.Println("Go: Failed to create Raft node", me)
-		// Avoid returning a half-initialized Raft
 		GoFreeCallback(rf.cb)
 		GoFreeCallback(rf.channelCb)
 		GoFreeCallback(rf.persisterCB)
 		return nil
 	}
-	fmt.Println("Go: Raft node created", me)
 	return rf
 }

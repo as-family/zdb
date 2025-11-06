@@ -24,7 +24,8 @@ std::string GoPersister::loadBuffer() {
     constexpr int bufferSize = 65536;
     std::string buffer(bufferSize, 0);
     int len = persister_go_read_callback(handle, buffer.data(), bufferSize);
-    if (len <= 0) {
+    if (len < 0) {
+        spdlog::error("GoPersister::loadBuffer: failed to read from Go persister");
         return {};
     }
     buffer.resize(len);
@@ -72,7 +73,9 @@ void GoPersister::save(const raft::PersistentState& s) {
     p.set_lastincludedindex(s.lastIncludedIndex);
     p.set_lastincludedterm(s.lastIncludedTerm);
     auto str = p.SerializeAsString();
-    persister_go_invoke_callback(handle, str.data(), str.size());
+    if (persister_go_invoke_callback(handle, str.data(), str.size()) != 0) {
+        spdlog::error("GoPersister::save: failed to save to Go persister");
+    }
 }
 
 GoPersister::~GoPersister() = default;

@@ -31,10 +31,7 @@ void GoChannel::send(std::shared_ptr<raft::Command>) {
 
 bool GoChannel::sendUntil(std::shared_ptr<raft::Command> command, std::chrono::system_clock::time_point t) {
     auto c = command->serialize();
-    // std::cerr << "C++ sendUntil: " << c << " at " << command->index << "\n";
-    // call into Go and check result: return value 1 means callback accepted the message
-    int ret = channel_go_invoke_callback(handle, (void*)c.data(), c.size(), command->index);
-    return ret == 1;
+    return channel_go_invoke_callback(handle, (void*)c.data(), c.size(), command->index) == 0;
 }
 
 std::optional<std::shared_ptr<raft::Command>> GoChannel::receive() {
