@@ -106,7 +106,7 @@ RaftImpl<Client>::RaftImpl(
     const zdb::RetryPolicy& r,
     std::function<Client&(std::string, zdb::RetryPolicy, std::atomic<bool>& sc)> g,
     zdb::Persister& pers)
-: Raft(s,  10 * r.rpcTimeout, 5 * 10 * r.rpcTimeout, p.size()),
+: Raft(s,  10 * r.rpcTimeout, 60 * r.rpcTimeout, p.size()),
   stateMachine {c},
   policy {r},
   persister {pers} {
@@ -184,24 +184,24 @@ RaftImpl<Client>::~RaftImpl() {
 template <typename Client>
 void RaftImpl<Client>::asyncInstallSnapshot() {
     while (!killed.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::unique_lock lock{m};
         if (pendingSnapshot.load()) {
             std::string data;
             uint64_t index, term;
-            {
-                std::unique_lock lock{m};
-                data = snapshotData;
-                index = lastIncludedIndex;
-                term = lastIncludedTerm;
-            }
+            data = snapshotData;
+            index = lastIncludedIndex;
+            term = lastIncludedTerm;
             auto uuid = generate_uuid_v7();
+            lock.unlock();
             if (stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, index, term, data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
-                spdlog::info("{}: readPersist: applied snapshot asynchronously", selfId);
+                spdlog::info("{}: asyncInstallSnapshot: applied snapshot asynchronously", selfId);
+                lock.lock();
                 lastApplied = index;
                 commitIndex = index;
                 pendingSnapshot.store(false);
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
 
@@ -227,7 +227,7 @@ bool RaftImpl<Client>::becameFollower(uint64_t term, std::string peerId) {
 template <typename Client>
 RequestVoteReply RaftImpl<Client>::requestVoteHandler(const RequestVoteArg& arg) {
     std::unique_lock lk{m};
-    if (killed.load() || pendingSnapshot.load()) {
+    if (killed.load()) {
         return RequestVoteReply{false, currentTerm};
     }
     spdlog::debug("{}: requestVoteHandler: term={} candidateId={} candidateTerm={}", selfId, currentTerm, arg.candidateId, arg.term);
@@ -268,7 +268,7 @@ bool RaftImpl<Client>::upToDate(uint64_t lastLogIndex, uint64_t lastLogTerm) {
 template <typename Client>
 AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg& arg) {
     std::unique_lock lock{m};
-    if (killed.load() || pendingSnapshot.load()) {
+    if (killed.load()) {
         return AppendEntriesReply{false, currentTerm};
     }
     spdlog::debug("{}: appendEntriesHandler: term={} leader={} leaderTerm={} size={}",
@@ -320,6 +320,10 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
         reply.success = false;
         return reply;
     }
+    if (pendingSnapshot.load()) {
+        spdlog::warn("{}: installSnapshotHandler: already installing snapshot, overwriting", selfId);
+        pendingSnapshot.store(false);
+    }
     spdlog::debug("{}: installSnapshotHandler: term={} leader={} lastIncludedIndex={} lastIncludedTerm={}", selfId, currentTerm, arg.leaderId, arg.lastIncludedIndex, arg.lastIncludedTerm);
     if (arg.term < currentTerm) {
         reply.term = currentTerm;
@@ -342,6 +346,7 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
         pendingSnapshot.store(true);
     } else {
         lock.lock();
+        pendingSnapshot.store(false);
         lastApplied = arg.lastIncludedIndex;
         commitIndex = arg.lastIncludedIndex;
     }
@@ -352,7 +357,11 @@ template <typename Client>
 void RaftImpl<Client>::applyCommittedEntries() {
     std::unique_lock applyLock{applyMutex};
     std::unique_lock lock1{m};
-    if (lastApplied >= commitIndex || pendingSnapshot.load()) {
+    if (lastApplied >= commitIndex) {
+        return;
+    }
+    if (pendingSnapshot.load()) {
+        spdlog::debug("{}: applyCommittedEntries: pending snapshot, cannot apply entries", selfId);
         return;
     }
     lock1.unlock();
@@ -390,9 +399,6 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
         if (killed.load()) {
             break;
         }
-        if (pendingSnapshot.load()) {
-            continue;
-        }
         if (role != Role::Leader) {
             continue;
         }
@@ -402,6 +408,10 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
         spdlog::debug("{}: appendEntries: to {} term={} nextIndex={}", selfId, peerId, currentTerm, nextIndex.at(peerId));
         auto n = nextIndex.at(peerId);
         if (mainLog.firstIndex() > n) {
+            if (pendingSnapshot.load()) {
+                spdlog::debug("{}: appendEntries: to {} pending snapshot, waiting", selfId, peerId);
+                continue;
+            }
             spdlog::warn("{}: appendEntries: to {} nextIndex {} less than firstIndex {}", selfId, peerId, n, mainLog.firstIndex());
             sendSnapshot = true;
             n = mainLog.firstIndex();
@@ -452,9 +462,6 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
                 electionCond.notify_all();
                 continue;
             }
-            if (pendingSnapshot.load()) {
-                continue;
-            }
             if (snapReply.has_value()) {
                 if (becameFollower(snapReply.value().term, peerId)) {
                     continue;
@@ -487,9 +494,6 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
             shouldStartHeartbeat[peerId] = false;
             appendCond.notify_all();
             electionCond.notify_all();
-            continue;
-        }
-        if (pendingSnapshot.load()) {
             continue;
         }
         if (!reply.has_value()) {
@@ -547,9 +551,6 @@ void RaftImpl<Client>::initVote() {
     if (const auto d = std::chrono::steady_clock::now() - lastHeartbeat; std::chrono::duration_cast<std::chrono::milliseconds>(d) < electionTimeout) {
         return;
     }
-    if (pendingSnapshot.load()) {
-        return;
-    }
     spdlog::info("{}: initVote: starting election for term {}", selfId, currentTerm + 1);
     role = Role::Candidate;
     ++currentTerm;
@@ -578,9 +579,6 @@ void RaftImpl<Client>::requestVote(std::string peerId) {
         if (killed.load()) {
             break;
         }
-        if (pendingSnapshot.load()) {
-            continue;
-        }
         if (role != Role::Candidate) {
             continue;
         }
@@ -595,13 +593,9 @@ void RaftImpl<Client>::requestVote(std::string peerId) {
             "requestVote",
             arg
         );
-
         std::unique_lock resLock{m};
         if (killed.load() || role != Role::Candidate) {
             stopCalls = true;
-            continue;
-        }
-        if (pendingSnapshot.load()) {
             continue;
         }
         if (!reply.has_value()) {
