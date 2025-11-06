@@ -164,9 +164,9 @@ RaftImpl<Client>::RaftImpl(
 template <typename Client>
 RaftImpl<Client>::~RaftImpl() {
     spdlog::info("{}: ~RaftImpl", selfId);
-    kill();
     heartbeatTimer.stop();
     electionTimer.stop();
+    kill();
     for (auto& th : leaderThreads | std::views::values) {
         if (th.first.joinable()) {
             th.first.join();
@@ -399,7 +399,7 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
     bool sendSnapshot = false;
     while (!killed.load()) {
         std::unique_lock initLock{m};
-        appendCond.wait(initLock, [this, peerId] { return killed.load() || (role == Role::Leader && (appendNow.at(peerId) || shouldStartHeartbeat.at(peerId))); });
+        appendCond.wait_for(initLock, heartbeatInterval, [this, peerId] { return killed.load() || (role == Role::Leader && (appendNow.at(peerId) || shouldStartHeartbeat.at(peerId))); });
         if (killed.load()) {
             break;
         }
@@ -579,7 +579,7 @@ void RaftImpl<Client>::requestVote(std::string peerId) {
     auto& peer = peers.at(peerId).get();
     while (!killed.load()) {
         std::unique_lock initLock{m};
-        electionCond.wait(initLock, [this, peerId] { return killed.load() || (role == Role::Candidate && shouldStartElection.at(peerId)); });
+        electionCond.wait_for(initLock, electionTimeout, [this, peerId] { return killed.load() || (role == Role::Candidate && shouldStartElection.at(peerId)); });
         if (killed.load()) {
             break;
         }
@@ -740,15 +740,16 @@ void RaftImpl<Client>::readPersist(PersistentState s) {
 }
 
 template <typename Client>
-void RaftImpl<Client>::kill(){
+void RaftImpl<Client>::kill() {
     killed.store(true);
     stopCalls.store(true);
     appendCond.notify_all();
     electionCond.notify_all();
+    stateMachine.close();
 }
 
 template <typename Client>
-Log& RaftImpl<Client>::log(){
+Log& RaftImpl<Client>::log() {
     std::unique_lock lock{m};
     return mainLog;
 }
