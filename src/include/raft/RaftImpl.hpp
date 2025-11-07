@@ -73,15 +73,17 @@ private:
     bool becameFollower(uint64_t term, std::string peerId);
     void asyncInstallSnapshot();
     std::mutex m;
+    std::atomic<bool> killed{false};
     std::mutex applyMutex;
     std::condition_variable electionCond;
     std::condition_variable appendCond;
+    std::condition_variable pendingSnapshotCond;
+    std::atomic<bool> pendingSnapshot{false};
     Channel<std::shared_ptr<raft::Command>>& stateMachine;
     zdb::RetryPolicy policy;
     zdb::FullJitter fullJitter;
     std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat = std::chrono::steady_clock::now();
     Log mainLog;
-    std::atomic<bool> killed{false};
     std::unordered_map<std::string, std::reference_wrapper<Client>> peers;
     AsyncTimer electionTimer;
     AsyncTimer heartbeatTimer;
@@ -95,7 +97,6 @@ private:
     std::atomic<bool> stopCalls{false};
     zdb::Persister& persister;
     std::string snapshotData;
-    std::atomic<bool> pendingSnapshot{false};
 };
 
 template <typename Client>
@@ -184,26 +185,30 @@ RaftImpl<Client>::~RaftImpl() {
 template <typename Client>
 void RaftImpl<Client>::asyncInstallSnapshot() {
     while (!killed.load()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         std::unique_lock lock{m};
-        if (pendingSnapshot.load()) {
-            std::string data;
-            uint64_t index, term;
-            data = snapshotData;
-            index = lastIncludedIndex;
-            term = lastIncludedTerm;
-            auto uuid = generate_uuid_v7();
-            lock.unlock();
-            if (stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, index, term, data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
-                spdlog::info("{}: asyncInstallSnapshot: applied snapshot asynchronously", selfId);
-                lock.lock();
-                if (lastIncludedIndex == index && lastIncludedTerm == term) {
-                    lastApplied = index;
-                    commitIndex = index;
-                    pendingSnapshot.store(false);
-                } else {
-                    spdlog::warn("{}: asyncInstallSnapshot: snapshot changed while applying asynchronously", selfId);
-                }
+        pendingSnapshotCond.wait(lock, [this] { return killed.load() || pendingSnapshot.load(); });
+        if (killed.load()) {
+            break;
+        }
+        if (!pendingSnapshot.load()) {
+            continue;
+        }
+        std::string data;
+        uint64_t index, term;
+        data = snapshotData;
+        index = lastIncludedIndex;
+        term = lastIncludedTerm;
+        auto uuid = generate_uuid_v7();
+        lock.unlock();
+        if (stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, index, term, data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
+            spdlog::info("{}: asyncInstallSnapshot: applied snapshot asynchronously", selfId);
+            lock.lock();
+            if (lastIncludedIndex == index && lastIncludedTerm == term) {
+                lastApplied = index;
+                commitIndex = index;
+                pendingSnapshot.store(false);
+            } else {
+                spdlog::warn("{}: asyncInstallSnapshot: snapshot changed while applying asynchronously", selfId);
             }
         }
     }
@@ -347,12 +352,14 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
     lock.unlock();
     if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, arg.lastIncludedIndex, arg.lastIncludedTerm, arg.data), std::chrono::system_clock::now() + policy.rpcTimeout)) {
         spdlog::error("{}: installSnapshotHandler: failed to apply snapshot lastIncludedIndex={}", selfId, arg.lastIncludedIndex);
+        lock.lock();
         pendingSnapshot.store(true);
+        pendingSnapshotCond.notify_all();
     } else {
         lock.lock();
-        pendingSnapshot.store(false);
         lastApplied = arg.lastIncludedIndex;
         commitIndex = arg.lastIncludedIndex;
+        pendingSnapshot.store(false);
     }
     return reply;
 }
@@ -399,7 +406,7 @@ void RaftImpl<Client>::appendEntries(std::string peerId){
     bool sendSnapshot = false;
     while (!killed.load()) {
         std::unique_lock initLock{m};
-        appendCond.wait_for(initLock, heartbeatInterval, [this, peerId] { return killed.load() || (role == Role::Leader && (appendNow.at(peerId) || shouldStartHeartbeat.at(peerId))); });
+        appendCond.wait(initLock, [this, peerId] { return killed.load() || (role == Role::Leader && (appendNow.at(peerId) || shouldStartHeartbeat.at(peerId))); });
         if (killed.load()) {
             break;
         }
@@ -579,7 +586,7 @@ void RaftImpl<Client>::requestVote(std::string peerId) {
     auto& peer = peers.at(peerId).get();
     while (!killed.load()) {
         std::unique_lock initLock{m};
-        electionCond.wait_for(initLock, electionTimeout, [this, peerId] { return killed.load() || (role == Role::Candidate && shouldStartElection.at(peerId)); });
+        electionCond.wait(initLock, [this, peerId] { return killed.load() || (role == Role::Candidate && shouldStartElection.at(peerId)); });
         if (killed.load()) {
             break;
         }
@@ -731,20 +738,25 @@ void RaftImpl<Client>::readPersist(PersistentState s) {
     lock.unlock();
     if (!stateMachine.sendUntil(std::make_shared<zdb::InstallSnapshotCommand>(uuid, s.lastIncludedIndex, s.lastIncludedTerm, s.snapshotData), std::chrono::system_clock::now() + policy.rpcTimeout)) {
         spdlog::error("{}: readPersist: failed to apply snapshot", selfId);
+        lock.lock();
         pendingSnapshot.store(true);
+        pendingSnapshotCond.notify_all();
     } else {
         lock.lock();
         lastApplied = std::max(lastApplied, s.lastIncludedIndex);
         commitIndex = std::max(commitIndex, s.lastIncludedIndex);
+        pendingSnapshot.store(false);
     }
 }
 
 template <typename Client>
 void RaftImpl<Client>::kill() {
+    std::unique_lock lock{m};
     killed.store(true);
     stopCalls.store(true);
     appendCond.notify_all();
     electionCond.notify_all();
+    pendingSnapshotCond.notify_all();
     stateMachine.close();
 }
 
