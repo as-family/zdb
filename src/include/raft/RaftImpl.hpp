@@ -647,7 +647,7 @@ bool RaftImpl<Client>::start(std::shared_ptr<Command> command) {
         return false;
     }
     command->term = currentTerm;
-    command->index = std::max(mainLog.lastIndex() + 1, lastIncludedIndex + 1);
+    command->index = mainLog.lastIndex() + 1;
     spdlog::debug("{}: start: command term={} index={}", selfId, command->term, command->index);
     LogEntry e {
         command->index,
@@ -673,7 +673,7 @@ void RaftImpl<Client>::snapshot(const uint64_t index, const std::string& sd) {
         spdlog::warn("{}: snapshot: another snapshot is pending, skipping", selfId);
         return;
     }
-    if (index < mainLog.firstIndex()) {
+    if (index < lastIncludedIndex) {
         spdlog::error("{}: snapshot: index {} <= firstIndex {}, no trimming needed", selfId, index, mainLog.firstIndex());
         return;
     }
