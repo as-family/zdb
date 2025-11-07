@@ -280,6 +280,9 @@ AppendEntriesReply RaftImpl<Client>::appendEntriesHandler(const AppendEntriesArg
     if (killed.load()) {
         return AppendEntriesReply{false, currentTerm};
     }
+    if (pendingSnapshot.load()) {
+        return AppendEntriesReply{false, currentTerm};
+    }
     spdlog::debug("{}: appendEntriesHandler: term={} leader={} leaderTerm={} size={}",
         selfId, currentTerm, arg.leaderId, arg.term, arg.entries.data().size());
     AppendEntriesReply reply;
@@ -330,8 +333,10 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
         return reply;
     }
     if (pendingSnapshot.load()) {
-        spdlog::warn("{}: installSnapshotHandler: already installing snapshot, overwriting", selfId);
-        pendingSnapshot.store(false);
+        spdlog::warn("{}: installSnapshotHandler: already installing snapshot, skipping", selfId);
+        reply.term = currentTerm;
+        reply.success = false;
+        return reply;
     }
     spdlog::debug("{}: installSnapshotHandler: term={} leader={} lastIncludedIndex={} lastIncludedTerm={}", selfId, currentTerm, arg.leaderId, arg.lastIncludedIndex, arg.lastIncludedTerm);
     if (arg.term < currentTerm) {

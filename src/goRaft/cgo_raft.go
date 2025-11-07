@@ -110,8 +110,8 @@ func GoInvokeCallback(h C.uintptr_t, p int, s string, a interface{}, b interface
 		done <- cb.(callbackFn)(p, s, a, b)
 	}()
 	select {
-	case <-done:
-		return 0
+	case res := <-done:
+		return res
 	case <-ctx.Done():
 		return 1
 	}
