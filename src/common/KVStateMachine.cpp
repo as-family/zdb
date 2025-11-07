@@ -34,7 +34,6 @@ void KVStateMachine::consumeChannel() {
         if (c.has_value()) {
             applyCommand(*c.value());
         }
-        lock.unlock();
     }
 }
 
@@ -42,9 +41,8 @@ void KVStateMachine::snapshot() {
     // Create a snapshot of the current state
 }
 
-void KVStateMachine::restore(const std::string& snapshot) {
+void KVStateMachine::installSnapshot(uint64_t lastIncludedIndex, uint64_t lastIncludedTerm, const std::string& data) {
     // Restore the state from a snapshot
-    std::ignore = snapshot;
 }
 
 State KVStateMachine::get(Key key) {

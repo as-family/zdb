@@ -93,12 +93,12 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, 
 
 int handle_request_vote(RaftHandle* h, char* args, int args_size, char* reply) {
     if (!h || !h->raft) {
-        return 0;
+        return -1;
     }
     raft::proto::RequestVoteArg protoArgs{};
     auto s = std::string{args, static_cast<size_t>(args_size)};
     if (!protoArgs.ParseFromString(s)) {
-        return 0;
+        return -1;
     }
     auto r = h->raft->requestVoteHandler(protoArgs);
     raft::proto::RequestVoteReply protoReply{};
@@ -106,7 +106,7 @@ int handle_request_vote(RaftHandle* h, char* args, int args_size, char* reply) {
     protoReply.set_votegranted(r.voteGranted);
     std::string reply_str;
     if (!protoReply.SerializeToString(&reply_str)) {
-        return 0;
+        return -1;
     }
     memcpy(reply, reply_str.data(), reply_str.size());
     return reply_str.size();
@@ -114,12 +114,12 @@ int handle_request_vote(RaftHandle* h, char* args, int args_size, char* reply) {
 
 int handle_append_entries(RaftHandle* h, char* args, int args_size, char* reply) {
     if (!h || !h->raft) {
-        return 0;
+        return -1;
     }
     raft::proto::AppendEntriesArg protoArgs{};
     auto s = std::string {args, static_cast<size_t>(args_size)};
     if (!protoArgs.ParseFromString(s)) {
-        return 0;
+        return -1;
     }
     auto r = h->raft->appendEntriesHandler(protoArgs);
     raft::proto::AppendEntriesReply protoReply{};
@@ -129,7 +129,28 @@ int handle_append_entries(RaftHandle* h, char* args, int args_size, char* reply)
     protoReply.set_conflictindex(r.conflictIndex);
     std::string reply_str;
     if (!protoReply.SerializeToString(&reply_str)) {
-        return 0;
+        return -1;
+    }
+    memcpy(reply, reply_str.data(), reply_str.size());
+    return reply_str.size();
+}
+
+int handle_install_snapshot(RaftHandle* h, char* args, int args_size, char* reply) {
+    if (!h || !h->raft) {
+        return -1;
+    }
+    raft::proto::InstallSnapshotArg protoArgs{};
+    auto s = std::string {args, static_cast<size_t>(args_size)};
+    if (!protoArgs.ParseFromString(s)) {
+        return -1;
+    }
+    auto r = h->raft->installSnapshotHandler(protoArgs);
+    raft::proto::InstallSnapshotReply protoReply{};
+    protoReply.set_term(r.term);
+    protoReply.set_success(r.success);
+    std::string reply_str;
+    if (!protoReply.SerializeToString(&reply_str)) {
+        return -1;
     }
     memcpy(reply, reply_str.data(), reply_str.size());
     return reply_str.size();
@@ -138,7 +159,7 @@ int handle_append_entries(RaftHandle* h, char* args, int args_size, char* reply)
 
 int raft_get_state(RaftHandle* handle, int* term, int* is_leader) {
     if (!handle || !handle->raft) {
-        return 0;
+        return -1;
     }
     try {
         auto current_term = handle->raft->getCurrentTerm();
@@ -147,15 +168,15 @@ int raft_get_state(RaftHandle* handle, int* term, int* is_leader) {
         *term = current_term;
         *is_leader = (role == raft::Role::Leader) ? 1 : 0;
 
-        return 1;
-    } catch (const std::exception& e) {
         return 0;
+    } catch (const std::exception& e) {
+        return -1;
     }
 }
 
 int raft_start(RaftHandle* handle, void* command, int command_size, int* index, int* term, int* is_leader) {
     if (!handle || !handle->raft) {
-        return 0;
+        return -1;
     }
     std::string command_str{static_cast<const char*>(command), static_cast<size_t>(command_size)};
     auto uuid = generate_uuid_v7();
@@ -163,22 +184,17 @@ int raft_start(RaftHandle* handle, void* command, int command_size, int* index, 
     *is_leader = handle->raft->start(c);
     *index = c->index;
     *term = c->term;
-    return 1;
+    return 0;
 }
 
-void raft_persist(RaftHandle* handle) {
-    if (!handle || !handle->raft) {
-        return;
-    }
-    handle->raft->persist();
-}
 void raft_read_persist(RaftHandle* handle, void* data, int data_size) {
     if (!handle || !handle->raft) {
         return;
     }
     raft::proto::PersistentState protoState;
     if (!protoState.ParseFromString(std::string{static_cast<const char*>(data), static_cast<size_t>(data_size)})) {
-        throw std::runtime_error("failed to parse PersistentState");
+        spdlog::error("raft_read_persist: failed to parse PersistentState");
+        return;
     }
     raft::PersistentState p;
     p.currentTerm = protoState.currentterm();
@@ -188,14 +204,24 @@ void raft_read_persist(RaftHandle* handle, void* data, int data_size) {
         p.votedFor = std::nullopt;
     }
     for (const auto& e : protoState.log()) {
-
         p.log.append(raft::LogEntry{
             e.index(),
             e.term(),
             zdb::commandFactory(e.command())
         });
     }
+    p.snapshotData = protoState.snapshot();
+    p.lastIncludedIndex = protoState.lastincludedindex();
+    p.lastIncludedTerm = protoState.lastincludedterm();
     handle->raft->readPersist(p);
+}
+
+void raft_snapshot(RaftHandle* handle, uint64_t index, char* snapshot_data, int snapshot_size) {
+    if (!handle || !handle->raft) {
+        return;
+    }
+    std::string snapshot_str{snapshot_data, static_cast<size_t>(snapshot_size)};
+    handle->raft->snapshot(index, snapshot_str);
 }
 
 }

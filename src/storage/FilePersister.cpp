@@ -17,11 +17,15 @@ namespace zdb {
 FilePersister::FilePersister(const std::string &p) : path(p) {
 }
 
+std::string FilePersister::loadBuffer() {
+    return {};
+}
+
 raft::PersistentState FilePersister::load() {
     return {};
 }
 
-void FilePersister::save(raft::PersistentState s) {
+void FilePersister::save(const raft::PersistentState& s) {
 }
 
 FilePersister::~FilePersister() {}

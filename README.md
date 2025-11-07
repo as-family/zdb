@@ -10,7 +10,7 @@ zDB is a distributed, fault-tolerant key-value store implemented in modern C++23
 
 ### Current Status
 
-The core Raft consensus module (MIT 6.824 Lab 3) is fully implemented and consistently passing the complete test suite. This includes leader election, log replication, persistence.
+The core Raft consensus module (MIT 6.824 Lab 3) is fully implemented and consistently passing the complete test suite. This includes leader election, log replication, persistence, and log compaction via snapshots.
 
 ## System Architecture
 ![arch](docs/figures/arch.png)
@@ -91,11 +91,11 @@ Following [MIT 6.5840 - Spring 2025](https://pdos.csail.mit.edu/6.824/schedule.h
   - [x] Implementing a lock using key/value clerk
   - [x] Key/value server with dropped messages
   - [x] Implementing a lock using key/value clerk and unreliable network
-- [ ] Lab 3
+- [x] Lab 3
   - [x] 3A: leader election
   - [x] 3B: log
   - [x] 3C: persistence
-  - [ ] 3D: log compaction
+  - [x] 3D: log compaction
 - [ ] Lab 4
   - [ ] A: replicated state machine (RSM)
   - [ ] B: Key/value service without snapshots

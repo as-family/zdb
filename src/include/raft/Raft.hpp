@@ -35,9 +35,12 @@ struct PersistentState {
     uint64_t currentTerm = 0;
     std::optional<std::string> votedFor = std::nullopt;
     Log log;
+    std::string snapshotData;
+    uint64_t lastIncludedIndex = 0;
+    uint64_t lastIncludedTerm = 0;
     PersistentState() = default;
-    PersistentState(uint64_t term, std::optional<std::string> v, Log l)
-        : currentTerm(term), votedFor(v) {
+    PersistentState(uint64_t term, std::optional<std::string> v, Log l, std::string sd, uint64_t lii, uint64_t lit)
+        : currentTerm(term), votedFor(v), snapshotData(std::move(sd)), lastIncludedIndex(lii), lastIncludedTerm(lit) {
         log.clear();
         log.merge(l);
     }
@@ -46,6 +49,9 @@ struct PersistentState {
         votedFor = p.votedFor;
         log.clear();
         log.merge(p.log);
+        snapshotData = p.snapshotData;
+        lastIncludedIndex = p.lastIncludedIndex;
+        lastIncludedTerm = p.lastIncludedTerm;
     }
 };
 
@@ -56,9 +62,11 @@ public:
     virtual ~Raft() = default;
     virtual AppendEntriesReply appendEntriesHandler(const AppendEntriesArg& arg) = 0;
     virtual RequestVoteReply requestVoteHandler(const RequestVoteArg& arg) = 0;
+    virtual InstallSnapshotReply installSnapshotHandler(const InstallSnapshotArg& arg) = 0;
     virtual void appendEntries(std::string peerId) = 0;
     virtual void requestVote(std::string peerId) = 0;
     virtual bool start(std::shared_ptr<Command> c) = 0;
+    virtual void snapshot(const uint64_t index, const std::string& snapshotData) = 0;
     virtual Log& log() = 0;
     virtual void kill() = 0;
     virtual Role getRole() const { return role; }
@@ -78,6 +86,8 @@ protected:
     std::chrono::milliseconds heartbeatInterval;
     std::chrono::milliseconds electionTimeout;
     uint8_t clusterSize;
+    uint64_t lastIncludedIndex = 0;
+    uint64_t lastIncludedTerm = 0;
 };
 
 } // namespace raft

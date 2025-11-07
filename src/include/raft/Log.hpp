@@ -48,9 +48,13 @@ public:
     void clear();
     std::optional<LogEntry> at(uint64_t index) const;
     Log suffix(uint64_t start) const;
+    void setLastIncluded(uint64_t index, uint64_t term);
+    void trimPrefix(uint64_t index, uint64_t term);
     std::vector<LogEntry> data() const;
  private:
     mutable std::mutex m{};
+    uint64_t lastIncludedIndex = 0;
+    uint64_t lastIncludedTerm = 0;
     std::vector<LogEntry> entries;
     std::optional<std::vector<LogEntry>::const_iterator> atIter(uint64_t index) const;
 };

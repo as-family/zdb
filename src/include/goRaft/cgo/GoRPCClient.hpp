@@ -26,25 +26,28 @@ extern "C" int go_invoke_callback(uintptr_t handle, int p, char* f, void* args, 
 class GoRPCClient {
 public:
     GoRPCClient(int ii, std::string a, const zdb::RetryPolicy p, uintptr_t h, std::atomic<bool>& sc);
-    void stop();
     template<typename Req, typename Rep = zdb::map_to_t<Req>>
     std::optional<Rep> call(std::string name, Req& request) {
+        std::string p;
         if (name == "requestVote") {
             name = "Raft.RequestVote";
+            p.resize(64);
         } else if (name == "appendEntries") {
             name = "Raft.AppendEntries";
+            p.resize(64);
+        } else if (name == "installSnapshot") {
+            name = "Raft.InstallSnapshot";
+            p.resize(65536);
         } else {
             throw std::invalid_argument{"Unknown function " + name};
         }
         auto& reqMsg = static_cast<google::protobuf::Message&>(request);
         auto r = reqMsg.SerializeAsString();
-        auto p = std::string{};
-        p.resize(1024);
         auto len = 0;
         auto f = [&]() -> grpc::Status {
             std::string r_copy = r; // Make a copy to ensure the data pointer remains valid
             std::string p_copy = p; // Make a copy to ensure the data pointer remains valid
-            len = go_invoke_callback(handle, i, name.data(), r_copy.data(), r_copy.size(), p_copy.data(), p_copy.size());
+            len = go_invoke_callback(handle, peerId, name.data(), r_copy.data(), r_copy.size(), p_copy.data(), p_copy.size());
             if (len < 0) {
                 return grpc::Status{grpc::StatusCode::DEADLINE_EXCEEDED, "labrpc failed"};
             } else {
@@ -52,10 +55,7 @@ public:
                 return grpc::Status::OK;
             }
         };
-        // std::cerr << "calling " << name << "\n";
-        auto t = std::chrono::system_clock::now();
         auto status = circuitBreaker.call(name, f);
-        // std::cerr << "called " << name << " in " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - t) << "\n";
         if (!status.back().ok()) {
             return std::nullopt;
         }
@@ -67,18 +67,19 @@ public:
             auto reply = raft::proto::RequestVoteReply{};
             reply.ParseFromString(p);
             return raft::RequestVoteReply{reply};
-        } else {
+        } else if constexpr (std::is_same_v<Rep, raft::AppendEntriesReply>) {
             auto reply = raft::proto::AppendEntriesReply{};
             reply.ParseFromString(p);
-            // std::cerr << "reply: " << reply.DebugString() << "\n";
             return raft::AppendEntriesReply{reply};
+        } else if constexpr (std::is_same_v<Rep, raft::InstallSnapshotReply>) {
+            auto reply = raft::proto::InstallSnapshotReply{};
+            reply.ParseFromString(p);
+            return raft::InstallSnapshotReply{reply};
         }
         return std::nullopt;
     }
 private:
-    int i;
-    std::mutex m;
-    std::string address;
+    int peerId;
     zdb::RetryPolicy policy;
     uintptr_t handle;
     std::atomic<bool>& stopCalls;

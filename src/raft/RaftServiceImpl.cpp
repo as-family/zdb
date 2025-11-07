@@ -40,4 +40,14 @@ grpc::Status RaftServiceImpl::appendEntries(
     return grpc::Status::OK;
 }
 
+grpc::Status RaftServiceImpl::installSnapshot(
+    grpc::ServerContext* /*context*/,
+    const proto::InstallSnapshotArg* request,
+    proto::InstallSnapshotReply* reply) {
+    InstallSnapshotArg arg{*request};
+    auto r = raft.installSnapshotHandler(arg);
+    reply->set_term(r.term);
+    return grpc::Status::OK;
+}
+
 } // namespace raft

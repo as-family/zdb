@@ -22,8 +22,9 @@ namespace zdb {
 class FilePersister : public Persister {
 public:
     FilePersister(const std::string& filename);
+    std::string loadBuffer() override;
     raft::PersistentState load() override;
-    void save(raft::PersistentState state) override;
+    void save(const raft::PersistentState& state) override;
     ~FilePersister() override;
 private:
     std::string path;

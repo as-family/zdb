@@ -18,12 +18,14 @@
 #include <cstdint>
 
 extern "C" int persister_go_invoke_callback(uintptr_t handle, void *state, int stateSize);
+extern "C" int persister_go_read_callback(uintptr_t handle, void* buffer, int buffer_len);
 
 class GoPersister : public zdb::Persister {
 public:
     GoPersister(uintptr_t h);
+    std::string loadBuffer() override;
     raft::PersistentState load() override;
-    void save(raft::PersistentState) override;
+    void save(const raft::PersistentState&) override;
     ~GoPersister() override;
 private:
     uintptr_t handle;

@@ -14,15 +14,50 @@
 #include "raft/Raft.hpp"
 #include "proto/raft.pb.h"
 #include "goRaft/cgo/raft_wrapper.hpp"
+#include "common/Command.hpp"
+#include <spdlog/spdlog.h>
 
 GoPersister::GoPersister(uintptr_t h) : handle(h) {
 }
 
-raft::PersistentState GoPersister::load() {
-    return {};
+std::string GoPersister::loadBuffer() {
+    constexpr int bufferSize = 8 * 1024 * 1024;
+    std::string buffer(bufferSize, 0);
+    int len = persister_go_read_callback(handle, buffer.data(), bufferSize);
+    if (len < 0) {
+        spdlog::error("GoPersister::loadBuffer: failed to read from Go persister");
+        return {};
+    }
+    buffer.resize(len);
+    return buffer;
 }
 
-void GoPersister::save(raft::PersistentState s) {
+raft::PersistentState GoPersister::load() {
+    auto buffer = loadBuffer();
+    if (buffer.empty()) {
+        return raft::PersistentState{};
+    }
+    raft::proto::PersistentState p;
+    if (p.ParseFromString(buffer)) {
+        raft::PersistentState state;
+        state.currentTerm = p.currentterm();
+        if (p.has_votedfor()) {
+            state.votedFor = p.votedfor();
+        }
+        for (int i = 0; i < p.log_size(); ++i) {
+            const auto& entry = p.log(i);
+            state.log.append(raft::LogEntry{entry.index(), entry.term(), zdb::commandFactory(entry.command())});
+        }
+        state.snapshotData = p.snapshot();
+        state.lastIncludedIndex = p.lastincludedindex();
+        state.lastIncludedTerm = p.lastincludedterm();
+        return state;
+    }
+    spdlog::error("Failed to parse PersistentState from string");
+    return raft::PersistentState{};
+}
+
+void GoPersister::save(const raft::PersistentState& s) {
     raft::proto::PersistentState p;
     p.set_currentterm(s.currentTerm);
     if (s.votedFor.has_value()) {
@@ -34,8 +69,13 @@ void GoPersister::save(raft::PersistentState s) {
         entry->set_index(e.index);
         entry->set_command(e.command->serialize());
     }
+    p.set_snapshot(s.snapshotData);
+    p.set_lastincludedindex(s.lastIncludedIndex);
+    p.set_lastincludedterm(s.lastIncludedTerm);
     auto str = p.SerializeAsString();
-    persister_go_invoke_callback(handle, str.data(), str.size());
+    if (persister_go_invoke_callback(handle, str.data(), str.size()) != 0) {
+        spdlog::error("GoPersister::save: failed to save to Go persister");
+    }
 }
 
 GoPersister::~GoPersister() = default;

@@ -34,12 +34,12 @@ public:
     std::unique_ptr<raft::State> applyCommand(raft::Command& command) override;
     void consumeChannel() override;
     void snapshot() override;
-    void restore(const std::string& snapshot) override;
     std::unique_ptr<raft::State> handle(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t);
     State get(Key key);
     State set(Key key, Value value);
     State erase(Key key);
     State size();
+    void installSnapshot(uint64_t lastIncludedIndex, uint64_t lastIncludedTerm, const std::string& data) override;
     ~KVStateMachine() override;
 private:
     std::mutex m;

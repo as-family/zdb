@@ -13,6 +13,6 @@
 #include <iostream>
 #include <memory>
 
-GoRPCClient::GoRPCClient(int ii, std::string a, const zdb::RetryPolicy p, uintptr_t h, std::atomic<bool>& sc)
-    : i {ii}, address {a}, policy {p}, handle {h}, stopCalls(sc), circuitBreaker(p, sc) {}
+GoRPCClient::GoRPCClient(int pid, std::string, const zdb::RetryPolicy p, uintptr_t h, std::atomic<bool>& sc)
+    : peerId {pid}, policy {p}, handle {h}, stopCalls(sc), circuitBreaker(p, sc) {}
 
