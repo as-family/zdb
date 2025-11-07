@@ -21,7 +21,7 @@ GoPersister::GoPersister(uintptr_t h) : handle(h) {
 }
 
 std::string GoPersister::loadBuffer() {
-    constexpr int bufferSize = 65536;
+    constexpr int bufferSize = 8 * 1024 * 1024;
     std::string buffer(bufferSize, 0);
     int len = persister_go_read_callback(handle, buffer.data(), bufferSize);
     if (len < 0) {

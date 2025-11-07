@@ -401,7 +401,6 @@ func persister_go_read_callback(handle C.uintptr_t, out unsafe.Pointer, out_len 
 	} else {
 		protoState.CurrentTerm = state.CurrentTerm
 		protoState.VotedFor = &state.VotedFor
-		protoState.Snapshot = sd
 		protoState.LastIncludedIndex = state.LastIncludedIndex
 		protoState.LastIncludedTerm = state.LastIncludedTerm
 		protoState.Log = make([]*proto_raft.LogEntry, len(state.Log))
