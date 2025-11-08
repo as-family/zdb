@@ -24,8 +24,8 @@
 
 namespace zdb {
 
-std::unordered_map<std::string, KVRPCService::function_t>& getDefaultKVFunctions() {
-    static std::unordered_map<std::string, KVRPCService::function_t> map {
+std::unordered_map<std::string, KVRPCService::function_t> getDefaultKVFunctions() {
+    std::unordered_map<std::string, KVRPCService::function_t> map {
         { "get", [](std::shared_ptr<zdb::kvStore::KVStoreService::Stub> stub,
                     grpc::ClientContext* ctx,
                     const google::protobuf::Message& req,
@@ -82,8 +82,8 @@ std::unordered_map<std::string, KVRPCService::function_t>& getDefaultKVFunctions
     return map;
 }
 
-std::unordered_map<std::string, typename zdb::RPCService<raft::proto::Raft>::function_t>& getDefaultRaftFunctions() {
-    static std::unordered_map<std::string, typename zdb::RPCService<raft::proto::Raft>::function_t> map {
+std::unordered_map<std::string, typename zdb::RPCService<raft::proto::Raft>::function_t> getDefaultRaftFunctions() {
+    std::unordered_map<std::string, typename zdb::RPCService<raft::proto::Raft>::function_t> map {
         { "appendEntries", [](std::shared_ptr<raft::proto::Raft::Stub> stub,
                                 grpc::ClientContext* ctx,
                                 const google::protobuf::Message& req,

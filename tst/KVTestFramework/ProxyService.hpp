@@ -45,13 +45,13 @@ public:
       networkConfig {c},
       policy {p} {}
 
-    ProxyService(const std::string& original, NetworkConfig& c, zdb::RetryPolicy p, std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t>& f)
+    ProxyService(const std::string& original, NetworkConfig& c, zdb::RetryPolicy p, std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t> f)
     : originalAddress {original},
       functions {f},
       networkConfig {c},
       policy {p} {}
 
-    ProxyService(const std::string& original, NetworkConfig& c, zdb::RetryPolicy p, std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t>& f, std::atomic<bool>& sc)
+    ProxyService(const std::string& original, NetworkConfig& c, zdb::RetryPolicy p, std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t> f, std::atomic<bool>& sc)
         : originalAddress {original},
           functions {f},
           networkConfig {c},
@@ -130,7 +130,7 @@ public:
 private:
     std::mutex m{};
     std::string originalAddress;
-    std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t>& functions;
+    std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t> functions;
     std::shared_ptr<grpc::Channel> channel;
     std::shared_ptr<Stub> stub;
     NetworkConfig& networkConfig;

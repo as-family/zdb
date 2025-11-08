@@ -31,8 +31,8 @@ namespace zdb {
 using KVRPCService = RPCService<zdb::kvStore::KVStoreService>;
 using KVRPCServicePtr = RPCService<zdb::kvStore::KVStoreService>*;
 
-std::unordered_map<std::string, KVRPCService::function_t>& getDefaultKVFunctions();
-std::unordered_map<std::string, typename zdb::RPCService<raft::proto::Raft>::function_t>& getDefaultRaftFunctions();
+std::unordered_map<std::string, KVRPCService::function_t> getDefaultKVFunctions();
+std::unordered_map<std::string, typename zdb::RPCService<raft::proto::Raft>::function_t> getDefaultRaftFunctions();
 
 class Config {
 public:

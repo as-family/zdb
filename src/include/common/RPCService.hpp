@@ -36,7 +36,7 @@ class RPCService {
 public:
     using Stub = typename Service::Stub;
     using function_t = std::function<grpc::Status(std::shared_ptr<Stub>, grpc::ClientContext*, const google::protobuf::Message&, google::protobuf::Message*)>;
-    RPCService(const std::string& address, const RetryPolicy p, std::unordered_map<std::string, function_t>& f, std::atomic<bool>& sc);
+    RPCService(const std::string& address, const RetryPolicy p, std::unordered_map<std::string, function_t> f, std::atomic<bool>& sc);
     RPCService(const RPCService&) = delete;
     RPCService& operator=(const RPCService&) = delete;
     std::expected<std::monostate, Error> connect();
@@ -87,14 +87,14 @@ private:
     std::string addr;
     RetryPolicy policy;
     CircuitBreaker circuitBreaker;
-    std::unordered_map<std::string, function_t>& functions;
+    std::unordered_map<std::string, function_t> functions;
     std::shared_ptr<grpc::Channel> channel;
     std::shared_ptr<Stub> stub;
     std::atomic<bool>& stopCalls;
 };
 
 template<typename Service>
-RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p, std::unordered_map<std::string, function_t>& f, std::atomic<bool>& sc)
+RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p, std::unordered_map<std::string, function_t> f, std::atomic<bool>& sc)
     : addr {address},
       policy {p},
       circuitBreaker {p, sc},
