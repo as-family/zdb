@@ -35,7 +35,7 @@ template<typename Service>
 class RPCService {
 public:
     using Stub = typename Service::Stub;
-    using function_t = std::function<grpc::Status(Stub*, grpc::ClientContext*, const google::protobuf::Message&, google::protobuf::Message*)>;
+    using function_t = std::function<grpc::Status(std::shared_ptr<Stub>, grpc::ClientContext*, const google::protobuf::Message&, google::protobuf::Message*)>;
     RPCService(const std::string& address, const RetryPolicy p, std::unordered_map<std::string, function_t> f, std::atomic<bool>& sc);
     RPCService(const RPCService&) = delete;
     RPCService& operator=(const RPCService&) = delete;
@@ -44,7 +44,6 @@ public:
     std::expected<Rep, std::vector<Error>> call(
         const std::string& op,
         const Req& request) {
-        Stub* stubLocal = nullptr;
         function_t f;
         {
             if (!connected()) {
@@ -56,15 +55,14 @@ public:
                 return std::unexpected(std::vector<Error>{Error{ErrorCode::Unknown, "Unknown operation: " + op}});
             }
             f = it->second;
-            stubLocal = stub.get();
         }
         auto& reqMsg = static_cast<const google::protobuf::Message&>(request);
         auto reply = Rep{};
         auto& repMsg = static_cast<google::protobuf::Message&>(reply);
-        auto bound = [stubLocal, f, &reqMsg, &repMsg, timeout = policy.rpcTimeout] {
+        auto bound = [this, f, &reqMsg, &repMsg, timeout = policy.rpcTimeout] {
             grpc::ClientContext c {};
             c.set_deadline(std::chrono::system_clock::now() + timeout);
-            return f(stubLocal, &c, reqMsg, &repMsg);
+            return f(stub, &c, reqMsg, &repMsg);
         };
         auto statuses = circuitBreaker.call(op, bound);
         if (statuses.back().ok()) {
@@ -100,7 +98,7 @@ RPCService<Service>::RPCService(const std::string& address, const RetryPolicy p,
     : addr {address},
       policy {p},
       circuitBreaker {p, sc},
-      functions {std::move(f)},
+      functions {f},
       stopCalls{sc} {}
 
 template<typename Service>
@@ -111,13 +109,15 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
         if (state == grpc_connectivity_state::GRPC_CHANNEL_READY || state == grpc_connectivity_state::GRPC_CHANNEL_IDLE || state == grpc_connectivity_state::GRPC_CHANNEL_CONNECTING) {
             if (state == GRPC_CHANNEL_READY) {
                 if (!stub) {
-                    stub = Service::NewStub(channel);
+                    auto newStub = Service::NewStub(channel);
+                    stub = std::shared_ptr<Stub>(newStub.release());
                 }
                 return {};
             }
             if (channel->WaitForConnected(std::chrono::system_clock::now() + policy.channelTimeout)) {
                 if (!stub) {
-                    stub = Service::NewStub(channel);
+                    auto newStub = Service::NewStub(channel);
+                    stub = std::shared_ptr<Stub>(newStub.release());
                 }
                 return {};
             }
@@ -128,7 +128,8 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
     if (!channel->WaitForConnected(std::chrono::system_clock::now() + policy.channelTimeout)) {
         return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
     }
-    stub = Service::NewStub(channel);
+    auto newStub = Service::NewStub(channel);
+    stub = std::shared_ptr<Stub>(newStub.release());
     return {};
 }
 

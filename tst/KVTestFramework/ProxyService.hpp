@@ -36,94 +36,6 @@
 #include <type_traits>
 #include "common/TypesMap.hpp"
 
-inline std::unordered_map<std::string, typename zdb::RPCService<zdb::kvStore::KVStoreService>::function_t> getDefaultKVProxyFunctions() {
-    return {
-        { "get", [](zdb::kvStore::KVStoreService::Stub* stub,
-                    grpc::ClientContext* ctx,
-                    const google::protobuf::Message& req,
-                    google::protobuf::Message* resp) -> grpc::Status {
-            if (!resp ||
-                req.GetDescriptor() != zdb::kvStore::GetRequest::descriptor()) {
-                return {grpc::StatusCode::INVALID_ARGUMENT,
-                        "get: type mismatch or null resp"};
-            }
-            auto& r = static_cast<const zdb::kvStore::GetRequest&>(req);
-            auto* p = static_cast<zdb::kvStore::GetReply*>(resp);
-            return stub->get(ctx, r, p);
-        }},
-        { "set", [](zdb::kvStore::KVStoreService::Stub* stub,
-                    grpc::ClientContext* ctx,
-                    const google::protobuf::Message& req,
-                    google::protobuf::Message* resp) -> grpc::Status {
-            if (!resp ||
-                req.GetDescriptor() != zdb::kvStore::SetRequest::descriptor()) {
-                return {grpc::StatusCode::INVALID_ARGUMENT,
-                        "set: type mismatch or null resp"};
-            }
-            auto& r = static_cast<const zdb::kvStore::SetRequest&>(req);
-            auto* p = static_cast<zdb::kvStore::SetReply*>(resp);
-            return stub->set(ctx, r, p);
-        }},
-        { "erase", [](zdb::kvStore::KVStoreService::Stub* stub,
-                      grpc::ClientContext* ctx,
-                      const google::protobuf::Message& req,
-                      google::protobuf::Message* resp) -> grpc::Status {
-            if (!resp ||
-                req.GetDescriptor() != zdb::kvStore::EraseRequest::descriptor()) {
-                return {grpc::StatusCode::INVALID_ARGUMENT,
-                        "erase: type mismatch or null resp"};
-            }
-            auto& r = static_cast<const zdb::kvStore::EraseRequest&>(req);
-            auto* p = static_cast<zdb::kvStore::EraseReply*>(resp);
-            return stub->erase(ctx, r, p);
-        }},
-        { "size", [](zdb::kvStore::KVStoreService::Stub* stub,
-                     grpc::ClientContext* ctx,
-                     const google::protobuf::Message& req,
-                     google::protobuf::Message* resp) -> grpc::Status {
-            if (!resp ||
-                req.GetDescriptor() != zdb::kvStore::SizeRequest::descriptor()) {
-                return {grpc::StatusCode::INVALID_ARGUMENT,
-                        "size: type mismatch or null resp"};
-            }
-            auto& r = static_cast<const zdb::kvStore::SizeRequest&>(req);
-            auto* p = static_cast<zdb::kvStore::SizeReply*>(resp);
-            return stub->size(ctx, r, p);
-        }}
-    };
-}
-
-inline std::unordered_map<std::string, typename zdb::RPCService<raft::proto::Raft>::function_t> getDefaultRaftProxyFunctions() {
-    return {
-        { "appendEntries", [](raft::proto::Raft::Stub* stub,
-                              grpc::ClientContext* ctx,
-                              const google::protobuf::Message& req,
-                              google::protobuf::Message* resp) -> grpc::Status {
-            if (!resp ||
-                req.GetDescriptor() != raft::proto::AppendEntriesArg::descriptor()) {
-                return {grpc::StatusCode::INVALID_ARGUMENT,
-                        "appendEntries: type mismatch or null resp"};
-            }
-            auto& r = static_cast<const raft::proto::AppendEntriesArg&>(req);
-            auto* p = static_cast<raft::proto::AppendEntriesReply*>(resp);
-            return stub->appendEntries(ctx, r, p);
-        }},
-        { "requestVote", [](raft::proto::Raft::Stub* stub,
-                            grpc::ClientContext* ctx,
-                            const google::protobuf::Message& req,
-                            google::protobuf::Message* resp) -> grpc::Status {
-            if (!resp ||
-                req.GetDescriptor() != raft::proto::RequestVoteArg::descriptor()) {
-                return {grpc::StatusCode::INVALID_ARGUMENT,
-                        "requestVote: type mismatch or null resp"};
-            }
-            auto& r = static_cast<const raft::proto::RequestVoteArg&>(req);
-            auto* p = static_cast<raft::proto::RequestVoteReply*>(resp);
-            return stub->requestVote(ctx, r, p);
-        }}
-    };
-}
-
 template<typename Service>
 class ProxyService {
     using Stub = typename Service::Stub;
@@ -135,13 +47,13 @@ public:
 
     ProxyService(const std::string& original, NetworkConfig& c, zdb::RetryPolicy p, std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t> f)
     : originalAddress {original},
-      functions {std::move(f)},
+      functions {f},
       networkConfig {c},
       policy {p} {}
 
     ProxyService(const std::string& original, NetworkConfig& c, zdb::RetryPolicy p, std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t> f, std::atomic<bool>& sc)
         : originalAddress {original},
-          functions {std::move(f)},
+          functions {f},
           networkConfig {c},
           policy {p} {}
 
@@ -166,7 +78,7 @@ public:
         auto reply = Rep{};
         auto& repMsg = static_cast<google::protobuf::Message&>(reply);
         if (networkConfig.isReliable()) {
-            auto status = funcIt->second(stub.get(), &c, reqMsg, &repMsg);
+            auto status = funcIt->second(stub, &c, reqMsg, &repMsg);
             if (status.ok()) {
                 if constexpr (std::is_base_of_v<raft::Reply, Rep>) {
                     return Rep{repMsg};
@@ -180,7 +92,7 @@ public:
             if (networkConfig.shouldDrop()) {
                 return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
-            auto status = funcIt->second(stub.get(), &c, reqMsg, &repMsg);
+            auto status = funcIt->second(stub, &c, reqMsg, &repMsg);
             if (networkConfig.shouldDrop()) {
                return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
             }
@@ -207,7 +119,8 @@ public:
         if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds{500L})) {
             throw std::runtime_error("Failed to connect to channel");
         }
-        stub = Service::NewStub(channel);
+        auto newStub = Service::NewStub(channel);
+        stub = std::shared_ptr<Stub>(newStub.release());
         if(!channel || !stub || channel->GetState(false) != grpc_connectivity_state::GRPC_CHANNEL_READY) {
             throw std::runtime_error("Failed to create channel or stub");
         }
@@ -220,7 +133,7 @@ private:
     std::string originalAddress;
     std::unordered_map<std::string, typename zdb::RPCService<Service>::function_t> functions;
     std::shared_ptr<grpc::Channel> channel;
-    std::unique_ptr<Stub> stub;
+    std::shared_ptr<Stub> stub;
     NetworkConfig& networkConfig;
     zdb::RetryPolicy policy;
 };

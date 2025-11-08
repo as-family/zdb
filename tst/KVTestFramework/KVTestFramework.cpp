@@ -36,7 +36,7 @@ KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, Net
       raft {r},
       kvState {mem, l, raft},
       targetService {kvState},
-      targetProxyService{targetServerAddr, networkConfig, p, getDefaultKVProxyFunctions()},
+      targetProxyService{targetServerAddr, networkConfig, p, zdb::getDefaultKVFunctions()},
       service {targetProxyService},
       targetServer {targetServerAddr, targetService},
       server {addr, service},

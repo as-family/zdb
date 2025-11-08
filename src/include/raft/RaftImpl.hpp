@@ -79,24 +79,24 @@ private:
     std::condition_variable appendCond;
     std::condition_variable pendingSnapshotCond;
     std::atomic<bool> pendingSnapshot{false};
-    Channel<std::shared_ptr<raft::Command>>& stateMachine;
-    zdb::RetryPolicy policy;
-    zdb::FullJitter fullJitter;
-    std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat = std::chrono::steady_clock::now();
-    Log mainLog;
-    std::unordered_map<std::string, std::reference_wrapper<Client>> peers;
-    AsyncTimer electionTimer;
-    AsyncTimer heartbeatTimer;
+    std::atomic<bool> stopCalls{false};
     std::unordered_map<std::string, bool> shouldStartElection;
     std::unordered_map<std::string, bool> shouldStartHeartbeat;
     std::unordered_map<std::string, bool> appendNow;
     int votesGranted{0};
     RequestVoteArg requestVoteArg {"", 0, 0, 0};
-    std::unordered_map<std::string, std::pair<std::thread, std::thread>> leaderThreads;
-    std::thread snapshotThread;
-    std::atomic<bool> stopCalls{false};
+    Channel<std::shared_ptr<raft::Command>>& stateMachine;
+    zdb::RetryPolicy policy;
+    zdb::FullJitter fullJitter;
     zdb::Persister& persister;
     std::string snapshotData;
+    std::chrono::time_point<std::chrono::steady_clock> lastHeartbeat = std::chrono::steady_clock::now();
+    Log mainLog;
+    std::unordered_map<std::string, std::reference_wrapper<Client>> peers;
+    AsyncTimer electionTimer;
+    AsyncTimer heartbeatTimer;
+    std::unordered_map<std::string, std::pair<std::thread, std::thread>> leaderThreads;
+    std::thread snapshotThread;
 };
 
 template <typename Client>
