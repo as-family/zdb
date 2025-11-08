@@ -45,12 +45,12 @@ RAFTTestFramework::RAFTTestFramework(
         leaders.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
         persisters.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple("."));
         rafts.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(ps, e.raftProxy, leaders.at(e.raftTarget), policy, [this, &e](const std::string addr, zdb::RetryPolicy, std::atomic<bool>& sc) -> Client& {
-            clients[e.raftTarget].emplace(std::piecewise_construct, std::forward_as_tuple(addr), std::forward_as_tuple(addr, e.raftNetworkConfig, policy, getDefaultRaftProxyFunctions(), sc));
+            clients[e.raftTarget].emplace(std::piecewise_construct, std::forward_as_tuple(addr), std::forward_as_tuple(addr, e.raftNetworkConfig, policy, zdb::getDefaultRaftFunctions(), sc));
             return clients[e.raftTarget].at(addr);
         }, persisters.at(e.raftTarget)));
         raftServices.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(rafts.at(e.raftTarget)));
         raftServers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, raftServices.at(e.raftTarget)));
-        proxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, e.raftNetworkConfig, policy, getDefaultRaftProxyFunctions()));
+        proxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, e.raftNetworkConfig, policy, zdb::getDefaultRaftFunctions()));
         raftProxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(proxies.at(e.raftTarget)));
         raftProxyServers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftProxy, raftProxies.at(e.raftTarget)));
         kvTests.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.kvProxy, e.kvTarget, e.kvNetworkConfig, leaders.at(e.raftTarget), rafts.at(e.raftTarget), policy));
