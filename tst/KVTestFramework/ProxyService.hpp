@@ -119,7 +119,8 @@ public:
         if (!channel->WaitForConnected(std::chrono::system_clock::now() + std::chrono::milliseconds{500L})) {
             throw std::runtime_error("Failed to connect to channel");
         }
-        stub = Service::NewStub(channel);
+        auto newStub = Service::NewStub(channel);
+        stub = std::shared_ptr<Stub>(newStub.release());
         if(!channel || !stub || channel->GetState(false) != grpc_connectivity_state::GRPC_CHANNEL_READY) {
             throw std::runtime_error("Failed to create channel or stub");
         }

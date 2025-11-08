@@ -109,13 +109,15 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
         if (state == grpc_connectivity_state::GRPC_CHANNEL_READY || state == grpc_connectivity_state::GRPC_CHANNEL_IDLE || state == grpc_connectivity_state::GRPC_CHANNEL_CONNECTING) {
             if (state == GRPC_CHANNEL_READY) {
                 if (!stub) {
-                    stub = Service::NewStub(channel);
+                    auto newStub = Service::NewStub(channel);
+                    stub = std::shared_ptr<Stub>(newStub.release());
                 }
                 return {};
             }
             if (channel->WaitForConnected(std::chrono::system_clock::now() + policy.channelTimeout)) {
                 if (!stub) {
-                    stub = Service::NewStub(channel);
+                    auto newStub = Service::NewStub(channel);
+                    stub = std::shared_ptr<Stub>(newStub.release());
                 }
                 return {};
             }
@@ -126,7 +128,8 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
     if (!channel->WaitForConnected(std::chrono::system_clock::now() + policy.channelTimeout)) {
         return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
     }
-    stub = Service::NewStub(channel);
+    auto newStub = Service::NewStub(channel);
+    stub = std::shared_ptr<Stub>(newStub.release());
     return {};
 }
 
