@@ -31,6 +31,7 @@ public:
 
     virtual std::unique_ptr<State> applyCommand(raft::Command& command) = 0;
     virtual void consumeChannel() = 0;
+    virtual std::unique_ptr<raft::State> handle(std::shared_ptr<raft::Command> c, std::chrono::system_clock::time_point t) = 0;
     virtual void snapshot() = 0;
     virtual void installSnapshot(uint64_t lastIncludedIndex, uint64_t lastIncludedTerm, const std::string& data) = 0;
 };

@@ -10,30 +10,4 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef RAFT_HANDLE_HPP
-#define RAFT_HANDLE_HPP
-
-#include <raft/RaftImpl.hpp>
-#include <raft/Channel.hpp>
-#include <string>
-#include <unordered_map>
-#include <memory>
-#include "goRaft/cgo/GoRPCClient.hpp"
-#include "storage/Persister.hpp"
-
-struct RaftHandle {
-    int id;
-    int servers;
-    std::string selfId;
-    std::vector<std::string> peers;
-    zdb::RetryPolicy policy;
-    uintptr_t callback;
-    uintptr_t channelCallback;
-    std::unique_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
-    std::unordered_map<std::string, int> peerIds;
-    std::unordered_map<std::string, std::unique_ptr<GoRPCClient>> clients;
-    std::unique_ptr<zdb::Persister> persister;
-    std::unique_ptr<raft::RaftImpl<GoRPCClient>> raft;
-};
-
-#endif // RAFT_HANDLE_HPP
+package zdb

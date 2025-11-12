@@ -10,30 +10,23 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef RAFT_HANDLE_HPP
-#define RAFT_HANDLE_HPP
+#ifndef RSM_HANDLE_H
+#define RSM_HANDLE_H
 
-#include <raft/RaftImpl.hpp>
+#include <raft/StateMachine.hpp>
 #include <raft/Channel.hpp>
-#include <string>
-#include <unordered_map>
-#include <memory>
-#include "goRaft/cgo/GoRPCClient.hpp"
-#include "storage/Persister.hpp"
+#include <raft/Command.hpp>
+#include <storage/Persister.hpp>
 
-struct RaftHandle {
+struct RsmHandle {
     int id;
     int servers;
-    std::string selfId;
-    std::vector<std::string> peers;
-    zdb::RetryPolicy policy;
-    uintptr_t callback;
-    uintptr_t channelCallback;
-    std::unique_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
-    std::unordered_map<std::string, int> peerIds;
-    std::unordered_map<std::string, std::unique_ptr<GoRPCClient>> clients;
+    int maxraftstate;
+    uintptr_t goChannelCb;
+    uintptr_t persisterCb;
     std::unique_ptr<zdb::Persister> persister;
-    std::unique_ptr<raft::RaftImpl<GoRPCClient>> raft;
+    std::unique_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
+    std::unique_ptr<raft::StateMachine> rsm;
 };
 
-#endif // RAFT_HANDLE_HPP
+#endif // RSM_HANDLE_H

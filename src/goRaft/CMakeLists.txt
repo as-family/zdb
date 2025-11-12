@@ -55,6 +55,9 @@ configure_file(
 add_library(zdb_raft SHARED
   ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoRPCClient.cpp
   ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/raft_wrapper.cpp
+  ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoChannel.cpp
+  ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoPersister.cpp
+  ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/rsm_wrapper.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/Log.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/AsyncTimer.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/Types.cpp
@@ -69,8 +72,6 @@ add_library(zdb_raft SHARED
   ${CMAKE_SOURCE_DIR}/src/common/KVStateMachine.cpp
   ${CMAKE_SOURCE_DIR}/src/common/Command.cpp
   ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
-  ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoChannel.cpp
-  ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/GoPersister.cpp
 )
 
 target_compile_options(zdb_raft PRIVATE
@@ -138,7 +139,7 @@ if(${BUILD_TESTING})
       go clean -cache
     COMMAND ${CMAKE_COMMAND} -E echo "replace github.com/as-family/zdb/proto => ${PROTO_BUILD_DIR}" >> ${CMAKE_SOURCE_DIR}/6.5840/src/go.mod
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/6.5840/src
-      go build -a ./raft1/ ./raftapi/ ./tester1/ ./labrpc/ ./labgob/
+      go build -a ./raft1/ ./raftapi/ ./tester1/ ./labrpc/ ./labgob/ ./kvraft1/
     COMMENT "Building Go modules"
     VERBATIM
   )

@@ -42,6 +42,7 @@ void kill_raft(RaftHandle* h) {
         h->goChannel->close();
         h->goChannel.reset();
     }
+    delete h;
 }
 
 RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, uintptr_t pCb) {
