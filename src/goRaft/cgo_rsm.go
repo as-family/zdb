@@ -24,6 +24,7 @@ package zdb
 import "C"
 
 import (
+	"fmt"
 	"sync"
 
 	"6.5840/kvsrv1/rpc"
@@ -60,6 +61,10 @@ type RSM struct {
 	maxraftstate int // snapshot if log grows this big
 	sm           StateMachine
 	handle       *C.RsmHandle
+	rpcCb        C.uintptr_t
+	channelCb    C.uintptr_t
+	persisterCb  C.uintptr_t
+	dead         int32
 	// Your definitions here.
 }
 
@@ -87,6 +92,17 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 	}
 	if !useRaftStateMachine {
 		rsm.rf = Make(servers, me, persister, rsm.applyCh)
+	}
+	rsm.rpcCb = registerCallback(servers, rsm.dead)
+	rsm.channelCb = channelRegisterCallback(rsm.applyCh, rsm.dead)
+	rsm.persisterCb = registerPersister(persister)
+	rsm.handle = C.create_rsm(C.int(rsm.me), C.int(len(servers)), C.uintptr_t(rsm.rpcCb), C.uintptr_t(rsm.channelCb), C.uintptr_t(rsm.persisterCb), C.int(maxraftstate), sm)
+	if rsm.handle == nil {
+		fmt.Println("Go: Failed to create Raft node", me)
+		GoFreeCallback(rsm.rpcCb)
+		GoFreeCallback(rsm.channelCb)
+		GoFreeCallback(rsm.persisterCb)
+		return nil
 	}
 	return rsm
 }

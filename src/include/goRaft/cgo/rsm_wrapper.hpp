@@ -21,7 +21,7 @@ extern "C" {
 
 typedef struct RsmHandle RsmHandle;
 
-RsmHandle* create_rsm(int id, int servers, uintptr_t clients[], uintptr_t persister, int maxraftstate, uintptr_t sm);
+RsmHandle* create_rsm(int id, int servers, uintptr_t rpc, uintptr_t channel, uintptr_t persister, int maxraftstate, uintptr_t sm);
 
 #ifdef __cplusplus
 }

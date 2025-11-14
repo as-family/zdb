@@ -76,9 +76,9 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, 
         nullptr,
         nullptr
     };
-    handle->goChannel = std::make_unique<GoChannel>(handle->channelCallback, handle);
-    handle->persister = std::make_unique<GoPersister>(pCb);
-    handle->raft = std::make_unique<raft::RaftImpl<GoRPCClient>>(
+    handle->goChannel = std::make_shared<GoChannel>(handle->channelCallback, handle);
+    handle->persister = std::make_shared<GoPersister>(pCb);
+    handle->raft = std::make_shared<raft::RaftImpl<GoRPCClient>>(
         peers,
         selfId,
         *handle->goChannel,

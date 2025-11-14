@@ -17,6 +17,8 @@
 #include <raft/Channel.hpp>
 #include <raft/Command.hpp>
 #include <storage/Persister.hpp>
+#include <storage/StorageEngine.hpp>
+#include <goRaft/cgo/RaftHandle.hpp>
 
 struct RsmHandle {
     int id;
@@ -24,9 +26,11 @@ struct RsmHandle {
     int maxraftstate;
     uintptr_t goChannelCb;
     uintptr_t persisterCb;
-    std::unique_ptr<zdb::Persister> persister;
-    std::unique_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
+    std::shared_ptr<zdb::Persister> persister;
+    std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
+    std::unique_ptr<zdb::StorageEngine> storageEngine;
     std::unique_ptr<raft::StateMachine> rsm;
+    RaftHandle* raftHandle;
 };
 
 #endif // RSM_HANDLE_H
