@@ -94,20 +94,20 @@ func (ts *Test) onePartition(p []int, req any) any {
 	return nil
 }
 
-func (ts *Test) oneInc() *IncRep {
+func (ts *Test) oneInc() IncRep {
 	rep := ts.onePartition(nil, Inc{})
 	if rep == nil {
-		return nil
+		return IncRep{}
 	}
-	return rep.(*IncRep)
+	return rep.(IncRep)
 }
 
-func (ts *Test) oneNull() *NullRep {
+func (ts *Test) oneNull() NullRep {
 	rep := ts.onePartition(nil, Null{})
 	if rep == nil {
-		return nil
+		return NullRep{}
 	}
-	return rep.(*NullRep)
+	return rep.(NullRep)
 }
 
 func (ts *Test) checkCounter(v int, nsrv int) {

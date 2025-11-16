@@ -45,7 +45,7 @@ void kill_raft(RaftHandle* h) {
     delete h;
 }
 
-RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, uintptr_t pCb) {
+RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, uintptr_t rec, uintptr_t pCb) {
     std::vector<std::string> peers;
     std::unordered_map<std::string, int> ids;
     std::string selfId = "peer_" + std::to_string(id);
@@ -76,7 +76,7 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, 
         nullptr,
         nullptr
     };
-    handle->goChannel = std::make_shared<GoChannel>(handle->channelCallback, handle);
+    handle->goChannel = std::make_shared<GoChannel>(handle->channelCallback, rec, handle);
     handle->persister = std::make_shared<GoPersister>(pCb);
     handle->raft = std::make_shared<raft::RaftImpl<GoRPCClient>>(
         peers,

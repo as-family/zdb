@@ -91,6 +91,19 @@ private:
     std::string data;
 };
 
+struct RmsCommand : public raft::Command {
+    RmsCommand(UUIDV7& u, std::string d);
+    RmsCommand(const zdb::proto::Command& cmd);
+
+    std::string serialize() const override;
+
+    std::unique_ptr<raft::State> apply(raft::StateMachine& stateMachine) override;
+    bool operator==(const raft::Command& other) const override;
+    bool operator!=(const raft::Command& other) const override;
+private:
+    std::string data;
+};
+
 struct NoOp : public raft::Command {
     NoOp(UUIDV7& u);
     NoOp(const proto::Command&);

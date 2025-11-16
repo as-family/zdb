@@ -9,6 +9,7 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+
 #include "common/KVStateMachine.hpp"
 #include "raft/StateMachine.hpp"
 #include "raft/Command.hpp"
@@ -18,30 +19,18 @@
 
 namespace zdb {
 
-KVStateMachine::KVStateMachine(StorageEngine& s, raft::Channel<std::shared_ptr<raft::Command>>& raftCh, raft::Raft& r)
-    : storageEngine(s),
-      raftChannel(raftCh),
-      raft {r} {}
+KVStateMachine::KVStateMachine(StorageEngine& s)
+    : storageEngine(s) {}
 
 std::unique_ptr<raft::State> KVStateMachine::applyCommand(raft::Command& command) {
     return command.apply(*this);
 }
 
-void KVStateMachine::consumeChannel() {
-    while (!raftChannel.isClosed()) {
-        std::unique_lock lock{m};
-        auto c = raftChannel.receiveUntil(std::chrono::system_clock::now() + std::chrono::milliseconds{1L});
-        if (c.has_value()) {
-            applyCommand(*c.value());
-        }
-    }
-}
-
-void KVStateMachine::snapshot() {
+raft::InstallSnapshotArg KVStateMachine::snapshot() {
     // Create a snapshot of the current state
 }
 
-void KVStateMachine::installSnapshot(uint64_t lastIncludedIndex, uint64_t lastIncludedTerm, const std::string& data) {
+void KVStateMachine::installSnapshot(raft::InstallSnapshotArg) {
     // Restore the state from a snapshot
 }
 
@@ -63,30 +52,6 @@ State KVStateMachine::erase(Key key) {
 State KVStateMachine::size() {
     auto result = storageEngine.size();
     return State{result};
-}
-
-std::unique_ptr<raft::State> KVStateMachine::handle(std::shared_ptr<raft::Command> c, std::chrono::system_clock::time_point t) {
-    std::unique_lock lock{m};
-    if (!raft.start(c)) {
-        return std::make_unique<State>(State{Error{ErrorCode::NotLeader, "not the leader"}});
-    }
-    while (!raftChannel.isClosed()) {
-        auto r = raftChannel.receiveUntil(t);
-        if (!r.has_value()) {
-            return std::make_unique<State>(State{Error{ErrorCode::Timeout, "request timed out"}});
-        }
-        auto s = applyCommand(*r.value());
-        if (r.value()->getUUID() == c->getUUID()) {
-            return s;
-        }
-    }
-}
-
-KVStateMachine::~KVStateMachine() {
-    raftChannel.close();
-    if (consumerThread.joinable()) {
-        consumerThread.join();
-    }
 }
 
 } // namespace zdb

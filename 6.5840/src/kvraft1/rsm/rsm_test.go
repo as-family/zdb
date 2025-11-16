@@ -151,7 +151,7 @@ func TestLeaderPartition4A(t *testing.T) {
 	}
 
 	// check that all replicas have the same value for counter
-	ts.checkCounter(rep.(*IncRep).N, NSRV)
+	ts.checkCounter(rep.(IncRep).N, NSRV)
 }
 
 // test that restart replays Incs

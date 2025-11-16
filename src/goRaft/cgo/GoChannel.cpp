@@ -19,9 +19,9 @@
 #include "goRaft/cgo/RaftHandle.hpp"
 
 extern "C" int channel_go_invoke_callback(uintptr_t handle, void *cmd, int cmd_size, int index);
-
-GoChannel::GoChannel(uintptr_t h, RaftHandle* r)
-    : handle{h}, raftHandle {r} {}
+extern "C" int receive_channel_go_callback(uintptr_t handle, void *command);
+GoChannel::GoChannel(uintptr_t h, uintptr_t h2, RaftHandle* r)
+    : handle{h}, recHandle{h2}, raftHandle {r} {}
 
 GoChannel::~GoChannel() {
 }
@@ -40,9 +40,15 @@ std::optional<std::shared_ptr<raft::Command>> GoChannel::receive() {
 }
 
 std::optional<std::shared_ptr<raft::Command>> GoChannel::receiveUntil(std::chrono::system_clock::time_point t) {
-    // TODO: Implement Go channel receive with timeout
     std::ignore = t;
-    return std::nullopt;
+    std::string buffer(1024, 0);
+    int size = receive_channel_go_callback(recHandle, buffer.data());
+    if (size < 0) {
+        // spdlog::error("GoChannel::receiveUntil bad command");
+        return std::nullopt;
+    }
+    buffer.resize(size);
+    return zdb::commandFactory(buffer);
 }
 
 void GoChannel::close() {

@@ -10,34 +10,27 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef RAFT_STATE_MACHINE_H
-#define RAFT_STATE_MACHINE_H
+#ifndef GO_STATE_MACHINE_H
+#define GO_STATE_MACHINE_H
 
-#include "raft/Log.hpp"
-#include <unordered_map>
-#include <string>
-#include <memory>
+#include <raft/StateMachine.hpp>
+#include <raft/Command.hpp>
 #include <raft/Types.hpp>
-#include <proto/kvStore.pb.h>
+#include <memory>
+#include <cstdint>
 
-namespace raft {
+extern "C" int state_machine_go_apply_command(uintptr_t handle, void *command, int command_size, void* state);
+extern "C" int state_machine_go_snapshot(uintptr_t handle, void* buffer, int buffer_len);
+extern "C" int state_machine_go_install_snapshot(uintptr_t handle, void* buffer, int buffer_len);
 
-struct Command;
-
-struct State {
-    virtual ~State() = default;
-    virtual zdb::kvStore::State toProto() = 0;
-};
-
-class StateMachine {
+class GoStateMachine : public raft::StateMachine {
 public:
-    virtual ~StateMachine() = default;
-
-    virtual std::unique_ptr<State> applyCommand(raft::Command& command) = 0;
-    virtual InstallSnapshotArg snapshot() = 0;
-    virtual void installSnapshot(InstallSnapshotArg) = 0;
+    GoStateMachine(uintptr_t h);
+    std::unique_ptr<raft::State> applyCommand(raft::Command& command) override;
+    raft::InstallSnapshotArg snapshot() override;
+    void installSnapshot(raft::InstallSnapshotArg) override;
+private:
+    uintptr_t handle;
 };
 
-} // namespace raft
-
-#endif // RAFT_STATE_MACHINE_H
+#endif // GO_STATE_MACHINE_H

@@ -45,6 +45,10 @@ protobuf_generate(
     ${CMAKE_SOURCE_DIR}/proto/error.proto
     ${CMAKE_SOURCE_DIR}/proto/kvStore.proto
     ${CMAKE_SOURCE_DIR}/proto/raft.proto
+  IMPORT_DIRS
+    ${CMAKE_SOURCE_DIR}/proto
+  PROTOC_OUT_DIR
+    ${CMAKE_BINARY_DIR}/proto
 )
 
 # Generate gRPC C++ files
@@ -57,6 +61,10 @@ protobuf_generate(
   PROTOS
     ${CMAKE_SOURCE_DIR}/proto/kvStore.proto
     ${CMAKE_SOURCE_DIR}/proto/raft.proto
+  IMPORT_DIRS
+    ${CMAKE_SOURCE_DIR}/proto
+  PROTOC_OUT_DIR
+    ${CMAKE_BINARY_DIR}/proto
 )
 
 target_link_libraries(protobuf_generated PUBLIC

@@ -13,7 +13,10 @@
 syntax = "proto3";
 
 package zdb.kvStore;
-import "proto/types.proto";
+option go_package = "github.com/as-family/zdb/proto";
+
+import "types.proto";
+import "error.proto";
 
 service KVStoreService {
     rpc get(GetRequest) returns (GetReply) {}
@@ -55,4 +58,13 @@ message SizeRequest {
 
 message SizeReply {
     uint64 size = 1;
+}
+
+message State {
+    optional zdb.proto.Key key = 1;
+    oneof result {
+        zdb.proto.Value value = 2;
+        uint64 size = 3;
+        zdb.proto.ErrorDetails error = 4;
+    }
 }

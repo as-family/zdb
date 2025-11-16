@@ -10,34 +10,33 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef RAFT_STATE_MACHINE_H
-#define RAFT_STATE_MACHINE_H
+#ifndef RAFT_RSM_H
+#define RAFT_RSM_H
 
-#include "raft/Log.hpp"
-#include <unordered_map>
-#include <string>
+#include <raft/StateMachine.hpp>
 #include <memory>
+#include <raft/Channel.hpp>
+#include <raft/Raft.hpp>
+#include <mutex>
+#include <thread>
 #include <raft/Types.hpp>
-#include <proto/kvStore.pb.h>
 
 namespace raft {
 
-struct Command;
-
-struct State {
-    virtual ~State() = default;
-    virtual zdb::kvStore::State toProto() = 0;
-};
-
-class StateMachine {
+class Rsm {
 public:
-    virtual ~StateMachine() = default;
-
-    virtual std::unique_ptr<State> applyCommand(raft::Command& command) = 0;
-    virtual InstallSnapshotArg snapshot() = 0;
-    virtual void installSnapshot(InstallSnapshotArg) = 0;
+    Rsm(std::shared_ptr<StateMachine> m, std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> rCh, std::shared_ptr<raft::Raft> r);
+    void consumeChannel();
+    std::unique_ptr<raft::State> handle(std::shared_ptr<raft::Command> c, std::chrono::system_clock::time_point t);
+    ~Rsm();
+private:
+    std::mutex m;
+    std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> raftCh;
+    std::shared_ptr<raft::Raft> raft;
+    std::shared_ptr<StateMachine> machine;
+    std::thread consumerThread;
 };
 
-} // namespace raft
+} // namspace raft
 
-#endif // RAFT_STATE_MACHINE_H
+#endif // RAFT_RSM_H

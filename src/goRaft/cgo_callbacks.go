@@ -26,12 +26,14 @@ package zdb
 int go_invoke_callback(uintptr_t handle, int v, char*, void*, int, void*, int);
 int channel_go_invoke_callback(uintptr_t handle, void*, int, int);
 int persister_go_read_callback(uintptr_t handle, void*, int);
+int state_machine_go_apply_command(uintptr_t, void*, int, void*);
 */
 import "C"
 
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -74,12 +76,9 @@ func deleteHandle(h uintptr) {
 	cbStore.Delete(h)
 }
 
-func registerCallback(peers []*labrpc.ClientEnd, dead int32) C.uintptr_t {
+func registerCallback(peers []*labrpc.ClientEnd, dead *int32) C.uintptr_t {
 	cb := callbackFn(func(p int, s string, a interface{}, b interface{}) int {
-		if atomic.LoadInt32(&dead) == 1 {
-			return 1
-		}
-		if v, ok := rafts.Load(p); !ok || !v.(bool) {
+		if atomic.LoadInt32(dead) == 1 {
 			return 1
 		}
 		if peers[p].Call(s, a, b) {
@@ -93,6 +92,11 @@ func registerCallback(peers []*labrpc.ClientEnd, dead int32) C.uintptr_t {
 
 func registerPersister(persister *tester.Persister) C.uintptr_t {
 	h := newHandle(persister)
+	return C.uintptr_t(h)
+}
+
+func registerStateMachine(machine *StateMachine) C.uintptr_t {
+	h := newHandle(machine)
 	return C.uintptr_t(h)
 }
 
@@ -123,7 +127,7 @@ func GoFreeCallback(h C.uintptr_t) {
 
 type goChannelCallbackFn func([]byte, int) int
 
-func channelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead int32) C.uintptr_t {
+func channelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) C.uintptr_t {
 	cb := goChannelCallbackFn(func(s []byte, i int) int {
 		protoC := &proto_raft.Command{}
 		err := protobuf.Unmarshal(s, protoC)
@@ -132,6 +136,21 @@ func channelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead int32) C.uintpt
 			return 1
 		}
 		if protoC.Op != "i" {
+			if protoC.Op == "r" {
+				fmt.Println("got R")
+				if atomic.LoadInt32(dead) == 1 {
+					return 1
+				}
+				fmt.Println("##### ", string(s))
+				if applyCh != nil {
+					applyCh <- raftapi.ApplyMsg{
+						CommandValid: true,
+						Command:      s,
+						CommandIndex: i,
+					}
+					return 0
+				}
+			}
 			var x interface{}
 			if (protoC.Key == nil) || (protoC.Key.Data == "") {
 				x = 0
@@ -141,7 +160,7 @@ func channelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead int32) C.uintpt
 					x = protoC.Key.Data
 				}
 			}
-			if atomic.LoadInt32(&dead) == 1 {
+			if atomic.LoadInt32(dead) == 1 {
 				return 1
 			}
 			if applyCh != nil {
@@ -156,7 +175,7 @@ func channelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead int32) C.uintpt
 			if applyCh != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 				defer cancel()
-				if atomic.LoadInt32(&dead) == 1 {
+				if atomic.LoadInt32(dead) == 1 {
 					return 1
 				}
 				select {
@@ -177,6 +196,63 @@ func channelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead int32) C.uintpt
 	})
 	h := newHandle(cb)
 	return C.uintptr_t(h)
+}
+
+func receiveChannelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) C.uintptr_t {
+	cb := func() (unsafe.Pointer, C.int, error) {
+		if atomic.LoadInt32(dead) == 1 {
+			return nil, 0, errors.New("died")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+		select {
+		case <-ctx.Done():
+			return nil, 0, errors.New("timeout")
+		case msg := <-applyCh:
+			if msg.CommandValid {
+				var s []byte
+				switch cmd := msg.Command.(type) {
+				case string:
+					s = []byte(cmd)
+				case int:
+					s = []byte(strconv.Itoa(cmd))
+				case []byte:
+					s = cmd
+				}
+				// protoC := &proto_raft.Command{
+				// 	Index: uint64(msg.CommandIndex),
+				// 	Value: &proto_raft.Value{Data: s},
+				// 	Op:    "r",
+				// }
+				// b, err := protobuf.Marshal(protoC)
+				// if err != nil {
+				// return nil, 0, errors.New("bad command could not marshal")
+				// }
+				return unsafe.Pointer(&s[0]), C.int(len(s)), nil
+			} else if msg.SnapshotValid {
+				return nil, 0, errors.New("not IMplemented")
+			} else {
+				return nil, 0, errors.New("bad msg")
+			}
+		}
+	}
+	h := newHandle(cb)
+	return C.uintptr_t(h)
+}
+
+//export receive_channel_go_callback
+func receive_channel_go_callback(handle C.uintptr_t, reply unsafe.Pointer) C.int {
+	cb, ok := getCallback(uintptr(handle))
+	if !ok {
+		fmt.Printf("receive_channel_go_callback: invalid handle %d\n", uintptr(handle))
+		return -1
+	}
+	p, s, err := cb.(func() (unsafe.Pointer, C.int, error))()
+	if err != nil {
+		return C.int(-1)
+	}
+	C.memmove(reply, p, C.size_t(s))
+	return C.int(s)
 }
 
 //export channel_go_invoke_callback
@@ -286,4 +362,51 @@ func persister_go_read_callback(handle C.uintptr_t, out unsafe.Pointer, out_len 
 		C.memmove(out, unsafe.Pointer(&stateBytes[0]), C.size_t(len(stateBytes)))
 		return C.int(len(stateBytes))
 	}
+}
+
+//export state_machine_go_apply_command
+func state_machine_go_apply_command(handle C.uintptr_t, command unsafe.Pointer, command_len C.int, out unsafe.Pointer) C.int {
+	fmt.Println("state_machine_go_apply_command")
+	m, ok := getCallback(uintptr(handle))
+	if !ok {
+		fmt.Println("GO state_machine_go_apply_command: bad handle %v", handle)
+		return -1
+	}
+	machine := *m.(*StateMachine)
+	protoC := &proto_raft.Command{}
+	protobuf.Unmarshal(C.GoBytes(command, command_len), protoC)
+	if len(protoC.Value.Data) < 1 {
+		fmt.Println("GO state_machine_go_apply_command: No DATA")
+		return -1
+	}
+	fmt.Println("***** ", protoC.Value.Data)
+	w2 := bytes.NewBuffer(protoC.Value.Data)
+	e2 := labgob.NewDecoder(w2)
+	x := Op{}
+	err := e2.Decode(&x)
+	if err != nil {
+		fmt.Println("GO state_machine_go_apply_command could not decode ", err)
+		return -1
+	}
+	fmt.Println("calling DoOp")
+	state := machine.DoOp(x.Req)
+	fmt.Printf("state_machine_go_apply_command state: %v", state)
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	stateOp := Op{
+		Req: nil,
+		Rep: state,
+		Id:  0,
+	}
+	e.Encode(stateOp)
+	protoState := &proto_raft.State{
+		Result: &proto_raft.State_Value{Value: &proto_raft.Value{Data: w.Bytes()}},
+	}
+	b, err := protobuf.Marshal(protoState)
+	if err != nil {
+		fmt.Println("GO state_machine_go_apply_command: could not marshal protoState")
+		return -1
+	}
+	C.memmove(out, unsafe.Pointer(&b[0]), C.size_t(len(b)))
+	return C.int(len(b))
 }

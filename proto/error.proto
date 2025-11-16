@@ -13,6 +13,7 @@
 syntax = "proto3";
 
 package zdb.proto;
+option go_package = "github.com/as-family/zdb/proto";
 
 enum ErrorCode {
     OK = 0;

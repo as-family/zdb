@@ -21,32 +21,22 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <raft/Types.hpp>
 
 namespace zdb {
 
 class KVStateMachine : public raft::StateMachine {
 public:
-    KVStateMachine(StorageEngine& s,  raft::Channel<std::shared_ptr<raft::Command>>& raftCh, raft::Raft& r);
-    KVStateMachine(const KVStateMachine&) = delete;
-    KVStateMachine& operator=(const KVStateMachine&) = delete;
-    KVStateMachine(KVStateMachine&&) = delete;
-    KVStateMachine& operator=(KVStateMachine&&) = delete;
+    KVStateMachine(StorageEngine& s);
     std::unique_ptr<raft::State> applyCommand(raft::Command& command) override;
-    void consumeChannel() override;
-    void snapshot() override;
-    std::unique_ptr<raft::State> handle(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t);
+    raft::InstallSnapshotArg snapshot() override;
     State get(Key key);
     State set(Key key, Value value);
     State erase(Key key);
     State size();
-    void installSnapshot(uint64_t lastIncludedIndex, uint64_t lastIncludedTerm, const std::string& data) override;
-    ~KVStateMachine() override;
+    void installSnapshot(raft::InstallSnapshotArg) override;
 private:
-    std::mutex m;
     StorageEngine& storageEngine;
-    raft::Channel<std::shared_ptr<raft::Command>>& raftChannel;
-    raft::Raft& raft;
-    std::thread consumerThread;
 };
 
 } // namespace zdb

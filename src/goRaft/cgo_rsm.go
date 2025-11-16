@@ -24,13 +24,18 @@ package zdb
 import "C"
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
+	"unsafe"
 
 	"6.5840/kvsrv1/rpc"
+	"6.5840/labgob"
 	"6.5840/labrpc"
 	"6.5840/raftapi"
 	tester "6.5840/tester1"
+	proto_raft "github.com/as-family/zdb/proto"
+	protobuf "google.golang.org/protobuf/proto"
 )
 
 var useRaftStateMachine bool // to plug in another raft besided raft1
@@ -39,6 +44,9 @@ type Op struct {
 	// Your definitions here.
 	// Field names must start with capital letters,
 	// otherwise RPC will break.
+	Req any
+	Id  int64
+	Rep any
 }
 
 // A server (i.e., ../server.go) that wants to replicate itself calls
@@ -63,7 +71,9 @@ type RSM struct {
 	handle       *C.RsmHandle
 	rpcCb        C.uintptr_t
 	channelCb    C.uintptr_t
+	recChannelCb C.uintptr_t
 	persisterCb  C.uintptr_t
+	smCb         C.uintptr_t
 	dead         int32
 	// Your definitions here.
 }
@@ -89,14 +99,25 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 		maxraftstate: maxraftstate,
 		applyCh:      make(chan raftapi.ApplyMsg),
 		sm:           sm,
+		dead:         0,
 	}
-	if !useRaftStateMachine {
-		rsm.rf = Make(servers, me, persister, rsm.applyCh)
-	}
-	rsm.rpcCb = registerCallback(servers, rsm.dead)
-	rsm.channelCb = channelRegisterCallback(rsm.applyCh, rsm.dead)
+	rsm.rpcCb = registerCallback(servers, &rsm.dead)
+	rsm.channelCb = channelRegisterCallback(rsm.applyCh, &rsm.dead)
 	rsm.persisterCb = registerPersister(persister)
-	rsm.handle = C.create_rsm(C.int(rsm.me), C.int(len(servers)), C.uintptr_t(rsm.rpcCb), C.uintptr_t(rsm.channelCb), C.uintptr_t(rsm.persisterCb), C.int(maxraftstate), sm)
+	rsm.smCb = registerStateMachine(&sm)
+	rsm.recChannelCb = receiveChannelRegisterCallback(rsm.applyCh, &rsm.dead)
+	rsm.handle = C.create_rsm(C.int(rsm.me), C.int(len(servers)), rsm.rpcCb, rsm.channelCb, rsm.recChannelCb, rsm.persisterCb, C.int(maxraftstate), rsm.smCb)
+	rsm.rf = &Raft{
+		handle:      C.rsm_raft_handle(rsm.handle),
+		peers:       servers,
+		me:          me,
+		persister:   persister,
+		applyCh:     rsm.applyCh,
+		cb:          rsm.rpcCb,
+		channelCb:   rsm.channelCb,
+		persisterCB: rsm.persisterCb,
+		dead:        0,
+	}
 	if rsm.handle == nil {
 		fmt.Println("Go: Failed to create Raft node", me)
 		GoFreeCallback(rsm.rpcCb)
@@ -121,5 +142,62 @@ func (rsm *RSM) Submit(req any) (rpc.Err, any) {
 	// is the argument to Submit and id is a unique id for the op.
 
 	// your code here
-	return rpc.ErrWrongLeader, nil // i'm dead, try another server.
+	if req == nil {
+		fmt.Println("fuck")
+		return rpc.ErrWrongLeader, nil
+	}
+	op := Op{
+		Req: req,
+		Id:  0,
+	}
+	fmt.Printf("Submit Value: %v, Type: %T\n", req, req)
+	cmd := &proto_raft.Command{}
+	cmd.Value = &proto_raft.Value{}
+	cmd.Op = "r"
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(op)
+	cmd.Value.Data = w.Bytes()
+	fmt.Println("$$$$ ", string(cmd.Value.Data))
+	if len(cmd.Value.Data) < 1 {
+		fmt.Println("GO Submit: bad bytes")
+		return rpc.ErrWrongLeader, nil
+	}
+	xx := Op{}
+	w3 := bytes.NewBuffer(cmd.Value.Data)
+	e3 := labgob.NewDecoder(w3)
+	eee := e3.Decode(&xx)
+	if eee != nil {
+		fmt.Printf("FAAAAIL %v\n", eee)
+	}
+	fmt.Printf("$$$&** Value: %v, Type: %T\n", xx, xx)
+	b, err := protobuf.Marshal(cmd)
+	if err != nil {
+		fmt.Println("Go Submit: could not marshal cmd")
+		return rpc.ErrWrongLeader, nil
+	}
+	replyBuf := make([]byte, 1024)
+	size := C.rsm_submit(rsm.handle, unsafe.Pointer(&b[0]), C.int(len(b)), unsafe.Pointer(&replyBuf[0]))
+	state := &proto_raft.State{}
+	err = protobuf.Unmarshal(replyBuf[:size], state)
+	if err != nil {
+		fmt.Println("Go Submit: could not unmarshal state")
+		return rpc.ErrWrongLeader, nil
+	}
+	switch x := state.Result.(type) {
+	case *proto_raft.State_Error:
+		return rpc.ErrWrongLeader, nil
+	case *proto_raft.State_Value:
+		y := Op{}
+		w2 := bytes.NewBuffer(x.Value.Data)
+		e2 := labgob.NewDecoder(w2)
+		err = e2.Decode(&y)
+		if err != nil {
+			fmt.Println("Go Submit: could not decode state")
+		}
+		return rpc.OK, y.Rep
+	default:
+		fmt.Println("Go Submit: could not switch on type")
+		return rpc.ErrWrongLeader, nil
+	}
 }

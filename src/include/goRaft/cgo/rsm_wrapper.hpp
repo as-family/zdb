@@ -20,8 +20,11 @@ extern "C" {
 #endif
 
 typedef struct RsmHandle RsmHandle;
+typedef struct RaftHandle RaftHandle;
 
-RsmHandle* create_rsm(int id, int servers, uintptr_t rpc, uintptr_t channel, uintptr_t persister, int maxraftstate, uintptr_t sm);
+RsmHandle* create_rsm(int id, int servers, uintptr_t rpc, uintptr_t channel, uintptr_t recChannel, uintptr_t persister, int maxraftstate, uintptr_t sm);
+int rsm_submit(RsmHandle* handle, void* command, int command_size, void* state);
+RaftHandle* rsm_raft_handle(RsmHandle* handle);
 
 #ifdef __cplusplus
 }

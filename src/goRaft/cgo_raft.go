@@ -180,16 +180,17 @@ func go_invoke_callback(handle C.uintptr_t, p C.int, s *C.char, args unsafe.Poin
 }
 
 type Raft struct {
-	handle      *C.RaftHandle
-	mu          sync.Mutex
-	peers       []*labrpc.ClientEnd
-	me          int
-	dead        int32
-	persister   *tester.Persister
-	applyCh     chan raftapi.ApplyMsg
-	cb          C.uintptr_t
-	channelCb   C.uintptr_t
-	persisterCB C.uintptr_t
+	handle       *C.RaftHandle
+	mu           sync.Mutex
+	peers        []*labrpc.ClientEnd
+	me           int
+	dead         int32
+	persister    *tester.Persister
+	applyCh      chan raftapi.ApplyMsg
+	cb           C.uintptr_t
+	channelCb    C.uintptr_t
+	recChannelCb C.uintptr_t
+	persisterCB  C.uintptr_t
 }
 
 type LogEntry struct {
@@ -442,10 +443,11 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	rf.me = me
 	rf.persister = persister
 	rf.applyCh = applyCh
-	rf.cb = registerCallback(peers, rf.dead)
-	rf.channelCb = channelRegisterCallback(rf.applyCh, rf.dead)
+	rf.cb = registerCallback(peers, &rf.dead)
+	rf.channelCb = channelRegisterCallback(rf.applyCh, &rf.dead)
 	rf.persisterCB = registerPersister(rf.persister)
-	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), C.uintptr_t(rf.cb), C.uintptr_t(rf.channelCb), C.uintptr_t(rf.persisterCB))
+	rf.recChannelCb = receiveChannelRegisterCallback(rf.applyCh, &rf.dead)
+	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), rf.cb, rf.channelCb, rf.recChannelCb, rf.persisterCB)
 	if rf.handle == nil {
 		fmt.Println("Go: Failed to create Raft node", me)
 		GoFreeCallback(rf.cb)
