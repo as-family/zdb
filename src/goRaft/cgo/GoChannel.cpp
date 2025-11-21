@@ -17,11 +17,15 @@
 #include <optional>
 #include "proto/types.pb.h"
 #include "goRaft/cgo/RaftHandle.hpp"
+#include <spdlog/spdlog.h>
 
 extern "C" int channel_go_invoke_callback(uintptr_t handle, void *cmd, int cmd_size, int index);
 extern "C" int receive_channel_go_callback(uintptr_t handle, void *command);
-GoChannel::GoChannel(uintptr_t h, uintptr_t h2, RaftHandle* r)
-    : handle{h}, recHandle{h2}, raftHandle {r} {}
+extern "C" void channel_close_callback(uintptr_t handle);
+extern "C" int channel_is_closed_callback(uintptr_t handle);
+
+GoChannel::GoChannel(uintptr_t h, uintptr_t h2, uintptr_t h3, RaftHandle* r)
+    : handle{h}, recHandle{h2}, closeHandle{h3}, raftHandle {r} {}
 
 GoChannel::~GoChannel() {
 }
@@ -52,10 +56,10 @@ std::optional<std::shared_ptr<raft::Command>> GoChannel::receiveUntil(std::chron
 }
 
 void GoChannel::close() {
-    // TODO: Implement Go channel close
+    spdlog::info("GoChannel::close handle {} {}", handle, fmt::ptr(this));
+    channel_close_callback(closeHandle);
 }
 
 bool GoChannel::isClosed() {
-    // TODO: Implement Go channel closed check
-    return false;
+    return channel_is_closed_callback(closeHandle);
 }

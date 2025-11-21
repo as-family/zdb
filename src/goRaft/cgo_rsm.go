@@ -35,6 +35,7 @@ import (
 	"6.5840/raftapi"
 	tester "6.5840/tester1"
 	proto_raft "github.com/as-family/zdb/proto"
+	uuid "github.com/google/uuid"
 	protobuf "google.golang.org/protobuf/proto"
 )
 
@@ -62,19 +63,20 @@ type StateMachine interface {
 }
 
 type RSM struct {
-	mu           sync.Mutex
-	me           int
-	rf           raftapi.Raft
-	applyCh      chan raftapi.ApplyMsg
-	maxraftstate int // snapshot if log grows this big
-	sm           StateMachine
-	handle       *C.RsmHandle
-	rpcCb        C.uintptr_t
-	channelCb    C.uintptr_t
-	recChannelCb C.uintptr_t
-	persisterCb  C.uintptr_t
-	smCb         C.uintptr_t
-	dead         int32
+	mu             sync.Mutex
+	me             int
+	rf             raftapi.Raft
+	applyCh        chan raftapi.ApplyMsg
+	maxraftstate   int // snapshot if log grows this big
+	sm             StateMachine
+	handle         *C.RsmHandle
+	rpcCb          C.uintptr_t
+	channelCb      C.uintptr_t
+	recChannelCb   C.uintptr_t
+	closeChannelCb C.uintptr_t
+	persisterCb    C.uintptr_t
+	smCb           C.uintptr_t
+	dead           int32
 	// Your definitions here.
 }
 
@@ -104,9 +106,11 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 	rsm.rpcCb = registerCallback(servers, &rsm.dead)
 	rsm.channelCb = channelRegisterCallback(rsm.applyCh, &rsm.dead)
 	rsm.persisterCb = registerPersister(persister)
+	fmt.Println("GO MakeRSM persister handle", rsm.persisterCb)
 	rsm.smCb = registerStateMachine(&sm)
 	rsm.recChannelCb = receiveChannelRegisterCallback(rsm.applyCh, &rsm.dead)
-	rsm.handle = C.create_rsm(C.int(rsm.me), C.int(len(servers)), rsm.rpcCb, rsm.channelCb, rsm.recChannelCb, rsm.persisterCb, C.int(maxraftstate), rsm.smCb)
+	rsm.closeChannelCb = registerChannel(rsm.applyCh)
+	rsm.handle = C.create_rsm(C.int(rsm.me), C.int(len(servers)), rsm.rpcCb, rsm.channelCb, rsm.recChannelCb, rsm.closeChannelCb, rsm.persisterCb, C.int(maxraftstate), rsm.smCb)
 	rsm.rf = &Raft{
 		handle:      C.rsm_raft_handle(rsm.handle),
 		peers:       servers,
@@ -123,6 +127,9 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 		GoFreeCallback(rsm.rpcCb)
 		GoFreeCallback(rsm.channelCb)
 		GoFreeCallback(rsm.persisterCb)
+		GoFreeCallback(rsm.smCb)
+		GoFreeCallback(rsm.recChannelCb)
+		GoFreeCallback(rsm.closeChannelCb)
 		return nil
 	}
 	return rsm
@@ -130,6 +137,16 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 
 func (rsm *RSM) Raft() raftapi.Raft {
 	return rsm.rf
+}
+
+func (rsm *RSM) Kill() {
+	fmt.Println("GO RSM Kill")
+	C.rsm_kill(rsm.handle)
+	rsm.rf.Kill()
+	rsm.rf = nil
+	GoFreeCallback(rsm.smCb)
+	GoFreeCallback(rsm.recChannelCb)
+	GoFreeCallback(rsm.closeChannelCb)
 }
 
 // Submit a command to Raft, and wait for it to be committed.  It
@@ -142,35 +159,28 @@ func (rsm *RSM) Submit(req any) (rpc.Err, any) {
 	// is the argument to Submit and id is a unique id for the op.
 
 	// your code here
-	if req == nil {
-		fmt.Println("fuck")
-		return rpc.ErrWrongLeader, nil
-	}
 	op := Op{
 		Req: req,
 		Id:  0,
 	}
-	fmt.Printf("Submit Value: %v, Type: %T\n", req, req)
 	cmd := &proto_raft.Command{}
 	cmd.Value = &proto_raft.Value{}
 	cmd.Op = "r"
+	u, erru := uuid.NewV7()
+	if erru != nil {
+		fmt.Println("GO Submit could not generate uuid", erru)
+	}
+	ub, errb := u.MarshalBinary()
+	if errb != nil {
+		fmt.Println("GO Submit could not marshal uuid", errb)
+	}
+	cmd.RequestID = &proto_raft.RequestID{
+		Uuid: ub,
+	}
 	w := new(bytes.Buffer)
 	e := labgob.NewEncoder(w)
 	e.Encode(op)
 	cmd.Value.Data = w.Bytes()
-	fmt.Println("$$$$ ", string(cmd.Value.Data))
-	if len(cmd.Value.Data) < 1 {
-		fmt.Println("GO Submit: bad bytes")
-		return rpc.ErrWrongLeader, nil
-	}
-	xx := Op{}
-	w3 := bytes.NewBuffer(cmd.Value.Data)
-	e3 := labgob.NewDecoder(w3)
-	eee := e3.Decode(&xx)
-	if eee != nil {
-		fmt.Printf("FAAAAIL %v\n", eee)
-	}
-	fmt.Printf("$$$&** Value: %v, Type: %T\n", xx, xx)
 	b, err := protobuf.Marshal(cmd)
 	if err != nil {
 		fmt.Println("Go Submit: could not marshal cmd")

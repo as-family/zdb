@@ -45,6 +45,11 @@ func (ts *Test) cleanup() {
 	ts.End()
 	ts.Config.Cleanup()
 	ts.CheckTimeout()
+	for _, s := range ts.srvs {
+		if s != nil {
+			s.rsm.Kill()
+		}
+	}
 }
 
 func (ts *Test) mksrv(ends []*labrpc.ClientEnd, grp tester.Tgid, srv int, persister *tester.Persister) []tester.IService {
@@ -94,20 +99,22 @@ func (ts *Test) onePartition(p []int, req any) any {
 	return nil
 }
 
-func (ts *Test) oneInc() IncRep {
+func (ts *Test) oneInc() *IncRep {
 	rep := ts.onePartition(nil, Inc{})
 	if rep == nil {
-		return IncRep{}
+		return nil
 	}
-	return rep.(IncRep)
+	r := rep.(IncRep)
+	return &r
 }
 
-func (ts *Test) oneNull() NullRep {
+func (ts *Test) oneNull() *NullRep {
 	rep := ts.onePartition(nil, Null{})
 	if rep == nil {
-		return NullRep{}
+		return nil
 	}
-	return rep.(NullRep)
+	r := rep.(NullRep)
+	return &r
 }
 
 func (ts *Test) checkCounter(v int, nsrv int) {

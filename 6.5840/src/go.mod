@@ -10,6 +10,9 @@ require google.golang.org/protobuf v1.36.8 // indirect
 
 replace github.com/as-family/zdb => ../../src/goRaft
 
-require github.com/as-family/zdb/proto v0.0.0-00010101000000-000000000000 // indirect
+require (
+	github.com/as-family/zdb/proto v0.0.0-00010101000000-000000000000 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+)
 
 replace github.com/as-family/zdb/proto => ../../out/build/sys-gcc/go-proto

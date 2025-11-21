@@ -19,7 +19,7 @@
 
 class GoChannel : public raft::Channel<std::shared_ptr<raft::Command>> {
 public:
-    GoChannel(uintptr_t h, uintptr_t h2, RaftHandle* r);
+    GoChannel(uintptr_t h, uintptr_t h2, uintptr_t h3, RaftHandle* r);
     ~GoChannel() override;
     void send(std::shared_ptr<raft::Command>) override;
     bool sendUntil(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t) override;
@@ -30,6 +30,7 @@ public:
 private:
     uintptr_t handle;
     uintptr_t recHandle;
+    uintptr_t closeHandle;
     RaftHandle* raftHandle;
 };
 

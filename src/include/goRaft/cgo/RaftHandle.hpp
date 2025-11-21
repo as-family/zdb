@@ -32,7 +32,7 @@ struct RaftHandle {
     std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
     std::unordered_map<std::string, int> peerIds;
     std::unordered_map<std::string, std::unique_ptr<GoRPCClient>> clients;
-    std::shared_ptr<zdb::Persister> persister;
+    std::unique_ptr<zdb::Persister> persister;
     std::shared_ptr<raft::RaftImpl<GoRPCClient>> raft;
 };
 

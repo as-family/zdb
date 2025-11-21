@@ -2,7 +2,6 @@ package rsm
 
 import (
 	"bytes"
-	"fmt"
 	"log"
 	"sync"
 
@@ -54,12 +53,10 @@ func makeRsmSrv(ts *Test, srv int, ends []*labrpc.ClientEnd, persister *tester.P
 }
 
 func (rs *rsmSrv) DoOp(req any) any {
-	fmt.Println("DoOp in it")
 	//log.Printf("%d: DoOp: %T(%v)", rs.me, req, req)
 	switch req.(type) {
 	case Inc:
 		rs.mu.Lock()
-		fmt.Println("DoOp Inc")
 		rs.counter += 1
 		rs.mu.Unlock()
 		return &IncRep{rs.counter}
@@ -92,8 +89,8 @@ func (rs *rsmSrv) Restore(data []byte) {
 func (rs *rsmSrv) Kill() {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	//log.Printf("kill %d", rs.me)
-	//rs.rsm.Kill()
+	log.Printf("kill %d\n", rs.me)
+	rs.rsm.Kill()
 	rs.rsm = nil
 }
 

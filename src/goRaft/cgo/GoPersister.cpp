@@ -18,6 +18,7 @@
 #include <spdlog/spdlog.h>
 
 GoPersister::GoPersister(uintptr_t h) : handle(h) {
+    spdlog::info("GoPersister::GoPersister handle {} {}", handle, fmt::ptr(this));
 }
 
 std::string GoPersister::loadBuffer() {

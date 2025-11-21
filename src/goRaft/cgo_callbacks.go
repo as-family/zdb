@@ -65,11 +65,7 @@ func newHandle(cb interface{}) uintptr {
 }
 
 func getCallback(h uintptr) (interface{}, bool) {
-	v, ok := cbStore.Load(h)
-	if !ok {
-		return nil, false
-	}
-	return v, true
+	return cbStore.Load(h)
 }
 
 func deleteHandle(h uintptr) {
@@ -97,6 +93,11 @@ func registerPersister(persister *tester.Persister) C.uintptr_t {
 
 func registerStateMachine(machine *StateMachine) C.uintptr_t {
 	h := newHandle(machine)
+	return C.uintptr_t(h)
+}
+
+func registerChannel(applyCh chan raftapi.ApplyMsg) C.uintptr_t {
+	h := newHandle(applyCh)
 	return C.uintptr_t(h)
 }
 
@@ -137,11 +138,9 @@ func channelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) C.uintp
 		}
 		if protoC.Op != "i" {
 			if protoC.Op == "r" {
-				fmt.Println("got R")
 				if atomic.LoadInt32(dead) == 1 {
 					return 1
 				}
-				fmt.Println("##### ", string(s))
 				if applyCh != nil {
 					applyCh <- raftapi.ApplyMsg{
 						CommandValid: true,
@@ -203,7 +202,7 @@ func receiveChannelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) 
 		if atomic.LoadInt32(dead) == 1 {
 			return nil, 0, errors.New("died")
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 		defer cancel()
 		select {
 		case <-ctx.Done():
@@ -267,6 +266,41 @@ func channel_go_invoke_callback(handle C.uintptr_t, s unsafe.Pointer, s_len C.in
 		return 1
 	}
 	return C.int(cb.(goChannelCallbackFn)(bytes, int(i)))
+}
+
+//export channel_is_closed_callback
+func channel_is_closed_callback(handle C.uintptr_t) C.int {
+	c, ok := getCallback(uintptr(handle))
+	if !ok {
+		fmt.Printf("channel_is_closed_callback: invalid handle %d\n", uintptr(handle))
+		return C.int(0)
+	}
+	applyCh := c.(chan raftapi.ApplyMsg)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	defer cancel()
+	select {
+	case <-ctx.Done():
+		return C.int(0)
+	case v, open := <-applyCh:
+		if !open {
+			return C.int(1)
+		}
+		applyCh <- v
+		return C.int(0)
+	}
+}
+
+//export channel_close_callback
+func channel_close_callback(handle C.uintptr_t) {
+	fmt.Println("channel_close_callback")
+	defer fmt.Println("channel_close_callback done")
+	c, ok := getCallback(uintptr(handle))
+	if !ok {
+		fmt.Printf("channel_close_callback: invalid handle %d\n", uintptr(handle))
+		return
+	}
+	applyCh := c.(chan raftapi.ApplyMsg)
+	close(applyCh)
 }
 
 //export persister_go_invoke_callback
@@ -366,10 +400,9 @@ func persister_go_read_callback(handle C.uintptr_t, out unsafe.Pointer, out_len 
 
 //export state_machine_go_apply_command
 func state_machine_go_apply_command(handle C.uintptr_t, command unsafe.Pointer, command_len C.int, out unsafe.Pointer) C.int {
-	fmt.Println("state_machine_go_apply_command")
 	m, ok := getCallback(uintptr(handle))
 	if !ok {
-		fmt.Println("GO state_machine_go_apply_command: bad handle %v", handle)
+		fmt.Println("GO state_machine_go_apply_command: bad handle ", handle)
 		return -1
 	}
 	machine := *m.(*StateMachine)
@@ -379,7 +412,6 @@ func state_machine_go_apply_command(handle C.uintptr_t, command unsafe.Pointer, 
 		fmt.Println("GO state_machine_go_apply_command: No DATA")
 		return -1
 	}
-	fmt.Println("***** ", protoC.Value.Data)
 	w2 := bytes.NewBuffer(protoC.Value.Data)
 	e2 := labgob.NewDecoder(w2)
 	x := Op{}
@@ -388,9 +420,7 @@ func state_machine_go_apply_command(handle C.uintptr_t, command unsafe.Pointer, 
 		fmt.Println("GO state_machine_go_apply_command could not decode ", err)
 		return -1
 	}
-	fmt.Println("calling DoOp")
 	state := machine.DoOp(x.Req)
-	fmt.Printf("state_machine_go_apply_command state: %v", state)
 	w := new(bytes.Buffer)
 	e := labgob.NewEncoder(w)
 	stateOp := Op{

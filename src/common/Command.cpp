@@ -341,8 +341,8 @@ std::string InstallSnapshotCommand::serialize() const {
 }
 
 std::unique_ptr<raft::State> InstallSnapshotCommand::apply(raft::StateMachine& stateMachine) {
-    auto& kvState = dynamic_cast<zdb::KVStateMachine&>(stateMachine);
-    kvState.installSnapshot(raft::InstallSnapshotArg {"", 0, 0, 0, ""});
+    auto c = std::shared_ptr<zdb::InstallSnapshotCommand> {this};
+    stateMachine.installSnapshot(c);
     return std::make_unique<zdb::State>(0L);
 }
 

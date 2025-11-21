@@ -21,7 +21,7 @@
 #include <spdlog/spdlog.h>
 #include <proto/types.pb.h>
 
-RsmHandle* create_rsm(int id, int servers, uintptr_t rpc, uintptr_t channel, uintptr_t recChannel, uintptr_t persister, int maxraftstate, uintptr_t sm) {
+RsmHandle* create_rsm(int id, int servers, uintptr_t rpc, uintptr_t channel, uintptr_t recChannel, uintptr_t closeChannel, uintptr_t persister, int maxraftstate, uintptr_t sm) {
     auto handle = new RsmHandle {
         id,
         servers,
@@ -29,16 +29,16 @@ RsmHandle* create_rsm(int id, int servers, uintptr_t rpc, uintptr_t channel, uin
         channel,
         persister
     };
-    handle->raftHandle = create_raft(id, servers, rpc, channel, recChannel, persister);
+    handle->raftHandle = create_raft(id, servers, rpc, channel, recChannel, closeChannel, persister);
     if (handle->raftHandle == nullptr) {
         delete handle;
         return nullptr;
     }
-    handle->goChannel = handle->raftHandle->goChannel;
-    handle->persister = handle->raftHandle->persister;
+    // handle->goChannel = handle->raftHandle->goChannel;
+    // handle->persister = handle->raftHandle->persister;
     handle->machine = std::make_shared<GoStateMachine>(sm);
-    handle->raft = handle->raftHandle->raft;
-    handle->rsm = std::make_unique<raft::Rsm>(handle->machine, handle->goChannel, handle->raftHandle->raft);
+    // handle->raft = handle->raftHandle->raft;
+    handle->rsm = std::make_unique<raft::Rsm>(handle->machine, handle->raftHandle->goChannel, handle->raftHandle->raft);
     return handle;
 }
 
@@ -57,4 +57,33 @@ int rsm_submit(RsmHandle* handle, void* command, int command_size, void* state) 
 
 RaftHandle* rsm_raft_handle(RsmHandle* handle) {
     return handle->raftHandle;
+}
+
+void rsm_kill(RsmHandle* handle) {
+    if (!handle) {
+        return;
+    }
+    if (handle->rsm) {
+        handle->rsm.reset();
+    }
+    if (handle->raft) {
+        handle->raft.reset();
+    }
+    if (handle->raftHandle) {
+        kill_raft(handle->raftHandle);
+        handle->raftHandle = nullptr;
+    }
+    if (handle->raftHandle->raft) {
+        handle->raftHandle->raft.reset();
+    }
+    if (handle->machine) {
+        handle->machine.reset();
+    }
+    if (handle->goChannel) {
+        handle->goChannel.reset();
+    }
+    if (handle->persister) {
+        handle->persister.reset();
+    }
+    delete handle;
 }

@@ -65,8 +65,8 @@ void runClients(int nClients, bool reliable) {
     NetworkConfig networkConfig {reliable, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
-    TestRaft raft{leader};
+    std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> leader = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
+    std::shared_ptr<TestRaft> raft = std::make_shared<TestRaft>(*leader);
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
         std::chrono::milliseconds{150L},
@@ -109,8 +109,8 @@ TEST(LockTest, AcquireLock) {
     NetworkConfig networkConfig {true, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
-    TestRaft raft{leader};
+    std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> leader = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
+    std::shared_ptr<TestRaft> raft = std::make_shared<TestRaft>(*leader);
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
         std::chrono::milliseconds{150L},
@@ -141,8 +141,8 @@ TEST(LockTest, ReleaseLock) {
     NetworkConfig networkConfig {true, 0.1, 0.1};
     std::string targetAddress {"localhost:50052"};
     std::string proxyAddress {"localhost:50051"};
-    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
-    TestRaft raft{leader};
+    std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> leader = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
+    std::shared_ptr<TestRaft> raft = std::make_shared<TestRaft>(*leader);
     zdb::RetryPolicy proxyPolicy {
         std::chrono::milliseconds{20L},
         std::chrono::milliseconds{150L},

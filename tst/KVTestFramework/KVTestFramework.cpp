@@ -28,14 +28,15 @@
 #include "raft/SyncChannel.hpp"
 #include "KVTestFramework/NetworkConfig.hpp"
 #include "KVTestFramework/ProxyService.hpp"
-KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel<std::shared_ptr<raft::Command>>& l, raft::Raft& r, zdb::RetryPolicy p)
+KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> l, std::shared_ptr<raft::Raft> r, zdb::RetryPolicy p)
     : addr {a},
       targetServerAddr {t},
       networkConfig(c),
       mem {zdb::InMemoryKVStore {}},
       raft {r},
-      kvState {mem, l, raft},
-      targetService {kvState},
+      kvState {std::make_shared<zdb::KVStateMachine>(mem)},
+      rsm {kvState, l, r},
+      targetService {rsm},
       targetProxyService{targetServerAddr, networkConfig, p, zdb::getDefaultKVFunctions()},
       service {targetProxyService},
       targetServer {targetServerAddr, targetService},

@@ -44,15 +44,16 @@ protected:
     const std::string invalidServerAddr = "localhost:59999";
     
     InMemoryKVStore kvStore;
-    raft::SyncChannel<std::shared_ptr<raft::Command>> leader1{};
-    TestRaft raft1{leader1};
-    zdb::KVStateMachine kvState1 = zdb::KVStateMachine {kvStore, leader1, raft1};
-    raft::SyncChannel<std::shared_ptr<raft::Command>> leader2{};
-    raft::SyncChannel<std::shared_ptr<raft::Command>> follower2{};
-    TestRaft raft2{leader2};
-    zdb::KVStateMachine kvState2 = zdb::KVStateMachine {kvStore, leader2, raft2};
-    KVStoreServiceImpl serviceImpl1{kvState1};
-    KVStoreServiceImpl serviceImpl2{kvState2};
+    std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> leader1 = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
+    TestRaft raft1{*leader1};
+    zdb::KVStateMachine kvState1 = zdb::KVStateMachine {kvStore};
+    raft::Rsm rsm1{std::make_shared<zdb::KVStateMachine>(kvState1), leader1, std::make_shared<TestRaft>(raft1)};
+    std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> leader2 = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
+    TestRaft raft2{*leader2};
+    zdb::KVStateMachine kvState2 = zdb::KVStateMachine {kvStore};
+    raft::Rsm rsm2{std::make_shared<zdb::KVStateMachine>(kvState2), leader2, std::make_shared<TestRaft>(raft2)};
+    KVStoreServiceImpl serviceImpl1{rsm1};
+    KVStoreServiceImpl serviceImpl2{rsm2};
     std::unique_ptr<KVStoreServer> server1;
     std::unique_ptr<KVStoreServer> server2;
     

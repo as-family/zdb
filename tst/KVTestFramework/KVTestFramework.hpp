@@ -41,7 +41,7 @@ public:
         int nMaybe;
     };
     Porcupine porcupine;
-    KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel<std::shared_ptr<raft::Command>>& l, raft::Raft& r, zdb::RetryPolicy p);
+    KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> l, std::shared_ptr<raft::Raft> r, zdb::RetryPolicy p);
     std::vector<ClientResult> spawnClientsAndWait(
         int nClients,
         std::chrono::seconds timeout,
@@ -74,12 +74,13 @@ private:
     std::string addr;
     std::string targetServerAddr;
     NetworkConfig& networkConfig;
-    zdb::InMemoryKVStore mem;
+    zdb::InMemoryKVStore mem;    
+    raft::Rsm rsm;
     zdb::KVStoreServiceImpl targetService;
     ProxyService<zdb::kvStore::KVStoreService> targetProxyService;
     ProxyKVStoreService service;
-    raft::Raft& raft;
-    zdb::KVStateMachine kvState;
+    std::shared_ptr<raft::Raft> raft;
+    std::shared_ptr<zdb::KVStateMachine> kvState;
     zdb::RPCServer<zdb::KVStoreServiceImpl> targetServer;
     zdb::RPCServer<ProxyKVStoreService> server;
     std::default_random_engine rng;

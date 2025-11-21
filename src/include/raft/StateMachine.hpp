@@ -34,8 +34,8 @@ public:
     virtual ~StateMachine() = default;
 
     virtual std::unique_ptr<State> applyCommand(raft::Command& command) = 0;
-    virtual InstallSnapshotArg snapshot() = 0;
-    virtual void installSnapshot(InstallSnapshotArg) = 0;
+    virtual std::shared_ptr<Command> snapshot() = 0;
+    virtual void installSnapshot(std::shared_ptr<Command>) = 0;
 };
 
 } // namespace raft

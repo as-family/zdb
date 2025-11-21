@@ -3,31 +3,28 @@ package shardgrp
 import (
 	"sync/atomic"
 
-
 	"6.5840/kvraft1/rsm"
 	"6.5840/kvsrv1/rpc"
 	"6.5840/labgob"
 	"6.5840/labrpc"
 	"6.5840/shardkv1/shardgrp/shardrpc"
-	"6.5840/tester1"
+	tester "6.5840/tester1"
+	"github.com/as-family/zdb"
 )
-
 
 type KVServer struct {
 	me   int
 	dead int32 // set by Kill()
-	rsm  *rsm.RSM
+	rsm  *zdb.RSM
 	gid  tester.Tgid
 
 	// Your code here
 }
 
-
 func (kv *KVServer) DoOp(req any) any {
 	// Your code here
 	return nil
 }
-
 
 func (kv *KVServer) Snapshot() []byte {
 	// Your code here
@@ -92,7 +89,7 @@ func StartServerShardGrp(servers []*labrpc.ClientEnd, gid tester.Tgid, me int, p
 	labgob.Register(shardrpc.FreezeShardArgs{})
 	labgob.Register(shardrpc.InstallShardArgs{})
 	labgob.Register(shardrpc.DeleteShardArgs{})
-	labgob.Register(rsm.Op{})
+	labgob.Register(zdb.Op{})
 
 	kv := &KVServer{gid: gid, me: me}
 	kv.rsm = rsm.MakeRSM(servers, me, persister, maxraftstate, kv)

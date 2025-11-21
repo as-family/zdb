@@ -27,8 +27,8 @@ class GoStateMachine : public raft::StateMachine {
 public:
     GoStateMachine(uintptr_t h);
     std::unique_ptr<raft::State> applyCommand(raft::Command& command) override;
-    raft::InstallSnapshotArg snapshot() override;
-    void installSnapshot(raft::InstallSnapshotArg) override;
+    std::shared_ptr<raft::Command> snapshot() override;
+    void installSnapshot(std::shared_ptr<raft::Command>) override;
 private:
     uintptr_t handle;
 };

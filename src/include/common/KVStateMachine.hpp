@@ -29,12 +29,12 @@ class KVStateMachine : public raft::StateMachine {
 public:
     KVStateMachine(StorageEngine& s);
     std::unique_ptr<raft::State> applyCommand(raft::Command& command) override;
-    raft::InstallSnapshotArg snapshot() override;
+    std::shared_ptr<raft::Command> snapshot() override;
     State get(Key key);
     State set(Key key, Value value);
     State erase(Key key);
     State size();
-    void installSnapshot(raft::InstallSnapshotArg) override;
+    void installSnapshot(std::shared_ptr<raft::Command>) override;
 private:
     StorageEngine& storageEngine;
 };

@@ -14,13 +14,13 @@
 #include <proto/kvStore.pb.h>
 #include <spdlog/spdlog.h>
 #include <common/Types.hpp>
+#include <common/Command.hpp>
 
 GoStateMachine::GoStateMachine(uintptr_t h)
     : handle {h} {}
 
 std::unique_ptr<raft::State> GoStateMachine::applyCommand(raft::Command& command) {
     std::string c {command.serialize()};
-    spdlog::info("GoStateMachine::applyCommand command {}", c);
     std::string stateBuffer(1024, 0);
     int size = state_machine_go_apply_command(handle, c.data(), c.size(), stateBuffer.data());
     if (size < 0) {
@@ -31,10 +31,11 @@ std::unique_ptr<raft::State> GoStateMachine::applyCommand(raft::Command& command
     return zdb::State::fromString(stateBuffer);
 }
 
-raft::InstallSnapshotArg GoStateMachine::snapshot() {
-    return raft::InstallSnapshotArg{"", 0, 0, 0, ""};
+std::shared_ptr<raft::Command> GoStateMachine::snapshot() {
+    auto u = generate_uuid_v7();
+    return std::make_shared<zdb::InstallSnapshotCommand>(u, 0, 0, "");
 }
 
-void GoStateMachine::installSnapshot(raft::InstallSnapshotArg) {
+void GoStateMachine::installSnapshot(std::shared_ptr<raft::Command>) {
 
 }

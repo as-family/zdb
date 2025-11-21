@@ -42,10 +42,13 @@ void kill_raft(RaftHandle* h) {
         h->goChannel->close();
         h->goChannel.reset();
     }
+    if (h->persister) {
+        h->persister.reset();
+    }
     delete h;
 }
 
-RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, uintptr_t rec, uintptr_t pCb) {
+RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, uintptr_t rec, uintptr_t closeChannelCb, uintptr_t pCb) {
     std::vector<std::string> peers;
     std::unordered_map<std::string, int> ids;
     std::string selfId = "peer_" + std::to_string(id);
@@ -76,8 +79,9 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, 
         nullptr,
         nullptr
     };
-    handle->goChannel = std::make_shared<GoChannel>(handle->channelCallback, rec, handle);
-    handle->persister = std::make_shared<GoPersister>(pCb);
+    handle->goChannel = std::make_shared<GoChannel>(handle->channelCallback, rec, closeChannelCb, handle);
+    spdlog::info("create_raft: persister {}", pCb);
+    handle->persister = std::make_unique<GoPersister>(pCb);
     handle->raft = std::make_shared<raft::RaftImpl<GoRPCClient>>(
         peers,
         selfId,

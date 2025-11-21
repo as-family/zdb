@@ -46,10 +46,11 @@ const std::string SERVER_ADDR = "localhost:50051";
 class KVStoreServerTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
-    TestRaft raft{leader};
-    zdb::KVStateMachine kvState {kvStore, leader, raft};
-    KVStoreServiceImpl serviceImpl{kvState};
+    std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> leader = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
+    std::shared_ptr<TestRaft> raft = std::make_shared<TestRaft>(*leader);
+    std::shared_ptr<zdb::KVStateMachine> kvState = std::make_shared<zdb::KVStateMachine>(kvStore);
+    raft::Rsm rsm{kvState, leader, raft};
+    KVStoreServiceImpl serviceImpl{rsm};
     std::unique_ptr<KVStoreServer> server;
 
     void SetUp() override {
