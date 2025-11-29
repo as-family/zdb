@@ -742,7 +742,7 @@ void RaftImpl<Client>::kill() {
     appendCond.notify_all();
     electionCond.notify_all();
     pendingSnapshotCond.notify_all();
-    stateMachine.close();
+    // stateMachine.close();
 }
 
 template <typename Client>

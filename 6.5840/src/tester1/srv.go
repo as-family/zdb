@@ -2,6 +2,7 @@ package tester
 
 import (
 	//"log"
+	"fmt"
 	"sync"
 
 	"6.5840/labrpc"
@@ -85,8 +86,10 @@ func (s *Server) shutdownServer() {
 	}
 
 	// inform all services to stop
+	fmt.Println("shutdownServer *** Killing")
 	for _, svc := range s.svcs {
 		if svc != nil {
+			fmt.Printf("shutdownServer *** Killing svc %v %T\n", svc, svc)
 			svc.Kill()
 		}
 	}

@@ -115,6 +115,8 @@ func TestLeaderPartition4A(t *testing.T) {
 				defer wg.Done()
 				if err, rep := ts.srvs[l].rsm.Submit(Dec{}); err == rpc.OK {
 					t.Fatalf("Submit %d in minority completed %v", i, rep)
+				} else {
+					fmt.Println("Submit func", rep, err)
 				}
 			}(i)
 		}

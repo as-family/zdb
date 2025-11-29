@@ -45,11 +45,6 @@ func (ts *Test) cleanup() {
 	ts.End()
 	ts.Config.Cleanup()
 	ts.CheckTimeout()
-	for _, s := range ts.srvs {
-		if s != nil {
-			s.rsm.Kill()
-		}
-	}
 }
 
 func (ts *Test) mksrv(ends []*labrpc.ClientEnd, grp tester.Tgid, srv int, persister *tester.Persister) []tester.IService {

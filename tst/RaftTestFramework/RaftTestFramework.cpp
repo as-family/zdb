@@ -42,9 +42,9 @@ RAFTTestFramework::RAFTTestFramework(
         [](const auto& e) { return e.raftProxy; }
     );
     for (auto& e : config) {
-        leaders.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple());
+        leaders[e.raftTarget] = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
         persisters.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple("."));
-        auto r = std::make_shared<raft::RaftImpl<Client>>(
+        rafts[e.raftTarget] = std::make_shared<raft::RaftImpl<Client>>(
             ps,
             e.raftProxy,
             *leaders.at(e.raftTarget),
@@ -55,7 +55,6 @@ RAFTTestFramework::RAFTTestFramework(
             },
             persisters.at(e.raftTarget)
         );
-        rafts[e.raftTarget] = r;
         raftServices.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(*rafts.at(e.raftTarget)));
         raftServers.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, raftServices.at(e.raftTarget)));
         proxies.emplace(std::piecewise_construct, std::forward_as_tuple(e.raftTarget), std::forward_as_tuple(e.raftTarget, e.raftNetworkConfig, policy, zdb::getDefaultRaftFunctions()));

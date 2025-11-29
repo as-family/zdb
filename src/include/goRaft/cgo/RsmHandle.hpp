@@ -26,6 +26,7 @@ struct RsmHandle {
     int id;
     int servers;
     int maxraftstate;
+    std::atomic<bool> killed{false};
     uintptr_t goChannelCb;
     uintptr_t persisterCb;
     std::shared_ptr<zdb::Persister> persister;

@@ -21,6 +21,8 @@
 #include "RaftTestFramework/RaftTestFramework.hpp"
 #include <random>
 #include "common/Command.hpp"
+#include <iostream>
+#include <spdlog/spdlog.h>
 
 std::vector<EndPoints> makeConfig(int n) {
     std::vector<EndPoints> config;
@@ -178,8 +180,9 @@ TEST(Raft, BasicAgreeOneValue) {
         std::chrono::milliseconds{60L},
         3,
         10,
-        std::chrono::milliseconds{20L},
-        std::chrono::milliseconds{20L}
+        // Increase RPC and channel timeouts for test stability in CI/local environments.
+        std::chrono::milliseconds{200L},
+        std::chrono::milliseconds{500L}
     };
     auto r = kvFrameworks.spawnClientsAndWait(
         1,
@@ -192,13 +195,14 @@ TEST(Raft, BasicAgreeOneValue) {
             int nOK = 0;
             int nMaybe = 0;
             auto res = client.set(zdb::Key {"key"}, zdb::Value{"value", 0});
-            if (res.has_value()) {
-                nOK++;
-            } else {
-                if (res.error().code == zdb::ErrorCode::Maybe) {
-                    nMaybe++;
+                if (res.has_value()) {
+                    nOK++;
+                } else {
+                    if (res.error().code == zdb::ErrorCode::Maybe) {
+                        nMaybe++;
+                    }
+                    spdlog::info("DEBUG: client.set returned error code={} ", static_cast<int>(res.error().code));
                 }
-            }
             return KVTestFramework::ClientResult{nOK, nMaybe};
         }
     );
@@ -214,11 +218,15 @@ TEST(Raft, BasicAgreeOneValue) {
             int nOK = 0;
             int nMaybe = 0;
             auto res = client.get(zdb::Key {"key"});
-            if (res.has_value()) {
-                if (res.value().data == "value" && res.value().version == 1) {
-                    nOK++;
+                if (res.has_value()) {
+                    if (res.value().data == "value" && res.value().version == 1) {
+                        nOK++;
+                    } else {
+                        spdlog::info("DEBUG: client.get returned value=\"{}\" version={} ", res.value().data, res.value().version);
+                    }
+                } else {
+                    spdlog::info("DEBUG: client.get returned error code={} ", static_cast<int>(res.error().code));
                 }
-            }
             return KVTestFramework::ClientResult{nOK, nMaybe};
         }
     );

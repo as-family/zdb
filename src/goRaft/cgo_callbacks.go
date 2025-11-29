@@ -206,8 +206,11 @@ func receiveChannelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) 
 		defer cancel()
 		select {
 		case <-ctx.Done():
-			return nil, 0, errors.New("timeout")
-		case msg := <-applyCh:
+			return nil, -1, errors.New("timeout")
+		case msg, ok := <-applyCh:
+			if !ok {
+				return nil, -2, errors.New("channel closed")
+			}
 			if msg.CommandValid {
 				var s []byte
 				switch cmd := msg.Command.(type) {
@@ -229,9 +232,9 @@ func receiveChannelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) 
 				// }
 				return unsafe.Pointer(&s[0]), C.int(len(s)), nil
 			} else if msg.SnapshotValid {
-				return nil, 0, errors.New("not IMplemented")
+				return nil, -1, errors.New("not IMplemented")
 			} else {
-				return nil, 0, errors.New("bad msg")
+				return nil, -1, errors.New("bad msg")
 			}
 		}
 	}
@@ -248,7 +251,7 @@ func receive_channel_go_callback(handle C.uintptr_t, reply unsafe.Pointer) C.int
 	}
 	p, s, err := cb.(func() (unsafe.Pointer, C.int, error))()
 	if err != nil {
-		return C.int(-1)
+		return C.int(s)
 	}
 	C.memmove(reply, p, C.size_t(s))
 	return C.int(s)

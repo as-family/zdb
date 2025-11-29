@@ -18,10 +18,10 @@ ProxyKVStoreService::ProxyKVStoreService(ProxyService<zdb::kvStore::KVStoreServi
     : proxy{p} {}
 
 grpc::Status ProxyKVStoreService::get(
-    grpc::ServerContext* /*context*/,
+    grpc::ServerContext* context,
     const zdb::kvStore::GetRequest* request,
     zdb::kvStore::GetReply* reply) {
-    auto t = proxy.call<zdb::kvStore::GetRequest, zdb::kvStore::GetReply>("get", *request);
+    auto t = proxy.call<zdb::kvStore::GetRequest, zdb::kvStore::GetReply>("get", *request, context->deadline());
     if (t.has_value()) {
         *reply = t.value();
         return grpc::Status::OK;
@@ -30,10 +30,10 @@ grpc::Status ProxyKVStoreService::get(
 }
 
 grpc::Status ProxyKVStoreService::set(
-    grpc::ServerContext* /*context*/,
+    grpc::ServerContext* context,
     const zdb::kvStore::SetRequest* request,
     zdb::kvStore::SetReply* reply) {
-    auto t = proxy.call<zdb::kvStore::SetRequest, zdb::kvStore::SetReply>("set", *request);
+    auto t = proxy.call<zdb::kvStore::SetRequest, zdb::kvStore::SetReply>("set", *request, context->deadline());
     if (t.has_value()) {
         *reply = t.value();
         return grpc::Status::OK;
@@ -42,10 +42,10 @@ grpc::Status ProxyKVStoreService::set(
 }
 
 grpc::Status ProxyKVStoreService::erase(
-    grpc::ServerContext* /*context*/,
+    grpc::ServerContext* context,
     const zdb::kvStore::EraseRequest* request,
     zdb::kvStore::EraseReply* reply) {
-    auto t = proxy.call<zdb::kvStore::EraseRequest, zdb::kvStore::EraseReply>("erase", *request);
+    auto t = proxy.call<zdb::kvStore::EraseRequest, zdb::kvStore::EraseReply>("erase", *request, context->deadline());
     if (t.has_value()) {
         *reply = t.value();
         return grpc::Status::OK;
@@ -54,10 +54,10 @@ grpc::Status ProxyKVStoreService::erase(
 }
 
 grpc::Status ProxyKVStoreService::size(
-    grpc::ServerContext* /*context*/,
+    grpc::ServerContext* context,
     const zdb::kvStore::SizeRequest* request,
     zdb::kvStore::SizeReply* reply) {
-    auto t = proxy.call<zdb::kvStore::SizeRequest, zdb::kvStore::SizeReply>("size", *request);
+    auto t = proxy.call<zdb::kvStore::SizeRequest, zdb::kvStore::SizeReply>("size", *request, context->deadline());
     if (t.has_value()) {
         *reply = t.value();
         return grpc::Status::OK;

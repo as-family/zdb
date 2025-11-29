@@ -77,3 +77,6 @@ target_link_libraries(zdb PRIVATE
 
 # Add goRaft subdirectory for C++ Raft implementation
 add_subdirectory(goRaft)
+
+# Link the goRaft shared library so symbols like Rsm::handle are available
+target_link_libraries(zdb PRIVATE zdb_raft)

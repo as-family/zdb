@@ -130,14 +130,14 @@ struct State : public raft::State {
             s.mutable_error()->set_version(e.version);
             s.mutable_error()->set_what(e.what);
         }
-        if (std::holds_alternative<std::optional<Value>>(u)) {
+        else if (std::holds_alternative<std::optional<Value>>(u)) {
             auto v = std::get<std::optional<Value>>(u);
             if (v.has_value()) {
                 s.mutable_value()->set_data(v.value().data);
                 s.mutable_value()->set_version(v.value().version);
             }
         }
-        if (std::holds_alternative<size_t>(u)) {
+        else if (std::holds_alternative<size_t>(u)) {
             auto size = std::get<size_t>(u);
             s.set_size(size);
         }

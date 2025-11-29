@@ -29,6 +29,7 @@ RsmHandle* create_rsm(int id, int servers, uintptr_t rpc, uintptr_t channel, uin
         channel,
         persister
     };
+    handle->killed.store(false);
     handle->raftHandle = create_raft(id, servers, rpc, channel, recChannel, closeChannel, persister);
     if (handle->raftHandle == nullptr) {
         delete handle;
@@ -43,7 +44,7 @@ RsmHandle* create_rsm(int id, int servers, uintptr_t rpc, uintptr_t channel, uin
 }
 
 int rsm_submit(RsmHandle* handle, void* command, int command_size, void* state) {
-    if (!handle || !handle->rsm || !handle->raftHandle || !handle->raftHandle->raft) {
+    if (!handle || handle->killed.load() || !handle->rsm || !handle->raftHandle || !handle->raftHandle->raft) {
         spdlog::error("rsm_submit: bad handle");
         return -1;
     }
@@ -63,27 +64,19 @@ void rsm_kill(RsmHandle* handle) {
     if (!handle) {
         return;
     }
+    handle->killed.store(true);
     if (handle->rsm) {
         handle->rsm.reset();
     }
-    if (handle->raft) {
-        handle->raft.reset();
-    }
-    if (handle->raftHandle) {
-        kill_raft(handle->raftHandle);
-        handle->raftHandle = nullptr;
-    }
     if (handle->raftHandle->raft) {
+        handle->raftHandle->raft->kill();
         handle->raftHandle->raft.reset();
     }
     if (handle->machine) {
         handle->machine.reset();
     }
-    if (handle->goChannel) {
-        handle->goChannel.reset();
+    if (handle->raftHandle->persister) {
+        handle->raftHandle->persister.reset();
     }
-    if (handle->persister) {
-        handle->persister.reset();
-    }
-    delete handle;
+    // delete handle;
 }

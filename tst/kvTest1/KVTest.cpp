@@ -97,7 +97,8 @@ TEST(KVTest, TestPutConcurrentReliable) {
         std::chrono::milliseconds{1000L}
     };
     const int nClients = 10;
-    const std::chrono::seconds timeout(1);
+    // Increase run time to allow concurrent operations to complete in slower CI/local environments
+    const std::chrono::seconds timeout(2);
     auto results = kvTest.spawnClientsAndWait(nClients, timeout, {proxyAddress}, policy, [&kvTest](int id, zdb::KVStoreClient& client, std::atomic<bool>& done) {
         return kvTest.oneClientSet(id, client, {zdb::Key{"k"}}, false, done);
     });

@@ -75,6 +75,7 @@ add_library(zdb_raft SHARED
   ${CMAKE_SOURCE_DIR}/src/common/Types.cpp
   ${CMAKE_SOURCE_DIR}/src/storage/InMemoryKVStore.cpp
   ${CMAKE_SOURCE_DIR}/src/raft/Rsm.cpp
+  ${CMAKE_SOURCE_DIR}/src/goRaft/cgo/bridge_stubs.cpp
 )
 
 target_compile_options(zdb_raft PRIVATE

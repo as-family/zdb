@@ -75,12 +75,12 @@ private:
     std::string targetServerAddr;
     NetworkConfig& networkConfig;
     zdb::InMemoryKVStore mem;    
-    raft::Rsm rsm;
     zdb::KVStoreServiceImpl targetService;
     ProxyService<zdb::kvStore::KVStoreService> targetProxyService;
     ProxyKVStoreService service;
     std::shared_ptr<raft::Raft> raft;
     std::shared_ptr<zdb::KVStateMachine> kvState;
+    raft::Rsm rsm;
     zdb::RPCServer<zdb::KVStoreServiceImpl> targetServer;
     zdb::RPCServer<ProxyKVStoreService> server;
     std::default_random_engine rng;

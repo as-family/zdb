@@ -26,7 +26,7 @@ public:
     void send(T) override;
     bool sendUntil(T, std::chrono::system_clock::time_point t) override;
     std::optional<T> receive() override;
-    std::optional<T> receiveUntil(std::chrono::system_clock::time_point t) override;
+    std::expected<std::optional<T>, ChannelError> receiveUntil(std::chrono::system_clock::time_point t) override;
     virtual void close() override;
     virtual bool isClosed() override;
     ~SyncChannel() override;
@@ -84,7 +84,7 @@ std::optional<T> SyncChannel<T>::receive() {
 }
 
 template<typename T>
-std::optional<T> SyncChannel<T>::receiveUntil(std::chrono::system_clock::time_point t) {
+std::expected<std::optional<T>, ChannelError> SyncChannel<T>::receiveUntil(std::chrono::system_clock::time_point t) {
     std::unique_lock<std::mutex> lock(m);
     while (!value.has_value() && !closed) {
         if (cv.wait_until(lock, t) == std::cv_status::timeout) {
@@ -98,7 +98,7 @@ std::optional<T> SyncChannel<T>::receiveUntil(std::chrono::system_clock::time_po
         return cmd;
     }
     // closed and no value available
-    return std::nullopt;
+    return std::unexpected(ChannelError::Closed);
 }
 
 template<typename T>

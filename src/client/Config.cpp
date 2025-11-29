@@ -21,6 +21,7 @@
 #include <mutex>
 #include <unordered_map>
 #include "proto/raft.grpc.pb.h"
+#include <spdlog/spdlog.h>
 
 namespace zdb {
 
@@ -116,6 +117,7 @@ std::unordered_map<std::string, typename zdb::RPCService<raft::proto::Raft>::fun
 
 Config::iterator Config::nextActiveServiceIterator() {
     for (auto i = services.begin(); i != services.end(); ++i) {
+        spdlog::info("Config: checking service {} available={} connected={}", i->first, i->second.available(), i->second.connected());
         if (i == cService) {
             continue;
         }
@@ -138,6 +140,16 @@ Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p, s
                         std::forward_as_tuple(address), 
                         std::forward_as_tuple(address, p, f, stopCalls));
     }
+    // Eagerly try to connect each service to avoid races where clients
+    // start before gRPC stubs are ready.
+    for (auto& entry : services) {
+        auto res = entry.second.connect();
+        if (!res.has_value()) {
+            spdlog::info("Config: eager connect to {} failed: {}", entry.first, res.error().what);
+        } else {
+            spdlog::info("Config: eager connect to {} succeeded", entry.first);
+        }
+    }
     cService = services.end();
 }
 
@@ -146,11 +158,13 @@ std::expected<KVRPCServicePtr, Error> Config::nextService() {
     if (cService != services.end() && cService->second.available()) {
         return &(cService->second);
     }
-
+    spdlog::info("Config: searching for next active service, current service set? {}", cService != services.end());
     cService = nextActiveServiceIterator();
     if (cService == services.end()) {
+        spdlog::info("Config: no active services found");
         return std::unexpected {Error(ErrorCode::AllServicesUnavailable, "No available services left")};
     }
+    spdlog::info("Config: selected service {}", cService->first);
     return &(cService->second);
 }
 

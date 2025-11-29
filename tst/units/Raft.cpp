@@ -31,6 +31,7 @@
 #include "common/TypesMap.hpp"
 #include "storage/Persister.hpp"
 #include "storage/FilePersister.hpp"
+#include <expected>
 
 using namespace raft;
 using namespace testing;
@@ -70,7 +71,17 @@ public:
     MOCK_METHOD(void, send, (std::shared_ptr<raft::Command> message), (override));
     MOCK_METHOD(bool, sendUntil, (std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t), (override));
     MOCK_METHOD(std::optional<std::shared_ptr<raft::Command>>, receive, (), (override));
-    MOCK_METHOD(std::optional<std::shared_ptr<raft::Command>>, receiveUntil, (std::chrono::system_clock::time_point t), (override));
+    // GMock has trouble instantiating overloads when return types are
+    // complex templates like std::expected<std::optional<...>, ChannelError>.
+    // Provide a manual override that forwards to a std::function so tests
+    // can set the behavior without triggering gmock's heavy template
+    // machinery.
+    std::function<std::expected<std::optional<std::shared_ptr<raft::Command>>, raft::ChannelError>(std::chrono::system_clock::time_point)> receiveUntilFunc;
+
+    std::expected<std::optional<std::shared_ptr<raft::Command>>, raft::ChannelError> receiveUntil(std::chrono::system_clock::time_point t) override {
+        if (receiveUntilFunc) return receiveUntilFunc(t);
+        return std::unexpected(raft::ChannelError::Closed);
+    }
     MOCK_METHOD(void, close, (), (override));
     MOCK_METHOD(bool, isClosed, (), (override));
 };

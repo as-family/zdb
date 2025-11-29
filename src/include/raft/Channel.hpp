@@ -15,8 +15,13 @@
 #include <optional>
 #include <string>
 #include <chrono>
+#include <expected>
 
 namespace raft {
+
+enum class ChannelError {
+    Closed
+};
 
 template <typename T>
 class Channel {
@@ -25,7 +30,7 @@ public:
     virtual void send(T) = 0;
     virtual bool sendUntil(T, std::chrono::system_clock::time_point t) = 0;
     virtual std::optional<T> receive() = 0;
-    virtual std::optional<T> receiveUntil(std::chrono::system_clock::time_point t) = 0;
+    virtual std::expected<std::optional<T>, ChannelError> receiveUntil(std::chrono::system_clock::time_point t) = 0;
     virtual void close() = 0;
     virtual bool isClosed() = 0;
 };

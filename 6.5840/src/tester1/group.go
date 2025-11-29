@@ -255,7 +255,7 @@ func (sg *ServerGrp) StartServers() {
 
 // Shutdown a server by isolating it
 func (sg *ServerGrp) ShutdownServer(i int) {
-	fmt.Printf("ShutdownServer %v", ServerName(sg.gid, i))
+	fmt.Printf("ShutdownServer %v\n", ServerName(sg.gid, i))
 	sg.disconnect(i, sg.all())
 
 	// disable client connections to the server.

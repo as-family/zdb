@@ -43,12 +43,15 @@ std::optional<std::shared_ptr<raft::Command>> GoChannel::receive() {
     return std::nullopt;
 }
 
-std::optional<std::shared_ptr<raft::Command>> GoChannel::receiveUntil(std::chrono::system_clock::time_point t) {
+std::expected<std::optional<std::shared_ptr<raft::Command>>, raft::ChannelError> GoChannel::receiveUntil(std::chrono::system_clock::time_point t) {
     std::ignore = t;
     std::string buffer(1024, 0);
     int size = receive_channel_go_callback(recHandle, buffer.data());
+    if (size == -2) {
+        spdlog::error("GoChannel::receiveUntil Channel closed");
+        return std::unexpected(raft::ChannelError::Closed);
+    }
     if (size < 0) {
-        // spdlog::error("GoChannel::receiveUntil bad command");
         return std::nullopt;
     }
     buffer.resize(size);

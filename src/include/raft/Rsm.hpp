@@ -37,6 +37,6 @@ private:
     std::thread consumerThread;
 };
 
-} // namspace raft
+} // namespace raft
 
 #endif // RAFT_RSM_H

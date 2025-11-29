@@ -21,29 +21,34 @@ Rsm::Rsm(std::shared_ptr<StateMachine> m, std::shared_ptr<raft::Channel<std::sha
     : raftCh {rCh}, raft {r}, machine {m}, consumerThread {&raft::Rsm::consumeChannel, this} {}
 
 void Rsm::consumeChannel() {
-    while (!raftCh->isClosed()) {
-        // std::unique_lock lock{m};
+    while (true) {
+        std::unique_lock lock{m};
         auto c = raftCh->receiveUntil(std::chrono::system_clock::now() + std::chrono::milliseconds{1L});
         if (c.has_value()) {
-            machine->applyCommand(*c.value());
+            if (c.value().has_value()) {
+                machine->applyCommand(*c.value().value());
+            }
+        } else {
+            break;
         }
     }
 }
 
 std::unique_ptr<raft::State> Rsm::handle(std::shared_ptr<raft::Command> c, std::chrono::system_clock::time_point t) {
-    spdlog::info("Rsm::handle command index {} term {}", c->index, c->term);
-    // std::unique_lock lock{m};
+    std::unique_lock lock{m};
     if (!raft->start(c)) {
         return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::NotLeader, "not the leader"});
     }
-    spdlog::info("Rsm::handle started command index {} term {}", c->index, c->term);
-    while (!raftCh->isClosed()) {
+    while (true) {
         auto r = raftCh->receiveUntil(t);
         if (!r.has_value()) {
+            return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::Internal, "Channel closed unexpectedly"});
+        }
+        if (!r.value().has_value()) {
             return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::Timeout, "request timed out"});
         }
-        auto s = machine->applyCommand(*r.value());
-        if (r.value()->getUUID() == c->getUUID()) {
+        auto s = machine->applyCommand(*r.value().value());
+        if (r.value().value()->getUUID() == c->getUUID()) {
             return s;
         }
     }

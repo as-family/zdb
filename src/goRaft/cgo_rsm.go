@@ -121,6 +121,7 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 		channelCb:   rsm.channelCb,
 		persisterCB: rsm.persisterCb,
 		dead:        0,
+		rsmHandle:   rsm.handle,
 	}
 	if rsm.handle == nil {
 		fmt.Println("Go: Failed to create Raft node", me)
@@ -141,9 +142,15 @@ func (rsm *RSM) Raft() raftapi.Raft {
 
 func (rsm *RSM) Kill() {
 	fmt.Println("GO RSM Kill")
+	// close(rsm.applyCh)
+	if rsm.handle == nil {
+		return
+	}
 	C.rsm_kill(rsm.handle)
-	rsm.rf.Kill()
-	rsm.rf = nil
+	rsm.handle = nil
+	GoFreeCallback(rsm.rpcCb)
+	GoFreeCallback(rsm.channelCb)
+	GoFreeCallback(rsm.persisterCb)
 	GoFreeCallback(rsm.smCb)
 	GoFreeCallback(rsm.recChannelCb)
 	GoFreeCallback(rsm.closeChannelCb)
@@ -188,6 +195,10 @@ func (rsm *RSM) Submit(req any) (rpc.Err, any) {
 	}
 	replyBuf := make([]byte, 1024)
 	size := C.rsm_submit(rsm.handle, unsafe.Pointer(&b[0]), C.int(len(b)), unsafe.Pointer(&replyBuf[0]))
+	if size <= 0 {
+		fmt.Println("Go Submit: rsm_submit returned size", size)
+		return rpc.ErrWrongLeader, nil
+	}
 	state := &proto_raft.State{}
 	err = protobuf.Unmarshal(replyBuf[:size], state)
 	if err != nil {
@@ -204,6 +215,7 @@ func (rsm *RSM) Submit(req any) (rpc.Err, any) {
 		err = e2.Decode(&y)
 		if err != nil {
 			fmt.Println("Go Submit: could not decode state")
+			return rpc.ErrWrongLeader, nil
 		}
 		return rpc.OK, y.Rep
 	default:

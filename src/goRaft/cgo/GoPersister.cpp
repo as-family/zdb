@@ -78,5 +78,3 @@ void GoPersister::save(const raft::PersistentState& s) {
         spdlog::error("GoPersister::save: failed to save to Go persister");
     }
 }
-
-GoPersister::~GoPersister() = default;

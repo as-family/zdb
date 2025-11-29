@@ -17,6 +17,7 @@ package zdb
 #cgo CPPFLAGS: -I${SRCDIR}/../include
 #cgo LDFLAGS: -L${SRCDIR}/../../out/build/sys-gcc/lib -lzdb_raft
 #include "goRaft/cgo/raft_wrapper.hpp"
+#include "goRaft/cgo/rsm_wrapper.hpp"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -192,6 +193,7 @@ type Raft struct {
 	recChannelCb   C.uintptr_t
 	closeChannelCb C.uintptr_t
 	persisterCB    C.uintptr_t
+	rsmHandle      *C.RsmHandle
 }
 
 type LogEntry struct {
@@ -297,6 +299,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 }
 
 func (rf *Raft) Kill() {
+	fmt.Println("KILLING RAFT! FUCK!")
 	atomic.StoreInt32(&rf.dead, 1)
 	rafts.Store(rf.me, false)
 	if rf.handle == nil {
@@ -304,7 +307,12 @@ func (rf *Raft) Kill() {
 	}
 	handle := rf.handle
 	rf.handle = nil
-	C.kill_raft(handle)
+	if rf.rsmHandle != nil {
+		C.rsm_kill(rf.rsmHandle)
+	} else {
+		C.kill_raft(handle)
+	}
+	// close(rf.applyCh)
 	GoFreeCallback(rf.cb)
 	GoFreeCallback(rf.channelCb)
 	GoFreeCallback(rf.persisterCB)
@@ -449,6 +457,7 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	rf.persisterCB = registerPersister(rf.persister)
 	rf.recChannelCb = receiveChannelRegisterCallback(rf.applyCh, &rf.dead)
 	rf.closeChannelCb = registerChannel(rf.applyCh)
+	rf.rsmHandle = nil
 	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), rf.cb, rf.channelCb, rf.recChannelCb, rf.closeChannelCb, rf.persisterCB)
 	if rf.handle == nil {
 		fmt.Println("Go: Failed to create Raft node", me)
