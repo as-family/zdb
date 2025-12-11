@@ -341,7 +341,7 @@ std::string InstallSnapshotCommand::serialize() const {
 }
 
 std::unique_ptr<raft::State> InstallSnapshotCommand::apply(raft::StateMachine& stateMachine) {
-    auto c = std::shared_ptr<zdb::InstallSnapshotCommand> {this};
+    auto c = std::make_shared<InstallSnapshotCommand>(*this);
     stateMachine.installSnapshot(c);
     return std::make_unique<zdb::State>(0L);
 }

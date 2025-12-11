@@ -149,6 +149,7 @@ func channelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) C.uintp
 					}
 					return 0
 				}
+				return 1
 			}
 			var x interface{}
 			if (protoC.Key == nil) || (protoC.Key.Data == "") {
@@ -200,9 +201,9 @@ func channelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) C.uintp
 func receiveChannelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) C.uintptr_t {
 	cb := func() (unsafe.Pointer, C.int, error) {
 		if atomic.LoadInt32(dead) == 1 {
-			return nil, 0, errors.New("died")
+			return nil, -1, errors.New("died")
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
 		select {
 		case <-ctx.Done():
@@ -221,18 +222,12 @@ func receiveChannelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) 
 				case []byte:
 					s = cmd
 				}
-				// protoC := &proto_raft.Command{
-				// 	Index: uint64(msg.CommandIndex),
-				// 	Value: &proto_raft.Value{Data: s},
-				// 	Op:    "r",
-				// }
-				// b, err := protobuf.Marshal(protoC)
-				// if err != nil {
-				// return nil, 0, errors.New("bad command could not marshal")
-				// }
+				if len(s) == 0 {
+					return nil, -1, errors.New("empty command")
+				}
 				return unsafe.Pointer(&s[0]), C.int(len(s)), nil
 			} else if msg.SnapshotValid {
-				return nil, -1, errors.New("not IMplemented")
+				return nil, -1, errors.New("not implemented")
 			} else {
 				return nil, -1, errors.New("bad msg")
 			}
@@ -269,28 +264,6 @@ func channel_go_invoke_callback(handle C.uintptr_t, s unsafe.Pointer, s_len C.in
 		return 1
 	}
 	return C.int(cb.(goChannelCallbackFn)(bytes, int(i)))
-}
-
-//export channel_is_closed_callback
-func channel_is_closed_callback(handle C.uintptr_t) C.int {
-	c, ok := getCallback(uintptr(handle))
-	if !ok {
-		fmt.Printf("channel_is_closed_callback: invalid handle %d\n", uintptr(handle))
-		return C.int(0)
-	}
-	applyCh := c.(chan raftapi.ApplyMsg)
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
-	defer cancel()
-	select {
-	case <-ctx.Done():
-		return C.int(0)
-	case v, open := <-applyCh:
-		if !open {
-			return C.int(1)
-		}
-		applyCh <- v
-		return C.int(0)
-	}
 }
 
 //export channel_close_callback
@@ -410,7 +383,10 @@ func state_machine_go_apply_command(handle C.uintptr_t, command unsafe.Pointer, 
 	}
 	machine := *m.(*StateMachine)
 	protoC := &proto_raft.Command{}
-	protobuf.Unmarshal(C.GoBytes(command, command_len), protoC)
+	if err := protobuf.Unmarshal(C.GoBytes(command, command_len), protoC); err != nil {
+		fmt.Println("GO state_machine_go_apply_command: could not unmarshal command")
+		return -1
+	}
 	if len(protoC.Value.Data) < 1 {
 		fmt.Println("GO state_machine_go_apply_command: No DATA")
 		return -1

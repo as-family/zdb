@@ -388,6 +388,7 @@ void RaftImpl<Client>::applyCommittedEntries() {
             spdlog::error("{}: applyCommittedEntries: failed to apply command at index {}", selfId, i);
             break;
         }
+        spdlog::info("applied {}", c.value().command->index);
         {
             std::unique_lock lock2{m};
             lastApplied = i;

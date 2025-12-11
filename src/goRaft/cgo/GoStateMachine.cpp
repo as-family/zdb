@@ -21,11 +21,16 @@ GoStateMachine::GoStateMachine(uintptr_t h)
 
 std::unique_ptr<raft::State> GoStateMachine::applyCommand(raft::Command& command) {
     std::string c {command.serialize()};
-    std::string stateBuffer(1024, 0);
+    int maxSize = 4096;
+    std::string stateBuffer(maxSize, 0);
     int size = state_machine_go_apply_command(handle, c.data(), c.size(), stateBuffer.data());
     if (size < 0) {
         spdlog::error(" GoStateMachine::applyCommand: bad command application");
         return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::Unknown});
+    }
+    if (size > maxSize) {
+        spdlog::error(" GoStateMachine::applyCommand: state size {} exceeds buffer size {}", size, maxSize);
+        return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::Internal});
     }
     stateBuffer.resize(size);
     return zdb::State::fromString(stateBuffer);

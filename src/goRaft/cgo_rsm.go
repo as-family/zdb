@@ -111,6 +111,16 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 	rsm.recChannelCb = receiveChannelRegisterCallback(rsm.applyCh, &rsm.dead)
 	rsm.closeChannelCb = registerChannel(rsm.applyCh)
 	rsm.handle = C.create_rsm(C.int(rsm.me), C.int(len(servers)), rsm.rpcCb, rsm.channelCb, rsm.recChannelCb, rsm.closeChannelCb, rsm.persisterCb, C.int(maxraftstate), rsm.smCb)
+	if rsm.handle == nil {
+		fmt.Println("Go: Failed to create Raft node", me)
+		GoFreeCallback(rsm.rpcCb)
+		GoFreeCallback(rsm.channelCb)
+		GoFreeCallback(rsm.persisterCb)
+		GoFreeCallback(rsm.smCb)
+		GoFreeCallback(rsm.recChannelCb)
+		GoFreeCallback(rsm.closeChannelCb)
+		return nil
+	}
 	rsm.rf = &Raft{
 		handle:      C.rsm_raft_handle(rsm.handle),
 		peers:       servers,
@@ -122,16 +132,6 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 		persisterCB: rsm.persisterCb,
 		dead:        0,
 		rsmHandle:   rsm.handle,
-	}
-	if rsm.handle == nil {
-		fmt.Println("Go: Failed to create Raft node", me)
-		GoFreeCallback(rsm.rpcCb)
-		GoFreeCallback(rsm.channelCb)
-		GoFreeCallback(rsm.persisterCb)
-		GoFreeCallback(rsm.smCb)
-		GoFreeCallback(rsm.recChannelCb)
-		GoFreeCallback(rsm.closeChannelCb)
-		return nil
 	}
 	return rsm
 }
@@ -166,6 +166,8 @@ func (rsm *RSM) Submit(req any) (rpc.Err, any) {
 	// is the argument to Submit and id is a unique id for the op.
 
 	// your code here
+
+	fmt.Println("Submit req =", req)
 	op := Op{
 		Req: req,
 		Id:  0,
@@ -176,10 +178,12 @@ func (rsm *RSM) Submit(req any) (rpc.Err, any) {
 	u, erru := uuid.NewV7()
 	if erru != nil {
 		fmt.Println("GO Submit could not generate uuid", erru)
+		return rpc.ErrWrongLeader, nil
 	}
 	ub, errb := u.MarshalBinary()
 	if errb != nil {
 		fmt.Println("GO Submit could not marshal uuid", errb)
+		return rpc.ErrWrongLeader, nil
 	}
 	cmd.RequestID = &proto_raft.RequestID{
 		Uuid: ub,
@@ -194,7 +198,7 @@ func (rsm *RSM) Submit(req any) (rpc.Err, any) {
 		return rpc.ErrWrongLeader, nil
 	}
 	replyBuf := make([]byte, 1024)
-	size := C.rsm_submit(rsm.handle, unsafe.Pointer(&b[0]), C.int(len(b)), unsafe.Pointer(&replyBuf[0]))
+	size := int(C.rsm_submit(rsm.handle, unsafe.Pointer(&b[0]), C.int(len(b)), unsafe.Pointer(&replyBuf[0])))
 	if size <= 0 {
 		fmt.Println("Go Submit: rsm_submit returned size", size)
 		return rpc.ErrWrongLeader, nil

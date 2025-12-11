@@ -20,10 +20,6 @@ void channel_close_callback(std::uintptr_t /*handle*/) {
     // no-op
 }
 
-int channel_is_closed_callback(std::uintptr_t /*handle*/) {
-    return 1; // closed by default
-}
-
 int persister_go_read_callback(std::uintptr_t /*handle*/, void* /*buf*/, int /*buf_size*/) {
     return -1;
 }

@@ -299,7 +299,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 }
 
 func (rf *Raft) Kill() {
-	fmt.Println("KILLING RAFT! FUCK!")
+	fmt.Println("Killing raft node", rf.me)
 	atomic.StoreInt32(&rf.dead, 1)
 	rafts.Store(rf.me, false)
 	if rf.handle == nil {

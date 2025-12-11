@@ -140,16 +140,6 @@ Config::Config(const std::vector<std::string>& addresses, const RetryPolicy p, s
                         std::forward_as_tuple(address), 
                         std::forward_as_tuple(address, p, f, stopCalls));
     }
-    // Eagerly try to connect each service to avoid races where clients
-    // start before gRPC stubs are ready.
-    for (auto& entry : services) {
-        auto res = entry.second.connect();
-        if (!res.has_value()) {
-            spdlog::info("Config: eager connect to {} failed: {}", entry.first, res.error().what);
-        } else {
-            spdlog::info("Config: eager connect to {} succeeded", entry.first);
-        }
-    }
     cService = services.end();
 }
 

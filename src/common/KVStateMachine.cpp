@@ -28,6 +28,7 @@ std::unique_ptr<raft::State> KVStateMachine::applyCommand(raft::Command& command
 
 std::shared_ptr<raft::Command> KVStateMachine::snapshot() {
     // Create a snapshot of the current state
+    return nullptr;
 }
 
 void KVStateMachine::installSnapshot(std::shared_ptr<raft::Command>) {

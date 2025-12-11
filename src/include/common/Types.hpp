@@ -115,6 +115,10 @@ struct State : public raft::State {
         if (state.has_size()) {
             return std::make_unique<State>(state.size());
         }
+        if (!state.has_value()) {
+            spdlog::error("GoStateMachine::applyCommand: State has no error, size, or value");
+            return nullptr;
+        }
         return std::make_unique<State>(state.value().data());
     }
     zdb::kvStore::State toProto() override {

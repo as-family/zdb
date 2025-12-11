@@ -14,6 +14,8 @@
 #include <common/Error.hpp>
 #include <common/Types.hpp>
 #include <spdlog/spdlog.h>
+#include <stdexcept>
+#include <mutex>
 
 namespace raft {
 
@@ -21,8 +23,7 @@ Rsm::Rsm(std::shared_ptr<StateMachine> m, std::shared_ptr<raft::Channel<std::sha
     : raftCh {rCh}, raft {r}, machine {m}, consumerThread {&raft::Rsm::consumeChannel, this} {}
 
 void Rsm::consumeChannel() {
-    while (true) {
-        std::unique_lock lock{m};
+    while (consume) {
         auto c = raftCh->receiveUntil(std::chrono::system_clock::now() + std::chrono::milliseconds{1L});
         if (c.has_value()) {
             if (c.value().has_value()) {
@@ -35,6 +36,11 @@ void Rsm::consumeChannel() {
 }
 
 std::unique_ptr<raft::State> Rsm::handle(std::shared_ptr<raft::Command> c, std::chrono::system_clock::time_point t) {
+    if (raft->getRole() != Role::Leader) {
+        asyncConsume();
+        return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::NotLeader, "not the leader"});
+    }
+    syncHandle();
     std::unique_lock lock{m};
     if (!raft->start(c)) {
         return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::NotLeader, "not the leader"});
@@ -50,12 +56,34 @@ std::unique_ptr<raft::State> Rsm::handle(std::shared_ptr<raft::Command> c, std::
         auto s = machine->applyCommand(*r.value().value());
         if (r.value().value()->getUUID() == c->getUUID()) {
             return s;
+        } else {
+            spdlog::error("Bad UUID {}", c->serialize());
+            throw std::runtime_error{"Bad UUID"};
         }
+    }
+}
+
+void Rsm::asyncConsume() {
+    if (consume) {
+        return;
+    }
+    consume = true;
+    consumerThread = std::thread{&raft::Rsm::consumeChannel, this};
+}
+
+void Rsm::syncHandle() {
+    if (!consume) {
+      return;
+    }
+    consume = false;
+    if (consumerThread.joinable()) {
+        consumerThread.join();
     }
 }
 
 Rsm::~Rsm() {
     spdlog::info("~Rsm");
+    consume = false;
     raftCh->close();
     if (consumerThread.joinable()) {
         consumerThread.join();

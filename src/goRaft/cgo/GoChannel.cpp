@@ -22,7 +22,6 @@
 extern "C" int channel_go_invoke_callback(uintptr_t handle, void *cmd, int cmd_size, int index);
 extern "C" int receive_channel_go_callback(uintptr_t handle, void *command);
 extern "C" void channel_close_callback(uintptr_t handle);
-extern "C" int channel_is_closed_callback(uintptr_t handle);
 
 GoChannel::GoChannel(uintptr_t h, uintptr_t h2, uintptr_t h3, RaftHandle* r)
     : handle{h}, recHandle{h2}, closeHandle{h3}, raftHandle {r} {}
@@ -64,5 +63,5 @@ void GoChannel::close() {
 }
 
 bool GoChannel::isClosed() {
-    return channel_is_closed_callback(closeHandle);
+    return false;
 }
