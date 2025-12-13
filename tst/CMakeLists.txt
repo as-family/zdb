@@ -50,6 +50,7 @@ if(${BUILD_TESTING})
     ${CMAKE_SOURCE_DIR}/src/common/KVStateMachine.cpp
     ${CMAKE_SOURCE_DIR}/src/storage/FilePersister.cpp
     ${CMAKE_SOURCE_DIR}/src/raft/Rsm.cpp
+    ${CMAKE_SOURCE_DIR}/src/raft/PendingRequests.cpp
     ${CMAKE_SOURCE_DIR}/tst/main.cpp
     ${CMAKE_SOURCE_DIR}/tst/server/InMemoryKVStoreTest.cpp
     ${CMAKE_SOURCE_DIR}/tst/common/ExponentialBackoffTest.cpp

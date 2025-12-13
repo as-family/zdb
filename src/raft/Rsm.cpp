@@ -10,12 +10,13 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <memory>
 #include <raft/Rsm.hpp>
 #include <common/Error.hpp>
 #include <common/Types.hpp>
 #include <spdlog/spdlog.h>
-#include <stdexcept>
 #include <mutex>
+#include <future>
 
 namespace raft {
 
@@ -23,67 +24,38 @@ Rsm::Rsm(std::shared_ptr<StateMachine> m, std::shared_ptr<raft::Channel<std::sha
     : raftCh {rCh}, raft {r}, machine {m}, consumerThread {&raft::Rsm::consumeChannel, this} {}
 
 void Rsm::consumeChannel() {
-    while (consume) {
+    while (true) {
         auto c = raftCh->receiveUntil(std::chrono::system_clock::now() + std::chrono::milliseconds{1L});
         if (c.has_value()) {
             if (c.value().has_value()) {
-                machine->applyCommand(*c.value().value());
+                auto s = machine->applyCommand(*c.value().value());
+                pending.complete(uuid_v7_to_string(c.value().value()->getUUID()), std::move(s));
             }
         } else {
             break;
+        }
+        if (raft->getRole() != Role::Leader) {
+            pending.cancellAll();
         }
     }
 }
 
 std::unique_ptr<raft::State> Rsm::handle(std::shared_ptr<raft::Command> c, std::chrono::system_clock::time_point t) {
-    if (raft->getRole() != Role::Leader) {
-        asyncConsume();
-        return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::NotLeader, "not the leader"});
-    }
-    syncHandle();
-    std::unique_lock lock{m};
     if (!raft->start(c)) {
+        pending.cancellAll();
         return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::NotLeader, "not the leader"});
     }
-    while (true) {
-        auto r = raftCh->receiveUntil(t);
-        if (!r.has_value()) {
-            return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::Internal, "Channel closed unexpectedly"});
-        }
-        if (!r.value().has_value()) {
-            return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::Timeout, "request timed out"});
-        }
-        auto s = machine->applyCommand(*r.value().value());
-        if (r.value().value()->getUUID() == c->getUUID()) {
-            return s;
-        } else {
-            spdlog::error("Bad UUID {}", c->serialize());
-            throw std::runtime_error{"Bad UUID"};
-        }
+    auto f = pending.add(uuid_v7_to_string(c->getUUID()));
+    auto r = f.get();
+    if (!r) {
+        return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::Internal, "Channel closed unexpectedly"});
     }
-}
-
-void Rsm::asyncConsume() {
-    if (consume) {
-        return;
-    }
-    consume = true;
-    consumerThread = std::thread{&raft::Rsm::consumeChannel, this};
-}
-
-void Rsm::syncHandle() {
-    if (!consume) {
-      return;
-    }
-    consume = false;
-    if (consumerThread.joinable()) {
-        consumerThread.join();
-    }
+    return r;
 }
 
 Rsm::~Rsm() {
     spdlog::info("~Rsm");
-    consume = false;
+    pending.cancellAll();
     raftCh->close();
     if (consumerThread.joinable()) {
         consumerThread.join();

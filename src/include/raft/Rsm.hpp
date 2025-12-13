@@ -20,6 +20,7 @@
 #include <mutex>
 #include <thread>
 #include <raft/Types.hpp>
+#include "raft/PendingRequests.hpp"
 
 namespace raft {
 
@@ -28,16 +29,13 @@ public:
     Rsm(std::shared_ptr<StateMachine> m, std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> rCh, std::shared_ptr<raft::Raft> r);
     void consumeChannel();
     std::unique_ptr<raft::State> handle(std::shared_ptr<raft::Command> c, std::chrono::system_clock::time_point t);
-    void asyncConsume();
-    void syncHandle();
     ~Rsm();
 
 private:
-    std::mutex m;
-    bool consume = true;
+    PendingRequests pending{};
     std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> raftCh;
-    std::shared_ptr<raft::Raft> raft;
     std::shared_ptr<StateMachine> machine;
+    std::shared_ptr<raft::Raft> raft;
     std::thread consumerThread;
 };
 

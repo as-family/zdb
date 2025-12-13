@@ -22,10 +22,9 @@
 #include <proto/types.pb.h>
 
 RsmHandle* create_rsm(int id, int servers, uintptr_t rpc, uintptr_t channel, uintptr_t recChannel, uintptr_t closeChannel, uintptr_t persister, int maxraftstate, uintptr_t sm) {
-    auto handle = new RsmHandle {
-        id,
-        servers,
-        maxraftstate,
+    auto *handle = new RsmHandle {
+        id, servers, maxraftstate,
+        false,
         channel,
         persister
     };

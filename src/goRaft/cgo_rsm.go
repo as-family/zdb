@@ -146,8 +146,8 @@ func (rsm *RSM) Kill() {
 	if rsm.handle == nil {
 		return
 	}
-	C.rsm_kill(rsm.handle)
 	rsm.handle = nil
+	C.rsm_kill(rsm.handle)
 	GoFreeCallback(rsm.rpcCb)
 	GoFreeCallback(rsm.channelCb)
 	GoFreeCallback(rsm.persisterCb)
@@ -201,6 +201,7 @@ func (rsm *RSM) Submit(req any) (rpc.Err, any) {
 	size := int(C.rsm_submit(rsm.handle, unsafe.Pointer(&b[0]), C.int(len(b)), unsafe.Pointer(&replyBuf[0])))
 	if size <= 0 {
 		fmt.Println("Go Submit: rsm_submit returned size", size)
+		// rsm.Kill()
 		return rpc.ErrWrongLeader, nil
 	}
 	state := &proto_raft.State{}
