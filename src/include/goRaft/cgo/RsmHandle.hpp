@@ -29,12 +29,12 @@ struct RsmHandle {
     std::atomic<bool> killed{false};
     uintptr_t goChannelCb;
     uintptr_t persisterCb;
+    RaftHandle* raftHandle;
     std::shared_ptr<zdb::Persister> persister;
     std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
     std::shared_ptr<GoStateMachine> machine;
-    std::unique_ptr<raft::Rsm> rsm;
     std::shared_ptr<raft::Raft> raft;
-    RaftHandle* raftHandle;
+    std::unique_ptr<raft::Rsm> rsm;
 };
 
 #endif // RSM_HANDLE_H

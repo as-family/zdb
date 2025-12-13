@@ -60,6 +60,8 @@ Rsm::~Rsm() {
     if (consumerThread.joinable()) {
         consumerThread.join();
     }
+    pending.cancellAll();
+    std::this_thread::sleep_for(std::chrono::milliseconds{1000});
     spdlog::info("Destroyed Rsm");
 }
 
