@@ -103,7 +103,7 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 		sm:           sm,
 		dead:         0,
 	}
-	rsm.rpcCb = registerCallback(servers, &rsm.dead)
+	rsm.rpcCb = registerLabRpcCallback(servers, &rsm.dead)
 	rsm.channelCb = channelRegisterCallback(rsm.applyCh, &rsm.dead)
 	rsm.persisterCb = registerPersister(persister)
 	fmt.Println("GO MakeRSM persister handle", rsm.persisterCb)
@@ -113,12 +113,12 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 	rsm.handle = C.create_rsm(C.int(rsm.me), C.int(len(servers)), rsm.rpcCb, rsm.channelCb, rsm.recChannelCb, rsm.closeChannelCb, rsm.persisterCb, C.int(maxraftstate), rsm.smCb)
 	if rsm.handle == nil {
 		fmt.Println("Go: Failed to create Raft node", me)
-		GoFreeCallback(rsm.rpcCb)
-		GoFreeCallback(rsm.channelCb)
-		GoFreeCallback(rsm.persisterCb)
-		GoFreeCallback(rsm.smCb)
-		GoFreeCallback(rsm.recChannelCb)
-		GoFreeCallback(rsm.closeChannelCb)
+		freeCallback(rsm.rpcCb)
+		freeCallback(rsm.channelCb)
+		freeCallback(rsm.persisterCb)
+		freeCallback(rsm.smCb)
+		freeCallback(rsm.recChannelCb)
+		freeCallback(rsm.closeChannelCb)
 		return nil
 	}
 	rsm.rf = &Raft{
@@ -149,12 +149,12 @@ func (rsm *RSM) Kill() {
 	h := rsm.handle
 	rsm.handle = nil
 	C.rsm_kill(h)
-	GoFreeCallback(rsm.rpcCb)
-	GoFreeCallback(rsm.channelCb)
-	GoFreeCallback(rsm.persisterCb)
-	GoFreeCallback(rsm.smCb)
-	GoFreeCallback(rsm.recChannelCb)
-	GoFreeCallback(rsm.closeChannelCb)
+	freeCallback(rsm.rpcCb)
+	freeCallback(rsm.channelCb)
+	freeCallback(rsm.persisterCb)
+	freeCallback(rsm.smCb)
+	freeCallback(rsm.recChannelCb)
+	freeCallback(rsm.closeChannelCb)
 }
 
 // Submit a command to Raft, and wait for it to be committed.  It

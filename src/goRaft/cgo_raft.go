@@ -57,7 +57,7 @@ func go_invoke_request_vote(handle C.uintptr_t, p C.int, s string, args unsafe.P
 		LastLogTerm:  protoArg.LastLogTerm,
 	}
 	rep := &RequestVoteReply{}
-	if GoInvokeCallback(handle, int(p), s, arg, rep) != 0 {
+	if labRpcCall(handle, int(p), s, arg, rep) != 0 {
 		return C.int(-1)
 	}
 	protoReply := &proto_raft.RequestVoteReply{
@@ -103,7 +103,7 @@ func go_invoke_append_entries(handle C.uintptr_t, p C.int, s string, args unsafe
 		Entries:      entries,
 	}
 	rep := &AppendEntriesReply{}
-	if GoInvokeCallback(handle, int(p), s, arg, rep) != 0 {
+	if labRpcCall(handle, int(p), s, arg, rep) != 0 {
 		return C.int(-1)
 	}
 	protoReply := &proto_raft.AppendEntriesReply{
@@ -142,7 +142,7 @@ func go_invoke_install_snapshot(handle C.uintptr_t, p C.int, s string, args unsa
 		Data:              protoArg.Data,
 	}
 	rep := &InstallSnapshotReply{}
-	if GoInvokeCallback(handle, int(p), s, arg, rep) != 0 {
+	if labRpcCall(handle, int(p), s, arg, rep) != 0 {
 		return C.int(-1)
 	}
 	protoReply := &proto_raft.InstallSnapshotReply{
@@ -300,7 +300,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 func (rf *Raft) Kill() {
 	atomic.StoreInt32(&rf.dead, 1)
-	rafts.Store(rf.me, false)
 	if rf.handle == nil {
 		return
 	}
@@ -312,9 +311,9 @@ func (rf *Raft) Kill() {
 		C.kill_raft(handle)
 	}
 	// close(rf.applyCh)
-	GoFreeCallback(rf.cb)
-	GoFreeCallback(rf.channelCb)
-	GoFreeCallback(rf.persisterCB)
+	freeCallback(rf.cb)
+	freeCallback(rf.channelCb)
+	freeCallback(rf.persisterCB)
 }
 
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
@@ -445,13 +444,12 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArg, reply *InstallSnapshot
 }
 
 func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyCh chan raftapi.ApplyMsg) raftapi.Raft {
-	rafts.Store(me, true)
 	rf := &Raft{}
 	rf.peers = peers
 	rf.me = me
 	rf.persister = persister
 	rf.applyCh = applyCh
-	rf.cb = registerCallback(peers, &rf.dead)
+	rf.cb = registerLabRpcCallback(peers, &rf.dead)
 	rf.channelCb = channelRegisterCallback(rf.applyCh, &rf.dead)
 	rf.persisterCB = registerPersister(rf.persister)
 	rf.recChannelCb = receiveChannelRegisterCallback(rf.applyCh, &rf.dead)
@@ -460,9 +458,9 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), rf.cb, rf.channelCb, rf.recChannelCb, rf.closeChannelCb, rf.persisterCB)
 	if rf.handle == nil {
 		fmt.Println("Go: Failed to create Raft node", me)
-		GoFreeCallback(rf.cb)
-		GoFreeCallback(rf.channelCb)
-		GoFreeCallback(rf.persisterCB)
+		freeCallback(rf.cb)
+		freeCallback(rf.channelCb)
+		freeCallback(rf.persisterCB)
 		return nil
 	}
 	return rf

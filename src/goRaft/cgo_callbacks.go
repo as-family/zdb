@@ -49,14 +49,12 @@ import (
 	protobuf "google.golang.org/protobuf/proto"
 )
 
-type callbackFn func(int, string, interface{}, interface{}) int
+type labRpcFn func(int, string, interface{}, interface{}) int
 
 var (
 	cbStore   sync.Map
 	cbCounter uint64
 )
-
-var rafts sync.Map
 
 func newHandle(cb interface{}) uintptr {
 	h := atomic.AddUint64(&cbCounter, 1)
@@ -72,8 +70,8 @@ func deleteHandle(h uintptr) {
 	cbStore.Delete(h)
 }
 
-func registerCallback(peers []*labrpc.ClientEnd, dead *int32) C.uintptr_t {
-	cb := callbackFn(func(p int, s string, a interface{}, b interface{}) int {
+func registerLabRpcCallback(peers []*labrpc.ClientEnd, dead *int32) C.uintptr_t {
+	cb := labRpcFn(func(p int, s string, a interface{}, b interface{}) int {
 		if atomic.LoadInt32(dead) == 1 {
 			return 1
 		}
@@ -101,18 +99,17 @@ func registerChannel(applyCh chan raftapi.ApplyMsg) C.uintptr_t {
 	return C.uintptr_t(h)
 }
 
-//export GoInvokeCallback
-func GoInvokeCallback(h C.uintptr_t, p int, s string, a interface{}, b interface{}) int {
+func labRpcCall(h C.uintptr_t, p int, s string, a interface{}, b interface{}) int {
 	cb, ok := getCallback(uintptr(h))
 	if !ok {
-		fmt.Printf("GoInvokeCallback: invalid handle %d\n", uintptr(h))
+		fmt.Printf("GO labRpcCall: invalid handle %d\n", uintptr(h))
 		return 1
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	done := make(chan int, 1)
 	go func() {
-		done <- cb.(callbackFn)(p, s, a, b)
+		done <- cb.(labRpcFn)(p, s, a, b)
 	}()
 	select {
 	case res := <-done:
@@ -122,7 +119,7 @@ func GoInvokeCallback(h C.uintptr_t, p int, s string, a interface{}, b interface
 	}
 }
 
-func GoFreeCallback(h C.uintptr_t) {
+func freeCallback(h C.uintptr_t) {
 	deleteHandle(uintptr(h))
 }
 
