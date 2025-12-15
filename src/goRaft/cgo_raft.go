@@ -25,7 +25,7 @@ package zdb
 // C wrapper that C++ will call (calls the exported Go function).
 // We declare it here so the C++ library can link against it.
 int go_invoke_callback(uintptr_t handle, int v, char*, void*, int, void*, int);
-int channel_go_invoke_callback(uintptr_t handle, void*, int, int);
+int SendToApplyCh(uintptr_t handle, void*, int, int);
 int persister_go_read_callback(uintptr_t handle, void*, int);
 */
 import "C"
@@ -449,11 +449,11 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	rf.me = me
 	rf.persister = persister
 	rf.applyCh = applyCh
+	rf.channelCb = registerChannel(rf.applyCh)
 	rf.cb = registerLabRpcCallback(peers, &rf.dead)
-	rf.channelCb = channelRegisterCallback(rf.applyCh, &rf.dead)
 	rf.persisterCB = registerPersister(rf.persister)
 	rf.recChannelCb = receiveChannelRegisterCallback(rf.applyCh, &rf.dead)
-	rf.closeChannelCb = registerChannel(rf.applyCh)
+	rf.closeChannelCb = rf.channelCb
 	rf.rsmHandle = nil
 	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), rf.cb, rf.channelCb, rf.recChannelCb, rf.closeChannelCb, rf.persisterCB)
 	if rf.handle == nil {

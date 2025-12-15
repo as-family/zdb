@@ -24,7 +24,7 @@ package zdb
 // C wrapper that C++ will call (calls the exported Go function).
 // We declare it here so the C++ library can link against it.
 int go_invoke_callback(uintptr_t handle, int v, char*, void*, int, void*, int);
-int channel_go_invoke_callback(uintptr_t handle, void*, int, int);
+int SendToApplyCh(uintptr_t handle, void*, int, int);
 int persister_go_read_callback(uintptr_t handle, void*, int);
 int state_machine_go_apply_command(uintptr_t, void*, int, void*);
 */
@@ -123,76 +123,59 @@ func freeCallback(h C.uintptr_t) {
 	deleteHandle(uintptr(h))
 }
 
-type goChannelCallbackFn func([]byte, int) int
-
-func channelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) C.uintptr_t {
-	cb := goChannelCallbackFn(func(s []byte, i int) int {
-		protoC := &proto_raft.Command{}
-		err := protobuf.Unmarshal(s, protoC)
-		if err != nil {
-			fmt.Println("Error: failed to unmarshal Command in channel callback", err)
-			return 1
+//export SendToApplyCh
+func SendToApplyCh(handle C.uintptr_t, s unsafe.Pointer, s_len C.int, index C.int) C.int {
+	if s_len <= 0 {
+		return C.int(1)
+	}
+	var applyCh chan raftapi.ApplyMsg
+	if i, ok := getCallback(uintptr(handle)); !ok {
+		return C.int(1)
+	} else {
+		applyCh = i.(chan raftapi.ApplyMsg)
+	}
+	b := C.GoBytes(s, s_len)
+	protoC := &proto_raft.Command{}
+	if err := protobuf.Unmarshal(b, protoC); err != nil {
+		return C.int(1)
+	}
+	var msg raftapi.ApplyMsg
+	switch protoC.Op {
+	case "i":
+		msg = raftapi.ApplyMsg{
+			CommandValid:  false,
+			SnapshotValid: true,
+			Snapshot:      protoC.Value.Data,
+			SnapshotIndex: int(protoC.Index),
+			SnapshotTerm:  int(protoC.Value.Version),
 		}
-		if protoC.Op != "i" {
-			if protoC.Op == "r" {
-				if atomic.LoadInt32(dead) == 1 {
-					return 1
-				}
-				if applyCh != nil {
-					applyCh <- raftapi.ApplyMsg{
-						CommandValid: true,
-						Command:      s,
-						CommandIndex: i,
-					}
-					return 0
-				}
-				return 1
-			}
-			var x interface{}
-			if (protoC.Key == nil) || (protoC.Key.Data == "") {
-				x = 0
-			} else {
-				x, err = strconv.Atoi(protoC.Key.Data)
-				if err != nil {
-					x = protoC.Key.Data
-				}
-			}
-			if atomic.LoadInt32(dead) == 1 {
-				return 1
-			}
-			if applyCh != nil {
-				applyCh <- raftapi.ApplyMsg{
-					CommandValid: true,
-					Command:      x,
-					CommandIndex: i,
-				}
-				return 0
-			}
+	case "r":
+		msg = raftapi.ApplyMsg{
+			CommandValid: true,
+			Command:      b,
+			CommandIndex: int(index),
+		}
+	default:
+		var command any
+		if x, err := strconv.Atoi(protoC.Key.Data); err != nil {
+			command = protoC.Key.Data
 		} else {
-			if applyCh != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
-				defer cancel()
-				if atomic.LoadInt32(dead) == 1 {
-					return 1
-				}
-				select {
-				case <-ctx.Done():
-					return 1
-				case applyCh <- raftapi.ApplyMsg{
-					CommandValid:  false,
-					SnapshotValid: true,
-					Snapshot:      protoC.Value.Data,
-					SnapshotIndex: int(protoC.Index),
-					SnapshotTerm:  int(protoC.Value.Version),
-				}:
-					return 0
-				}
-			}
+			command = x
 		}
-		return 1
-	})
-	h := newHandle(cb)
-	return C.uintptr_t(h)
+		msg = raftapi.ApplyMsg{
+			CommandValid: true,
+			Command:      command,
+			CommandIndex: int(index),
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer cancel()
+	select {
+	case <- ctx.Done():
+		return C.int(1)
+	case applyCh <- msg:
+		return C.int(0)
+	}
 }
 
 func receiveChannelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) C.uintptr_t {
@@ -247,20 +230,6 @@ func receive_channel_go_callback(handle C.uintptr_t, reply unsafe.Pointer) C.int
 	}
 	C.memmove(reply, p, C.size_t(s))
 	return C.int(s)
-}
-
-//export channel_go_invoke_callback
-func channel_go_invoke_callback(handle C.uintptr_t, s unsafe.Pointer, s_len C.int, i C.int) C.int {
-	if s == nil || s_len <= 0 {
-		return C.int(1)
-	}
-	bytes := C.GoBytes(s, s_len)
-	cb, ok := getCallback(uintptr(handle))
-	if !ok {
-		fmt.Printf("channel_go_invoke_callback: invalid handle %d\n", uintptr(handle))
-		return 1
-	}
-	return C.int(cb.(goChannelCallbackFn)(bytes, int(i)))
 }
 
 //export channel_close_callback

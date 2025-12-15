@@ -19,7 +19,7 @@
 #include "goRaft/cgo/RaftHandle.hpp"
 #include <spdlog/spdlog.h>
 
-extern "C" int channel_go_invoke_callback(uintptr_t handle, void *cmd, int cmd_size, int index);
+extern "C" int SendToApplyCh(uintptr_t handle, void *cmd, int cmd_size, int index);
 extern "C" int receive_channel_go_callback(uintptr_t handle, void *command);
 extern "C" void channel_close_callback(uintptr_t handle);
 
@@ -34,7 +34,7 @@ void GoChannel::send(std::shared_ptr<raft::Command>) {
 
 bool GoChannel::sendUntil(std::shared_ptr<raft::Command> command, std::chrono::system_clock::time_point t) {
     auto c = command->serialize();
-    return channel_go_invoke_callback(handle, (void*)c.data(), c.size(), command->index) == 0;
+    return SendToApplyCh(handle, (void*)c.data(), c.size(), command->index) == 0;
 }
 
 std::optional<std::shared_ptr<raft::Command>> GoChannel::receive() {

@@ -104,12 +104,12 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 		dead:         0,
 	}
 	rsm.rpcCb = registerLabRpcCallback(servers, &rsm.dead)
-	rsm.channelCb = channelRegisterCallback(rsm.applyCh, &rsm.dead)
+	rsm.channelCb = registerChannel(rsm.applyCh)
 	rsm.persisterCb = registerPersister(persister)
 	fmt.Println("GO MakeRSM persister handle", rsm.persisterCb)
 	rsm.smCb = registerStateMachine(&sm)
 	rsm.recChannelCb = receiveChannelRegisterCallback(rsm.applyCh, &rsm.dead)
-	rsm.closeChannelCb = registerChannel(rsm.applyCh)
+	rsm.closeChannelCb = rsm.channelCb
 	rsm.handle = C.create_rsm(C.int(rsm.me), C.int(len(servers)), rsm.rpcCb, rsm.channelCb, rsm.recChannelCb, rsm.closeChannelCb, rsm.persisterCb, C.int(maxraftstate), rsm.smCb)
 	if rsm.handle == nil {
 		fmt.Println("Go: Failed to create Raft node", me)
