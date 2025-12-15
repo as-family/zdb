@@ -56,5 +56,7 @@ void rsm_kill(RsmHandle* handle) {
     if (!handle) {
         return;
     }
+    auto* r = handle->raftHandle;
     delete handle;
+    delete r;
 }

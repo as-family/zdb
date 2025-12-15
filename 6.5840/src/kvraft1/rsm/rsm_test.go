@@ -147,11 +147,11 @@ func TestLeaderPartition4A(t *testing.T) {
 	case <-time.After(time.Second):
 		text := "Submit after healing didn't return"
 		tester.AnnotateCheckerFailure(text, text)
-		ts.Fatalf(text)
+		ts.Fatalf("%s", text)
 	}
 
 	// check that all replicas have the same value for counter
-	ts.checkCounter(rep.(*IncRep).N, NSRV)
+	ts.checkCounter(rep.(IncRep).N, NSRV)
 }
 
 // test that restart replays Incs

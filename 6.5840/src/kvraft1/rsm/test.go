@@ -99,7 +99,8 @@ func (ts *Test) oneInc() *IncRep {
 	if rep == nil {
 		return nil
 	}
-	return rep.(*IncRep)
+	r := rep.(IncRep)
+	return &r
 }
 
 func (ts *Test) oneNull() *NullRep {
