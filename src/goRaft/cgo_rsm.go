@@ -106,7 +106,6 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 	rsm.rpcCb = registerLabRpcCallback(servers, &rsm.dead)
 	rsm.channelCb = registerChannel(rsm.applyCh)
 	rsm.persisterCb = registerPersister(persister)
-	fmt.Println("GO MakeRSM persister handle", rsm.persisterCb)
 	rsm.smCb = registerStateMachine(&sm)
 	rsm.recChannelCb = rsm.channelCb
 	rsm.closeChannelCb = rsm.channelCb
@@ -141,8 +140,6 @@ func (rsm *RSM) Raft() raftapi.Raft {
 }
 
 func (rsm *RSM) Kill() {
-	fmt.Println("GO RSM Kill")
-	// close(rsm.applyCh)
 	if rsm.handle == nil {
 		return
 	}

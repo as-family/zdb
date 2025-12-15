@@ -42,7 +42,7 @@ void PendingRequests::complete(const std::string index, std::unique_ptr<State> r
         it->second.set_value(std::move(result));
         pending.erase(it);
     } else {
-        spdlog::warn("changed leader {}", index);
+        spdlog::warn("changed leader at index {}", index);
     }
 }
 

@@ -58,7 +58,6 @@ std::expected<std::optional<std::shared_ptr<raft::Command>>, raft::ChannelError>
 }
 
 void GoChannel::close() {
-    spdlog::info("GoChannel::close handle {} {}", handle, fmt::ptr(this));
     CloseApplyCh(closeHandle);
 }
 

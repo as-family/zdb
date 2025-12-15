@@ -362,18 +362,16 @@ InstallSnapshotReply RaftImpl<Client>::installSnapshotHandler(const InstallSnaps
 template <typename Client>
 void RaftImpl<Client>::applyCommittedEntries() {
     std::unique_lock applyLock{applyMutex};
-    std::unique_lock lock1{m};
+    std::unique_lock lock{m};
     if (lastApplied >= commitIndex) {
         return;
     }
     if (pendingSnapshot.load()) {
-        spdlog::debug("{}: applyCommittedEntries: pending snapshot, cannot apply entries", selfId);
+        spdlog::warn("{}: applyCommittedEntries: pending snapshot, cannot apply entries", selfId);
         return;
     }
-    lock1.unlock();
     spdlog::debug("{}: applyCommittedEntries: commitIndex={}, lastApplied={}", selfId, commitIndex, lastApplied);
     while (true) {
-        lock1.lock();
         if (lastApplied >= commitIndex) {
             break;
         }
@@ -383,16 +381,13 @@ void RaftImpl<Client>::applyCommittedEntries() {
             spdlog::error("{}: applyCommittedEntries: no log entry at index {}", selfId, i);
             break;
         }
-        lock1.unlock();
+        lock.unlock();
         if (!stateMachine.sendUntil(c->command, std::chrono::system_clock::now() + policy.rpcTimeout)) {
             spdlog::error("{}: applyCommittedEntries: failed to apply command at index {}", selfId, i);
             break;
         }
-        spdlog::info("applied {}", c.value().command->index);
-        {
-            std::unique_lock lock2{m};
-            lastApplied = i;
-        }
+        lock.lock();
+        lastApplied = i;
     }
 }
 
