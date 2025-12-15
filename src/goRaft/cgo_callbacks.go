@@ -20,20 +20,12 @@ package zdb
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-
-// C wrapper that C++ will call (calls the exported Go function).
-// We declare it here so the C++ library can link against it.
-int go_invoke_callback(uintptr_t handle, int v, char*, void*, int, void*, int);
-int SendToApplyCh(uintptr_t handle, void*, int, int);
-int persister_go_read_callback(uintptr_t handle, void*, int);
-int state_machine_go_apply_command(uintptr_t, void*, int, void*);
 */
 import "C"
 
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -178,64 +170,59 @@ func SendToApplyCh(handle C.uintptr_t, s unsafe.Pointer, s_len C.int, index C.in
 	}
 }
 
-func receiveChannelRegisterCallback(applyCh chan raftapi.ApplyMsg, dead *int32) C.uintptr_t {
-	cb := func() (unsafe.Pointer, C.int, error) {
-		if atomic.LoadInt32(dead) == 1 {
-			return nil, -1, errors.New("died")
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-		defer cancel()
-		select {
-		case <-ctx.Done():
-			return nil, -1, errors.New("timeout")
-		case msg, ok := <-applyCh:
-			if !ok {
-				return nil, -2, errors.New("channel closed")
-			}
-			if msg.CommandValid {
-				var s []byte
-				switch cmd := msg.Command.(type) {
-				case string:
-					s = []byte(cmd)
-				case int:
-					s = []byte(strconv.Itoa(cmd))
-				case []byte:
-					s = cmd
-				}
-				if len(s) == 0 {
-					return nil, -1, errors.New("empty command")
-				}
-				return unsafe.Pointer(&s[0]), C.int(len(s)), nil
-			} else if msg.SnapshotValid {
-				return nil, -1, errors.New("not implemented")
-			} else {
-				return nil, -1, errors.New("bad msg")
-			}
+//export ReceiveFromApplyCh
+func ReceiveFromApplyCh(handle C.uintptr_t, reply unsafe.Pointer) C.int {
+	var applyCh chan raftapi.ApplyMsg
+	if i, ok := getCallback(uintptr(handle)); !ok {
+		return C.int(1)
+	} else {
+		applyCh = i.(chan raftapi.ApplyMsg)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	var msg raftapi.ApplyMsg
+	select {
+	case <-ctx.Done():
+		return -1
+	case m, ok := <- applyCh:
+		if !ok {
+			return -2
+		} else {
+			msg = m
 		}
 	}
-	h := newHandle(cb)
-	return C.uintptr_t(h)
-}
-
-//export receive_channel_go_callback
-func receive_channel_go_callback(handle C.uintptr_t, reply unsafe.Pointer) C.int {
-	cb, ok := getCallback(uintptr(handle))
-	if !ok {
-		fmt.Printf("receive_channel_go_callback: invalid handle %d\n", uintptr(handle))
+	var b []byte
+	if msg.CommandValid {
+		switch cmd := msg.Command.(type) {
+		case string:
+			b = []byte(cmd)
+		case int:
+			b = []byte(strconv.Itoa(cmd))
+		case []byte:
+			b = cmd
+		}
+	} else if msg.SnapshotValid {
+		protoC := &proto_raft.Command {
+			Index: uint64(msg.SnapshotIndex),
+			Value: &proto_raft.Value {
+				Data: msg.Snapshot,
+				Version: uint64(msg.SnapshotTerm),
+			},
+		}
+		if bs, err :=  protobuf.Marshal(protoC); err != nil {
+			return -1
+		} else {
+			b = bs
+		}
+	} else {
 		return -1
 	}
-	p, s, err := cb.(func() (unsafe.Pointer, C.int, error))()
-	if err != nil {
-		return C.int(s)
-	}
-	C.memmove(reply, p, C.size_t(s))
-	return C.int(s)
+	C.memmove(reply, unsafe.Pointer(&b[0]), C.size_t(len(b)))
+	return C.int(len(b))
 }
 
-//export channel_close_callback
-func channel_close_callback(handle C.uintptr_t) {
-	fmt.Println("channel_close_callback")
-	defer fmt.Println("channel_close_callback done")
+//export CloseApplyCh
+func CloseApplyCh(handle C.uintptr_t) {
 	c, ok := getCallback(uintptr(handle))
 	if !ok {
 		fmt.Printf("channel_close_callback: invalid handle %d\n", uintptr(handle))

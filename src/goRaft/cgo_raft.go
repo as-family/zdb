@@ -452,7 +452,7 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	rf.channelCb = registerChannel(rf.applyCh)
 	rf.cb = registerLabRpcCallback(peers, &rf.dead)
 	rf.persisterCB = registerPersister(rf.persister)
-	rf.recChannelCb = receiveChannelRegisterCallback(rf.applyCh, &rf.dead)
+	rf.recChannelCb = rf.channelCb
 	rf.closeChannelCb = rf.channelCb
 	rf.rsmHandle = nil
 	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), rf.cb, rf.channelCb, rf.recChannelCb, rf.closeChannelCb, rf.persisterCB)

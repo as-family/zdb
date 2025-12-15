@@ -108,7 +108,7 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 	rsm.persisterCb = registerPersister(persister)
 	fmt.Println("GO MakeRSM persister handle", rsm.persisterCb)
 	rsm.smCb = registerStateMachine(&sm)
-	rsm.recChannelCb = receiveChannelRegisterCallback(rsm.applyCh, &rsm.dead)
+	rsm.recChannelCb = rsm.channelCb
 	rsm.closeChannelCb = rsm.channelCb
 	rsm.handle = C.create_rsm(C.int(rsm.me), C.int(len(servers)), rsm.rpcCb, rsm.channelCb, rsm.recChannelCb, rsm.closeChannelCb, rsm.persisterCb, C.int(maxraftstate), rsm.smCb)
 	if rsm.handle == nil {
