@@ -32,7 +32,6 @@ public:
     virtual std::optional<T> receive() = 0;
     virtual std::expected<std::optional<T>, ChannelError> receiveUntil(std::chrono::system_clock::time_point t) = 0;
     virtual void close() = 0;
-    virtual bool isClosed() = 0;
 };
 
 } // namespace raft

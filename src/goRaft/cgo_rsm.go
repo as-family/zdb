@@ -168,7 +168,9 @@ func (rsm *RSM) Submit(req any) (rpc.Err, any) {
 
 	// your code here
 
-	fmt.Println("Submit req =", req)
+	if (rsm.handle == nil) {
+		return rpc.ErrWrongLeader, nil
+	}
 	op := Op{
 		Req: req,
 		Id:  0,

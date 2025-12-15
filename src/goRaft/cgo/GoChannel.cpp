@@ -62,6 +62,3 @@ void GoChannel::close() {
     channel_close_callback(closeHandle);
 }
 
-bool GoChannel::isClosed() {
-    return false;
-}

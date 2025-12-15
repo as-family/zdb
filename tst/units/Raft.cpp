@@ -83,7 +83,6 @@ public:
         return std::unexpected(raft::ChannelError::Closed);
     }
     MOCK_METHOD(void, close, (), (override));
-    MOCK_METHOD(bool, isClosed, (), (override));
 };
 
 class RaftImplTest : public ::testing::Test {
@@ -103,9 +102,6 @@ protected:
         };
         
         serviceChannel = std::make_unique<MockChannel>();
-
-        // Setup expectations for channels to not be used in basic constructor tests
-        EXPECT_CALL(*serviceChannel, isClosed()).WillRepeatedly(Return(false));
 
         clientFactory = [this](const std::string& addr, const zdb::RetryPolicy& retryPolicy, std::atomic<bool>& sc) -> MockClient& {
             auto client = std::make_unique<MockClient>(addr, retryPolicy);

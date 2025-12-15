@@ -26,16 +26,17 @@ namespace raft {
 
 class Rsm {
 public:
-    Rsm(std::shared_ptr<StateMachine> m, std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> rCh, std::shared_ptr<raft::Raft> r);
+    Rsm(StateMachine* m, raft::Channel<std::shared_ptr<raft::Command>>* rCh, raft::Raft* r);
     void consumeChannel();
     std::unique_ptr<raft::State> handle(std::shared_ptr<raft::Command> c, std::chrono::system_clock::time_point t);
     ~Rsm();
 
 private:
+    bool running {true};
     PendingRequests pending{};
-    std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> raftCh;
-    std::shared_ptr<StateMachine> machine;
-    std::shared_ptr<raft::Raft> raft;
+    raft::Channel<std::shared_ptr<raft::Command>>* raftCh;
+    StateMachine* machine;
+    raft::Raft* raft;
     std::thread consumerThread;
 };
 

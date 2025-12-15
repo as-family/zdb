@@ -89,8 +89,8 @@ func (rs *rsmSrv) Restore(data []byte) {
 func (rs *rsmSrv) Kill() {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	log.Printf("kill %d\n", rs.me)
-	// rs.rsm.Kill()
+	//log.Printf("kill %d", rs.me)
+	//rs.rsm.Kill()
 	rs.rsm = nil
 }
 

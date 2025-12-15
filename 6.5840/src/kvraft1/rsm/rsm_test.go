@@ -115,8 +115,6 @@ func TestLeaderPartition4A(t *testing.T) {
 				defer wg.Done()
 				if err, rep := ts.srvs[l].rsm.Submit(Dec{}); err == rpc.OK {
 					t.Fatalf("Submit %d in minority completed %v", i, rep)
-				} else {
-					fmt.Println("Submit func", rep, err)
 				}
 			}(i)
 		}
@@ -149,11 +147,11 @@ func TestLeaderPartition4A(t *testing.T) {
 	case <-time.After(time.Second):
 		text := "Submit after healing didn't return"
 		tester.AnnotateCheckerFailure(text, text)
-		ts.Fatalf("%s", text)
+		ts.Fatalf(text)
 	}
 
 	// check that all replicas have the same value for counter
-	ts.checkCounter(rep.(IncRep).N, NSRV)
+	ts.checkCounter(rep.(*IncRep).N, NSRV)
 }
 
 // test that restart replays Incs

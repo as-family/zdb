@@ -47,7 +47,7 @@ protected:
     std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> leader = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
     std::shared_ptr<TestRaft> raft = std::make_shared<TestRaft>(*leader);
     std::shared_ptr<zdb::KVStateMachine> kvState = std::make_shared<zdb::KVStateMachine>(kvStore);
-    raft::Rsm rsm{kvState, leader, raft};
+    raft::Rsm rsm{kvState.get(), leader.get(), raft.get()};
     KVStoreServiceImpl serviceImpl{rsm};
     std::unique_ptr<KVStoreServer> server;
     const RetryPolicy policy{std::chrono::milliseconds{100L}, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{5000L}, 3, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
@@ -244,7 +244,7 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> channel2 = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
     std::shared_ptr<TestRaft> raft2 = std::make_shared<TestRaft>(*channel2);
     std::shared_ptr<zdb::KVStateMachine> kvState2 = std::make_shared<zdb::KVStateMachine>(kvStore2);
-    raft::Rsm rsm2{kvState2, channel2, raft2};
+    raft::Rsm rsm2{kvState2.get(), channel2.get(), raft2.get()};
     KVStoreServiceImpl serviceImpl2{rsm2};
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread2;
@@ -422,12 +422,12 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> channel2 = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
     std::shared_ptr<TestRaft> raft2 = std::make_shared<TestRaft>(*channel2);
     std::shared_ptr<zdb::KVStateMachine> kvState2 = std::make_shared<zdb::KVStateMachine>(kvStore2);
-    raft::Rsm rsm2{kvState2, channel2, raft2};
+    raft::Rsm rsm2{kvState2.get(), channel2.get(), raft2.get()};
     KVStoreServiceImpl serviceImpl2{rsm2};
     std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> channel3 = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
     std::shared_ptr<TestRaft> raft3 = std::make_shared<TestRaft>(*channel3);
     std::shared_ptr<zdb::KVStateMachine> kvState3 = std::make_shared<zdb::KVStateMachine>(kvStore3);
-    raft::Rsm rsm3{kvState3, channel3, raft3};
+    raft::Rsm rsm3{kvState3.get(), channel3.get(), raft3.get()};
     KVStoreServiceImpl serviceImpl3{rsm3};
     std::unique_ptr<KVStoreServer> server2, server3;
     std::thread serverThread2, serverThread3;

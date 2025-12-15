@@ -46,7 +46,7 @@ void PendingRequests::complete(const std::string index, std::unique_ptr<State> r
     }
 }
 
-void PendingRequests::cancellAll() {
+void PendingRequests::cancelAll() {
     std::lock_guard lock{m};
     for (auto &p : pending) {
       p.second.set_value(std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::NotLeader, "Changed Leader"}));

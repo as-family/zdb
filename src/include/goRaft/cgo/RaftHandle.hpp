@@ -29,11 +29,11 @@ struct RaftHandle {
     zdb::RetryPolicy policy;
     uintptr_t callback;
     uintptr_t channelCallback;
-    std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
+    std::unique_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
     std::unordered_map<std::string, int> peerIds;
-    std::unordered_map<std::string, std::unique_ptr<GoRPCClient>> clients;
     std::unique_ptr<zdb::Persister> persister;
-    std::shared_ptr<raft::RaftImpl<GoRPCClient>> raft;
+    std::unordered_map<std::string, std::unique_ptr<GoRPCClient>> clients;
+    std::unique_ptr<raft::RaftImpl<GoRPCClient>> raft;
 };
 
 #endif // RAFT_HANDLE_HPP

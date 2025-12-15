@@ -2,8 +2,6 @@ package tester
 
 import (
 	//"log"
-
-	"fmt"
 	"strconv"
 	"sync"
 
@@ -255,7 +253,7 @@ func (sg *ServerGrp) StartServers() {
 
 // Shutdown a server by isolating it
 func (sg *ServerGrp) ShutdownServer(i int) {
-	fmt.Printf("ShutdownServer %v\n", ServerName(sg.gid, i))
+	//log.Printf("ShutdownServer %v", ServerName(sg.gid, i))
 	sg.disconnect(i, sg.all())
 
 	// disable client connections to the server.
@@ -270,7 +268,6 @@ func (sg *ServerGrp) ShutdownServer(i int) {
 }
 
 func (sg *ServerGrp) Shutdown() {
-	fmt.Println("Shutting down")
 	for i, _ := range sg.srvs {
 		sg.ShutdownServer(i)
 	}

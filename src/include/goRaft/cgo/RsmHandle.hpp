@@ -21,19 +21,15 @@
 #include <goRaft/cgo/RaftHandle.hpp>
 #include <goRaft/cgo/GoStateMachine.hpp>
 #include <raft/Rsm.hpp>
+#include <memory>
+#include <atomic>
 
 struct RsmHandle {
     int id;
     int servers;
     int maxraftstate;
-    std::atomic<bool> killed{false};
-    uintptr_t goChannelCb;
-    uintptr_t persisterCb;
     RaftHandle* raftHandle;
-    std::shared_ptr<zdb::Persister> persister;
-    std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
-    std::shared_ptr<GoStateMachine> machine;
-    std::shared_ptr<raft::Raft> raft;
+    std::unique_ptr<GoStateMachine> machine;
     std::unique_ptr<raft::Rsm> rsm;
 };
 

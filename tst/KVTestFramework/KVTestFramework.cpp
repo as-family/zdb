@@ -35,7 +35,7 @@ KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, Net
       mem {zdb::InMemoryKVStore {}},
       raft {r},
       kvState {std::make_shared<zdb::KVStateMachine>(mem)},
-      rsm {kvState, l, r},
+      rsm {kvState.get(), l.get(), r.get()},
       targetService {rsm},
       targetProxyService{targetServerAddr, networkConfig, p, zdb::getDefaultKVFunctions()},
       service {targetProxyService},

@@ -32,7 +32,7 @@ class PendingRequests {
 public:
     std::future<std::unique_ptr<State>> add(const std::string index);
     void complete(const std::string index, std::unique_ptr<State> result);
-    void cancellAll();
+    void cancelAll();
 
 private:
     std::mutex m;

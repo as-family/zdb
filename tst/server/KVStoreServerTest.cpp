@@ -49,7 +49,7 @@ protected:
     std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> leader = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
     std::shared_ptr<TestRaft> raft = std::make_shared<TestRaft>(*leader);
     std::shared_ptr<zdb::KVStateMachine> kvState = std::make_shared<zdb::KVStateMachine>(kvStore);
-    raft::Rsm rsm{kvState, leader, raft};
+    raft::Rsm rsm{kvState.get(), leader.get(), raft.get()};
     KVStoreServiceImpl serviceImpl{rsm};
     std::unique_ptr<KVStoreServer> server;
 

@@ -264,8 +264,8 @@ std::string RmsCommand::serialize() const {
     return s;
 }
 
-std::unique_ptr<raft::State> RmsCommand::apply(raft::StateMachine& stateMachine) {
-    return std::make_unique<zdb::State>(data);
+std::unique_ptr<raft::State> RmsCommand::apply(raft::StateMachine &stateMachine) {
+    throw std::runtime_error {"Not Implemented. Think about it!"};
 }
 
 bool RmsCommand::operator==(const raft::Command& other) const {

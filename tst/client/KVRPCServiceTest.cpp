@@ -67,7 +67,7 @@ private:
     std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> raftCh {std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>()};
     std::shared_ptr<raft::Raft> raftPtr {std::make_shared<TestRaft>(*raftCh)};
     std::shared_ptr<zdb::KVStateMachine> kvStatePtr {std::make_shared<zdb::KVStateMachine>(kvStore)};
-    raft::Rsm rsm{kvStatePtr, raftCh, raftPtr};
+    raft::Rsm rsm{kvStatePtr.get(), raftCh.get(), raftPtr.get()};
     KVStoreServiceImpl serviceImpl {rsm};
     std::unique_ptr<grpc::Server> server;
     std::string address;

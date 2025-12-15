@@ -23,27 +23,20 @@
 
 RsmHandle* create_rsm(int id, int servers, uintptr_t rpc, uintptr_t channel, uintptr_t recChannel, uintptr_t closeChannel, uintptr_t persister, int maxraftstate, uintptr_t sm) {
     auto *handle = new RsmHandle {
-        id, servers, maxraftstate,
-        false,
-        channel,
-        persister
+        id, servers, maxraftstate
     };
-    handle->killed.store(false);
     handle->raftHandle = create_raft(id, servers, rpc, channel, recChannel, closeChannel, persister);
     if (handle->raftHandle == nullptr) {
         delete handle;
         return nullptr;
     }
-    // handle->goChannel = handle->raftHandle->goChannel;
-    // handle->persister = handle->raftHandle->persister;
-    handle->machine = std::make_shared<GoStateMachine>(sm);
-    // handle->raft = handle->raftHandle->raft;
-    handle->rsm = std::make_unique<raft::Rsm>(handle->machine, handle->raftHandle->goChannel, handle->raftHandle->raft);
+    handle->machine = std::make_unique<GoStateMachine>(sm);
+    handle->rsm = std::make_unique<raft::Rsm>(handle->machine.get(), handle->raftHandle->goChannel.get(), handle->raftHandle->raft.get());
     return handle;
 }
 
 int rsm_submit(RsmHandle* handle, void* command, int command_size, void* state) {
-    if (!handle || handle->killed.load() || !handle->rsm || !handle->raftHandle || !handle->raftHandle->raft) {
+    if (!handle || !handle->rsm || !handle->raftHandle || !handle->raftHandle->raft) {
         spdlog::error("rsm_submit: bad handle");
         return -1;
     }
@@ -63,19 +56,5 @@ void rsm_kill(RsmHandle* handle) {
     if (!handle) {
         return;
     }
-    handle->killed.store(true);
-    if (handle->rsm) {
-        handle->rsm.reset();
-    }
-    if (handle->raftHandle->raft) {
-        handle->raftHandle->raft->kill();
-        handle->raftHandle->raft.reset();
-    }
-    if (handle->machine) {
-        handle->machine.reset();
-    }
-    if (handle->raftHandle->persister) {
-        handle->raftHandle->persister.reset();
-    }
-    // delete handle;
+    delete handle;
 }

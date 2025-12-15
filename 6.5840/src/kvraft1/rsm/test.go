@@ -81,8 +81,7 @@ func (ts *Test) onePartition(p []int, req any) any {
 						ts.mu.Lock()
 						ts.leader = index
 						ts.mu.Unlock()
-						// log.Printf("leader = %d", ts.leader)
-						fmt.Println("leader = ", ts.leader)
+						//log.Printf("leader = %d", ts.leader)
 						return rep
 					}
 				}
@@ -96,13 +95,11 @@ func (ts *Test) onePartition(p []int, req any) any {
 }
 
 func (ts *Test) oneInc() *IncRep {
-	fmt.Println("oneInc")
 	rep := ts.onePartition(nil, Inc{})
 	if rep == nil {
 		return nil
 	}
-	r := rep.(IncRep)
-	return &r
+	return rep.(*IncRep)
 }
 
 func (ts *Test) oneNull() *NullRep {

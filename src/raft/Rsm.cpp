@@ -20,11 +20,11 @@
 
 namespace raft {
 
-Rsm::Rsm(std::shared_ptr<StateMachine> m, std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> rCh, std::shared_ptr<raft::Raft> r)
+Rsm::Rsm(StateMachine* m, raft::Channel<std::shared_ptr<raft::Command>>* rCh, raft::Raft* r)
     : raftCh {rCh}, raft {r}, machine {m}, consumerThread {&raft::Rsm::consumeChannel, this} {}
 
 void Rsm::consumeChannel() {
-    while (true) {
+    while (running) {
         auto c = raftCh->receiveUntil(std::chrono::system_clock::now() + std::chrono::milliseconds{1L});
         if (c.has_value()) {
             if (c.value().has_value()) {
@@ -34,18 +34,20 @@ void Rsm::consumeChannel() {
         } else {
             break;
         }
-        if (raft->getRole() != Role::Leader) {
-            pending.cancellAll();
-        }
     }
 }
 
 std::unique_ptr<raft::State> Rsm::handle(std::shared_ptr<raft::Command> c, std::chrono::system_clock::time_point t) {
     if (!raft->start(c)) {
-        pending.cancellAll();
         return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::NotLeader, "not the leader"});
     }
     auto f = pending.add(uuid_v7_to_string(c->getUUID()));
+    auto status = f.wait_for(std::chrono::seconds{2L});
+    if (status == std::future_status::ready) {
+        return f.get();
+    }
+    return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::NotLeader, "not the leader"});
+    
     auto r = f.get();
     if (!r) {
         return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::Internal, "Channel closed unexpectedly"});
@@ -55,13 +57,13 @@ std::unique_ptr<raft::State> Rsm::handle(std::shared_ptr<raft::Command> c, std::
 
 Rsm::~Rsm() {
     spdlog::info("~Rsm");
-    pending.cancellAll();
-    raftCh->close();
+    running = false;
+    pending.cancelAll();
     if (consumerThread.joinable()) {
         consumerThread.join();
     }
-    pending.cancellAll();
-    std::this_thread::sleep_for(std::chrono::milliseconds{1000});
+    pending.cancelAll();
+    std::this_thread::sleep_for(std::chrono::seconds {1L});
     spdlog::info("Destroyed Rsm");
 }
 

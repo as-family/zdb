@@ -28,7 +28,6 @@ public:
     std::optional<std::shared_ptr<raft::Command>> receive() override;
     std::expected<std::optional<std::shared_ptr<raft::Command>>, raft::ChannelError> receiveUntil(std::chrono::system_clock::time_point t) override;
     void close() override;
-    bool isClosed() override;
 private:
     uintptr_t handle;
     uintptr_t recHandle;

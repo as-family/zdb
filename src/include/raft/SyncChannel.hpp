@@ -28,7 +28,6 @@ public:
     std::optional<T> receive() override;
     std::expected<std::optional<T>, ChannelError> receiveUntil(std::chrono::system_clock::time_point t) override;
     virtual void close() override;
-    virtual bool isClosed() override;
     ~SyncChannel() override;
 private:
     void doClose() noexcept;
@@ -111,12 +110,6 @@ void SyncChannel<T>::doClose() noexcept {
 template<typename T>
 void SyncChannel<T>::close() {
     doClose();
-}
-
-template<typename T>
-bool SyncChannel<T>::isClosed() {
-    std::unique_lock<std::mutex> lock(m);
-    return closed;
 }
 
 template<typename T>
