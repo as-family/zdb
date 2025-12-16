@@ -35,7 +35,7 @@ import (
 	"6.5840/raftapi"
 	tester "6.5840/tester1"
 	proto_raft "github.com/as-family/zdb/proto"
-	uuid "github.com/google/uuid"
+	"github.com/google/uuid"
 	protobuf "google.golang.org/protobuf/proto"
 )
 
@@ -72,8 +72,6 @@ type RSM struct {
 	handle         *C.RsmHandle
 	rpcCb          C.uintptr_t
 	channelCb      C.uintptr_t
-	recChannelCb   C.uintptr_t
-	closeChannelCb C.uintptr_t
 	persisterCb    C.uintptr_t
 	smCb           C.uintptr_t
 	dead           int32
@@ -107,17 +105,13 @@ func MakeRSM(servers []*labrpc.ClientEnd, me int, persister *tester.Persister, m
 	rsm.channelCb = registerChannel(rsm.applyCh)
 	rsm.persisterCb = registerPersister(persister)
 	rsm.smCb = registerStateMachine(&sm)
-	rsm.recChannelCb = rsm.channelCb
-	rsm.closeChannelCb = rsm.channelCb
-	rsm.handle = C.create_rsm(C.int(rsm.me), C.int(len(servers)), rsm.rpcCb, rsm.channelCb, rsm.recChannelCb, rsm.closeChannelCb, rsm.persisterCb, C.int(maxraftstate), rsm.smCb)
+	rsm.handle = C.create_rsm(C.int(rsm.me), C.int(len(servers)), rsm.rpcCb, rsm.channelCb, rsm.persisterCb, C.int(maxraftstate), rsm.smCb)
 	if rsm.handle == nil {
 		fmt.Println("Go: Failed to create Raft node", me)
 		freeCallback(rsm.rpcCb)
 		freeCallback(rsm.channelCb)
 		freeCallback(rsm.persisterCb)
 		freeCallback(rsm.smCb)
-		freeCallback(rsm.recChannelCb)
-		freeCallback(rsm.closeChannelCb)
 		return nil
 	}
 	rsm.rf = &Raft{
@@ -150,8 +144,6 @@ func (rsm *RSM) Kill() {
 	freeCallback(rsm.channelCb)
 	freeCallback(rsm.persisterCb)
 	freeCallback(rsm.smCb)
-	freeCallback(rsm.recChannelCb)
-	freeCallback(rsm.closeChannelCb)
 }
 
 // Submit a command to Raft, and wait for it to be committed.  It
@@ -164,10 +156,6 @@ func (rsm *RSM) Submit(req any) (rpc.Err, any) {
 	// is the argument to Submit and id is a unique id for the op.
 
 	// your code here
-
-	if (rsm.handle == nil) {
-		return rpc.ErrWrongLeader, nil
-	}
 	op := Op{
 		Req: req,
 		Id:  0,
@@ -190,17 +178,20 @@ func (rsm *RSM) Submit(req any) (rpc.Err, any) {
 	}
 	w := new(bytes.Buffer)
 	e := labgob.NewEncoder(w)
-	e.Encode(op)
+	if err := e.Encode(op); err != nil {
+		fmt.Println("Go Submit: Could not encode Op", err)
+		return rpc.ErrWrongLeader, nil
+	}
 	cmd.Value.Data = w.Bytes()
 	b, err := protobuf.Marshal(cmd)
 	if err != nil {
 		fmt.Println("Go Submit: could not marshal cmd")
 		return rpc.ErrWrongLeader, nil
 	}
-	replyBuf := make([]byte, 1024)
+	replyBuf := make([]byte, 64 * 1024)
 	size := int(C.rsm_submit(rsm.handle, unsafe.Pointer(&b[0]), C.int(len(b)), unsafe.Pointer(&replyBuf[0])))
-	if size <= 0 {
-		fmt.Println("Go Submit: rsm_submit returned size", size)
+	if size < 0 {
+		fmt.Println("Go Submit: rsm already Killed")
 		rsm.Kill()
 		return rpc.ErrWrongLeader, nil
 	}

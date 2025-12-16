@@ -190,8 +190,6 @@ type Raft struct {
 	applyCh        chan raftapi.ApplyMsg
 	cb             C.uintptr_t
 	channelCb      C.uintptr_t
-	recChannelCb   C.uintptr_t
-	closeChannelCb C.uintptr_t
 	persisterCB    C.uintptr_t
 	rsmHandle      *C.RsmHandle
 }
@@ -310,7 +308,6 @@ func (rf *Raft) Kill() {
 	} else {
 		C.kill_raft(handle)
 	}
-	// close(rf.applyCh)
 	freeCallback(rf.cb)
 	freeCallback(rf.channelCb)
 	freeCallback(rf.persisterCB)
@@ -452,10 +449,8 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *tester.Persister, applyC
 	rf.channelCb = registerChannel(rf.applyCh)
 	rf.cb = registerLabRpcCallback(peers, &rf.dead)
 	rf.persisterCB = registerPersister(rf.persister)
-	rf.recChannelCb = rf.channelCb
-	rf.closeChannelCb = rf.channelCb
 	rf.rsmHandle = nil
-	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), rf.cb, rf.channelCb, rf.recChannelCb, rf.closeChannelCb, rf.persisterCB)
+	rf.handle = C.create_raft(C.int(me), C.int(len(peers)), rf.cb, rf.channelCb, rf.persisterCB)
 	if rf.handle == nil {
 		fmt.Println("Go: Failed to create Raft node", me)
 		freeCallback(rf.cb)

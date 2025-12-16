@@ -12,10 +12,10 @@
 #ifndef RAFT_SYNC_CHANNEL_H
 #define RAFT_SYNC_CHANNEL_H
 
-#include "raft/Command.hpp"
 #include <mutex>
 #include <optional>
 #include <condition_variable>
+#include <expected>
 #include "raft/Channel.hpp"
 
 namespace raft {

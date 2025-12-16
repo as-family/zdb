@@ -17,10 +17,10 @@
 #include <memory>
 #include <raft/Channel.hpp>
 #include <raft/Raft.hpp>
-#include <mutex>
 #include <thread>
 #include <raft/Types.hpp>
 #include "raft/PendingRequests.hpp"
+#include <atomic>
 
 namespace raft {
 
@@ -32,7 +32,7 @@ public:
     ~Rsm();
 
 private:
-    bool running {true};
+    std::atomic<bool> running {true};
     PendingRequests pending{};
     raft::Channel<std::shared_ptr<raft::Command>>* raftCh;
     StateMachine* machine;

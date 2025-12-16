@@ -15,7 +15,6 @@
 #include <common/Error.hpp>
 #include <common/Types.hpp>
 #include <spdlog/spdlog.h>
-#include <mutex>
 #include <future>
 
 namespace raft {
@@ -47,12 +46,6 @@ std::unique_ptr<raft::State> Rsm::handle(std::shared_ptr<raft::Command> c, std::
         return f.get();
     }
     return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::NotLeader, "not the leader"});
-    
-    auto r = f.get();
-    if (!r) {
-        return std::make_unique<zdb::State>(zdb::Error{zdb::ErrorCode::Internal, "Channel closed unexpectedly"});
-    }
-    return r;
 }
 
 Rsm::~Rsm() {

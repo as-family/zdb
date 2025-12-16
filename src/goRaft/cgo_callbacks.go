@@ -200,6 +200,9 @@ func ReceiveFromApplyCh(handle C.uintptr_t, reply unsafe.Pointer) C.int {
 			b = []byte(strconv.Itoa(cmd))
 		case []byte:
 			b = cmd
+		default:
+			fmt.Printf("ReceiveFromApplyCh: unexpected command type %T\n", msg.Command)
+			return -1
 		}
 	} else if msg.SnapshotValid {
 		protoC := &proto_raft.Command {
@@ -338,6 +341,10 @@ func state_machine_go_apply_command(handle C.uintptr_t, command unsafe.Pointer, 
 	protoC := &proto_raft.Command{}
 	if err := protobuf.Unmarshal(C.GoBytes(command, command_len), protoC); err != nil {
 		fmt.Println("GO state_machine_go_apply_command: could not unmarshal command")
+		return -1
+	}
+	if protoC.Value == nil {
+		fmt.Println("GO state_machine_go_apply_command: nil Value")
 		return -1
 	}
 	if len(protoC.Value.Data) < 1 {

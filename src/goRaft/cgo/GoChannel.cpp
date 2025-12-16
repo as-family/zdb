@@ -23,8 +23,8 @@ extern "C" int SendToApplyCh(uintptr_t handle, void *cmd, int cmd_size, int inde
 extern "C" int ReceiveFromApplyCh(uintptr_t handle, void *command);
 extern "C" void CloseApplyCh(uintptr_t handle);
 
-GoChannel::GoChannel(uintptr_t h, uintptr_t h2, uintptr_t h3, RaftHandle* r)
-    : handle{h}, recHandle{h2}, closeHandle{h3}, raftHandle {r} {}
+GoChannel::GoChannel(uintptr_t h, RaftHandle* r)
+    : handle{h}, raftHandle {r} {}
 
 GoChannel::~GoChannel() {
 }
@@ -45,7 +45,7 @@ std::optional<std::shared_ptr<raft::Command>> GoChannel::receive() {
 std::expected<std::optional<std::shared_ptr<raft::Command>>, raft::ChannelError> GoChannel::receiveUntil(std::chrono::system_clock::time_point t) {
     std::ignore = t;
     std::string buffer(1024, 0);
-    int size = ReceiveFromApplyCh(recHandle, buffer.data());
+    int size = ReceiveFromApplyCh(handle, buffer.data());
     if (size == -2) {
         spdlog::error("GoChannel::receiveUntil Channel closed");
         return std::unexpected(raft::ChannelError::Closed);
@@ -58,6 +58,6 @@ std::expected<std::optional<std::shared_ptr<raft::Command>>, raft::ChannelError>
 }
 
 void GoChannel::close() {
-    CloseApplyCh(closeHandle);
+    CloseApplyCh(handle);
 }
 

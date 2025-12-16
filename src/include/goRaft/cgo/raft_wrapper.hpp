@@ -20,7 +20,7 @@ extern "C" {
 #endif
 
 typedef struct RaftHandle RaftHandle;
-RaftHandle* create_raft(int id, int servers, uintptr_t handle, uintptr_t channelCb, uintptr_t recChannel, uintptr_t closeChannelCb, uintptr_t pCb);
+RaftHandle* create_raft(int id, int servers, uintptr_t handle, uintptr_t channelCb, uintptr_t pCb);
 void kill_raft(RaftHandle* h);
 int handle_request_vote(RaftHandle* h, char* args, int args_size, char* reply);
 int handle_append_entries(RaftHandle* h, char* args, int args_size, char* reply);

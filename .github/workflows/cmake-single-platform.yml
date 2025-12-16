@@ -116,7 +116,7 @@ jobs:
 
       - name: Build using preset
         # Build using the sys-gcc preset
-        run: cmake --build --preset sys-gcc
+        run: cmake --build --preset sys-gcc -j 2
 
       - name: Run cppcheck (complementary analysis)
         run: |
