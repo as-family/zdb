@@ -97,7 +97,7 @@ Following [MIT 6.5840 - Spring 2025](https://pdos.csail.mit.edu/6.824/schedule.h
   - [x] 3C: persistence
   - [x] 3D: log compaction
 - [ ] Lab 4
-  - [ ] A: replicated state machine (RSM)
+  - [x] A: replicated state machine (RSM)
   - [ ] B: Key/value service without snapshots
   - [ ] C: Key/value service with snapshots
 - [ ] Lab 5
