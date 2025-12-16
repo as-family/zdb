@@ -7,14 +7,14 @@ import (
 	"6.5840/kvsrv1/rpc"
 	"6.5840/labgob"
 	"6.5840/labrpc"
-	"6.5840/tester1"
-
+	tester "6.5840/tester1"
+	zdb "github.com/as-family/zdb"
 )
 
 type KVServer struct {
 	me   int
 	dead int32 // set by Kill()
-	rsm  *rsm.RSM
+	rsm  *zdb.RSM
 
 	// Your definitions here.
 }
@@ -73,12 +73,11 @@ func (kv *KVServer) killed() bool {
 func StartKVServer(servers []*labrpc.ClientEnd, gid tester.Tgid, me int, persister *tester.Persister, maxraftstate int) []tester.IService {
 	// call labgob.Register on structures you want
 	// Go's RPC library to marshall/unmarshall.
-	labgob.Register(rsm.Op{})
+	labgob.Register(zdb.Op{})
 	labgob.Register(rpc.PutArgs{})
 	labgob.Register(rpc.GetArgs{})
 
 	kv := &KVServer{me: me}
-
 
 	kv.rsm = rsm.MakeRSM(servers, me, persister, maxraftstate, kv)
 	// You may need initialization code here.

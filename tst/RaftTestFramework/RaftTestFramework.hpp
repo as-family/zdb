@@ -52,7 +52,6 @@ public:
     int nRole(raft::Role role);
     std::vector<uint64_t> terms();
     std::optional<uint64_t> checkTerms();
-    std::unordered_map<std::string, raft::RaftImpl<Client>>& getRafts();
     KVTestFramework& getKVFrameworks(std::string target);
     void disconnect(std::string);
     void connect(std::string);
@@ -63,13 +62,13 @@ private:
     std::vector<EndPoints>& config;
     zdb::RetryPolicy policy;
     std::mt19937 gen;
-    std::unordered_map<std::string, raft::SyncChannel<std::shared_ptr<raft::Command>>> leaders;
+    std::unordered_map<std::string, std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>>> leaders;
     std::unordered_map<std::string, zdb::FilePersister> persisters;
     std::unordered_map<std::string, std::unordered_map<std::string, Client>> clients;
     std::unordered_map<std::string, raft::RaftServiceImpl> raftServices;
     std::unordered_map<std::string, Client> proxies;
     std::unordered_map<std::string, ProxyRaftService> raftProxies;
-    std::unordered_map<std::string, raft::RaftImpl<Client>> rafts;
+    std::unordered_map<std::string, std::shared_ptr<raft::RaftImpl<Client>>> rafts;
     std::unordered_map<std::string, zdb::RPCServer<ProxyRaftService>> raftProxyServers;
     std::unordered_map<std::string, zdb::RPCServer<raft::RaftServiceImpl>> raftServers;
     std::unordered_map<std::string, KVTestFramework> kvTests;

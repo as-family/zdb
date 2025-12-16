@@ -10,27 +10,27 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef GO_CHANNEL_HPP
-#define GO_CHANNEL_HPP
+#ifndef RSM_HANDLE_H
+#define RSM_HANDLE_H
 
-#include "raft/Channel.hpp"
+#include <raft/StateMachine.hpp>
+#include <raft/Channel.hpp>
 #include <raft/Command.hpp>
-#include "goRaft/cgo/raft_wrapper.hpp"
-#include <expected>
-#include <optional>
+#include <storage/Persister.hpp>
+#include <storage/StorageEngine.hpp>
+#include <goRaft/cgo/RaftHandle.hpp>
+#include <goRaft/cgo/GoStateMachine.hpp>
+#include <raft/Rsm.hpp>
+#include <memory>
+#include <atomic>
 
-class GoChannel : public raft::Channel<std::shared_ptr<raft::Command>> {
-public:
-    GoChannel(uintptr_t h, RaftHandle* r);
-    ~GoChannel() override;
-    void send(std::shared_ptr<raft::Command>) override;
-    bool sendUntil(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t) override;
-    std::optional<std::shared_ptr<raft::Command>> receive() override;
-    std::expected<std::optional<std::shared_ptr<raft::Command>>, raft::ChannelError> receiveUntil(std::chrono::system_clock::time_point t) override;
-    void close() override;
-private:
-    uintptr_t handle;
+struct RsmHandle {
+    int id;
+    int servers;
+    int maxraftstate;
     RaftHandle* raftHandle;
+    std::unique_ptr<GoStateMachine> machine;
+    std::unique_ptr<raft::Rsm> rsm;
 };
 
-#endif // GO_CHANNEL_HPP
+#endif // RSM_HANDLE_H

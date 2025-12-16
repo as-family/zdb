@@ -10,27 +10,36 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef GO_CHANNEL_HPP
-#define GO_CHANNEL_HPP
+#ifndef RAFT_RSM_H
+#define RAFT_RSM_H
 
-#include "raft/Channel.hpp"
-#include <raft/Command.hpp>
-#include "goRaft/cgo/raft_wrapper.hpp"
-#include <expected>
-#include <optional>
+#include <raft/StateMachine.hpp>
+#include <memory>
+#include <raft/Channel.hpp>
+#include <raft/Raft.hpp>
+#include <thread>
+#include <raft/Types.hpp>
+#include "raft/PendingRequests.hpp"
+#include <atomic>
 
-class GoChannel : public raft::Channel<std::shared_ptr<raft::Command>> {
+namespace raft {
+
+class Rsm {
 public:
-    GoChannel(uintptr_t h, RaftHandle* r);
-    ~GoChannel() override;
-    void send(std::shared_ptr<raft::Command>) override;
-    bool sendUntil(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t) override;
-    std::optional<std::shared_ptr<raft::Command>> receive() override;
-    std::expected<std::optional<std::shared_ptr<raft::Command>>, raft::ChannelError> receiveUntil(std::chrono::system_clock::time_point t) override;
-    void close() override;
+    Rsm(StateMachine* m, raft::Channel<std::shared_ptr<raft::Command>>* rCh, raft::Raft* r);
+    void consumeChannel();
+    std::unique_ptr<raft::State> handle(std::shared_ptr<raft::Command> c, std::chrono::system_clock::time_point t);
+    ~Rsm();
+
 private:
-    uintptr_t handle;
-    RaftHandle* raftHandle;
+    std::atomic<bool> running {true};
+    PendingRequests pending{};
+    raft::Channel<std::shared_ptr<raft::Command>>* raftCh;
+    StateMachine* machine;
+    raft::Raft* raft;
+    std::thread consumerThread;
 };
 
-#endif // GO_CHANNEL_HPP
+} // namespace raft
+
+#endif // RAFT_RSM_H

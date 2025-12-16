@@ -17,8 +17,11 @@
 #include <optional>
 #include "proto/types.pb.h"
 #include "goRaft/cgo/RaftHandle.hpp"
+#include <spdlog/spdlog.h>
 
-extern "C" int channel_go_invoke_callback(uintptr_t handle, void *cmd, int cmd_size, int index);
+extern "C" int SendToApplyCh(uintptr_t handle, void *cmd, int cmd_size, int index);
+extern "C" int ReceiveFromApplyCh(uintptr_t handle, void *command);
+extern "C" void CloseApplyCh(uintptr_t handle);
 
 GoChannel::GoChannel(uintptr_t h, RaftHandle* r)
     : handle{h}, raftHandle {r} {}
@@ -31,7 +34,7 @@ void GoChannel::send(std::shared_ptr<raft::Command>) {
 
 bool GoChannel::sendUntil(std::shared_ptr<raft::Command> command, std::chrono::system_clock::time_point t) {
     auto c = command->serialize();
-    return channel_go_invoke_callback(handle, (void*)c.data(), c.size(), command->index) == 0;
+    return SendToApplyCh(handle, (void*)c.data(), c.size(), command->index) == 0;
 }
 
 std::optional<std::shared_ptr<raft::Command>> GoChannel::receive() {
@@ -39,17 +42,22 @@ std::optional<std::shared_ptr<raft::Command>> GoChannel::receive() {
     return std::nullopt;
 }
 
-std::optional<std::shared_ptr<raft::Command>> GoChannel::receiveUntil(std::chrono::system_clock::time_point t) {
-    // TODO: Implement Go channel receive with timeout
+std::expected<std::optional<std::shared_ptr<raft::Command>>, raft::ChannelError> GoChannel::receiveUntil(std::chrono::system_clock::time_point t) {
     std::ignore = t;
-    return std::nullopt;
+    std::string buffer(1024, 0);
+    int size = ReceiveFromApplyCh(handle, buffer.data());
+    if (size == -2) {
+        spdlog::error("GoChannel::receiveUntil Channel closed");
+        return std::unexpected(raft::ChannelError::Closed);
+    }
+    if (size < 0) {
+        return std::nullopt;
+    }
+    buffer.resize(size);
+    return zdb::commandFactory(buffer);
 }
 
 void GoChannel::close() {
-    // TODO: Implement Go channel close
+    CloseApplyCh(handle);
 }
 
-bool GoChannel::isClosed() {
-    // TODO: Implement Go channel closed check
-    return false;
-}

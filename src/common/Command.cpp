@@ -43,6 +43,9 @@ std::shared_ptr<raft::Command> commandFactory(const std::string& s) {
     if (cmd.op() == "i") {
         return std::make_shared<InstallSnapshotCommand>(cmd);
     }
+    if (cmd.op() == "r") {
+        return std::make_shared<RmsCommand>(cmd);
+    }
     throw std::invalid_argument{"commandFactory: unknown command"};
 }
 
@@ -238,6 +241,44 @@ bool TestCommand::operator!=(const raft::Command& other) const {
     return !(*this == other);
 }
 
+RmsCommand::RmsCommand(UUIDV7& u, std::string d) :data{d} {
+    uuid = u;
+}
+
+RmsCommand::RmsCommand(const zdb::proto::Command& cmd) {
+    data = cmd.value().data();
+    index = cmd.index();
+    uuid = string_to_uuid_v7(cmd.requestid().uuid());
+}
+
+std::string RmsCommand::serialize() const {
+    auto c = zdb::proto::Command {};
+    c.set_op("r");
+    c.mutable_value()->set_data(data);
+    c.set_index(index);
+    c.mutable_requestid()->set_uuid(uuid_v7_to_string(uuid));
+    std::string s;
+    if (!c.SerializeToString(&s)) {
+        throw std::runtime_error("failed to serialize RmsCommand command");
+    }
+    return s;
+}
+
+std::unique_ptr<raft::State> RmsCommand::apply(raft::StateMachine &stateMachine) {
+    throw std::runtime_error {"Not Implemented. Think about it!"};
+}
+
+bool RmsCommand::operator==(const raft::Command& other) const {
+    if (const auto o = dynamic_cast<const RmsCommand*>(&other)) {
+        return data == o->data;
+    }
+    return false;
+}
+
+bool RmsCommand::operator!=(const raft::Command& other) const {
+    return !(*this == other);
+}
+
 NoOp::NoOp(UUIDV7& u) {
     uuid = u;
 }
@@ -300,8 +341,8 @@ std::string InstallSnapshotCommand::serialize() const {
 }
 
 std::unique_ptr<raft::State> InstallSnapshotCommand::apply(raft::StateMachine& stateMachine) {
-    auto& kvState = dynamic_cast<zdb::KVStateMachine&>(stateMachine);
-    kvState.installSnapshot(lastIncludedIndex, lastIncludedTerm, data);
+    auto c = std::make_shared<InstallSnapshotCommand>(*this);
+    stateMachine.installSnapshot(c);
     return std::make_unique<zdb::State>(0L);
 }
 

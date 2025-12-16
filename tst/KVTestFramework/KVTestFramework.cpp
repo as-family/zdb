@@ -28,19 +28,21 @@
 #include "raft/SyncChannel.hpp"
 #include "KVTestFramework/NetworkConfig.hpp"
 #include "KVTestFramework/ProxyService.hpp"
-KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, raft::Channel<std::shared_ptr<raft::Command>>& l, raft::Raft& r, zdb::RetryPolicy p)
+KVTestFramework::KVTestFramework(const std::string& a, const std::string& t, NetworkConfig& c, std::shared_ptr<raft::Channel<std::shared_ptr<raft::Command>>> l, std::shared_ptr<raft::Raft> r, zdb::RetryPolicy p)
     : addr {a},
       targetServerAddr {t},
       networkConfig(c),
       mem {zdb::InMemoryKVStore {}},
       raft {r},
-      kvState {mem, l, raft},
-      targetService {kvState},
+      kvState {std::make_shared<zdb::KVStateMachine>(mem)},
+      rsm {kvState.get(), l.get(), r.get()},
+      targetService {rsm},
       targetProxyService{targetServerAddr, networkConfig, p, zdb::getDefaultKVFunctions()},
       service {targetProxyService},
       targetServer {targetServerAddr, targetService},
       server {addr, service},
       rng(std::random_device{}()) {
+    spdlog::info("KVTestFramework: proxy server started at {} (target={})", addr, targetServerAddr);
     targetProxyService.connectTarget();
 }
 
@@ -54,6 +56,8 @@ std::vector<KVTestFramework::ClientResult> KVTestFramework::spawnClientsAndWait(
     std::vector<ClientResult> results(nClients);
     std::vector<std::thread> threads;
     std::atomic<bool> done {false};
+    // small pause to ensure servers and RPC stubs are fully ready before clients try to connect
+    std::this_thread::sleep_for(std::chrono::milliseconds{50});
     for (int i = 0; i < nClients; ++i) {
         threads.emplace_back([&, i]() {
             zdb::Config config {addresses, policy};

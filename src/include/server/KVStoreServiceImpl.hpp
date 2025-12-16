@@ -18,12 +18,13 @@
 #include "proto/kvStore.grpc.pb.h"
 #include "server/RPCServer.hpp"
 #include "common/KVStateMachine.hpp"
+#include "raft/Rsm.hpp"
 
 namespace zdb {
 
 class KVStoreServiceImpl final : public kvStore::KVStoreService::Service {
 public:
-    KVStoreServiceImpl(KVStateMachine& kv);
+    KVStoreServiceImpl(raft::Rsm& rsm);
     grpc::Status get(
         grpc::ServerContext* context,
         const kvStore::GetRequest* request,
@@ -41,7 +42,7 @@ public:
         const kvStore::SizeRequest* request,
         kvStore::SizeReply* reply) override;
 private:
-    KVStateMachine& kvStateMachine;
+    raft::Rsm& rsm;
 };
 
 using KVStoreServer = RPCServer<KVStoreServiceImpl>;

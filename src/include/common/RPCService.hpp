@@ -72,6 +72,10 @@ public:
                 return reply;
             }
         } else {
+            spdlog::info("RPCService: op={} failed with {} statuses", op, statuses.size());
+            for (size_t i = 0; i < statuses.size(); ++i) {
+                spdlog::info("RPCService: status[{}] = {} msg='{}'", i, static_cast<int>(statuses[i].error_code()), statuses[i].error_message());
+            }
             std::vector<Error> errors(statuses.size(), Error(ErrorCode::Unknown, "Unknown error"));
             std::transform(statuses.begin(), statuses.end(), errors.begin(), [](const grpc::Status& s) {
                 return toError(s);
@@ -125,8 +129,9 @@ std::expected<std::monostate, Error> RPCService<Service>::connect() {
     }
     
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
-    if (!channel->WaitForConnected(std::chrono::system_clock::now() + policy.channelTimeout)) {
-        return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
+        if (!channel->WaitForConnected(std::chrono::system_clock::now() + policy.channelTimeout)) {
+            spdlog::info("RPCService: failed to connect to {} within {}ms", addr, policy.channelTimeout.count());
+            return std::unexpected {Error{ErrorCode::Unknown, "Could not connect to service @" + addr}};
     }
     auto newStub = Service::NewStub(channel);
     stub = std::shared_ptr<Stub>(newStub.release());

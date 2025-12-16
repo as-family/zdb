@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"6.5840/kvsrv1/rpc"
-	"6.5840/tester1"
+	tester "6.5840/tester1"
 )
 
 // test that each server executes increments and updates its counter.
@@ -25,7 +25,7 @@ func TestBasic4A(t *testing.T) {
 		if r.N != i+1 {
 			err := fmt.Sprintf("expected %d instead of %d", i, r.N)
 			tester.AnnotateCheckerFailure(err, err)
-			ts.t.Fatalf(err)
+			ts.t.Fatalf("%s", err)
 		}
 		ts.checkCounter(r.N, NSRV)
 	}
@@ -132,7 +132,7 @@ func TestLeaderPartition4A(t *testing.T) {
 	case err := <-done:
 		text := fmt.Sprintf("Dec's in minority completed; Submit returns %v", err)
 		tester.AnnotateCheckerFailure(text, text)
-		ts.Fatalf(text)
+		ts.Fatalf("%s", text)
 	case <-time.After(time.Second):
 	}
 
@@ -147,11 +147,11 @@ func TestLeaderPartition4A(t *testing.T) {
 	case <-time.After(time.Second):
 		text := "Submit after healing didn't return"
 		tester.AnnotateCheckerFailure(text, text)
-		ts.Fatalf(text)
+		ts.Fatalf("%s", text)
 	}
 
 	// check that all replicas have the same value for counter
-	ts.checkCounter(rep.(*IncRep).N, NSRV)
+	ts.checkCounter(rep.(IncRep).N, NSRV)
 }
 
 // test that restart replays Incs
@@ -172,7 +172,7 @@ func TestRestartReplay4A(t *testing.T) {
 		if r.N != i+1 {
 			err := fmt.Sprintf("expected %d instead of %d", i, r.N)
 			tester.AnnotateCheckerFailure(err, err)
-			ts.t.Fatalf(err)
+			ts.t.Fatalf("%s", err)
 		}
 		ts.checkCounter(r.N, NSRV)
 	}
@@ -191,7 +191,7 @@ func TestRestartReplay4A(t *testing.T) {
 	if r.N != NINC+1 {
 		err := fmt.Sprintf("expected %d got %d", NINC+1, r.N)
 		tester.AnnotateCheckerFailure(err, err)
-		t.Fatalf(err)
+		t.Fatalf("%s", err)
 	}
 
 	time.Sleep(1 * time.Second)
@@ -240,7 +240,7 @@ func TestShutdown4A(t *testing.T) {
 	case <-time.After((NSEC + 1) * time.Second):
 		err := "Submit didn't stop after shutdown"
 		tester.AnnotateCheckerFailure(err, err)
-		ts.Fatalf(err)
+		ts.Fatalf("%s", err)
 	}
 }
 
@@ -263,7 +263,7 @@ func TestRestartSubmit4A(t *testing.T) {
 		if r.N != i+1 {
 			err := fmt.Sprintf("expected %d instead of %d", i, r.N)
 			tester.AnnotateCheckerFailure(err, err)
-			ts.t.Fatalf(err)
+			ts.t.Fatalf("%s", err)
 		}
 		ts.checkCounter(r.N, NSRV)
 	}
@@ -282,7 +282,7 @@ func TestRestartSubmit4A(t *testing.T) {
 	if r.N != NINC+1 {
 		err := fmt.Sprintf("Expected %d got %d", NINC+1, r.N)
 		tester.AnnotateCheckerFailure(err, err)
-		t.Fatalf(err)
+		t.Fatalf("%s", err)
 	}
 
 	time.Sleep(1 * time.Second)
@@ -315,7 +315,7 @@ func TestRestartSubmit4A(t *testing.T) {
 	case <-time.After((NSEC + 1) * time.Second):
 		err := "Submit didn't stop after shutdown"
 		tester.AnnotateCheckerFailure(err, err)
-		ts.Fatalf(err)
+		ts.Fatalf("%s", err)
 	}
 
 	ts.Group(Gid).StartServers()
@@ -347,7 +347,7 @@ func TestSnapshot4C(t *testing.T) {
 	if sz > 2*MAXRAFTSTATE {
 		err := fmt.Sprintf("logs were not trimmed (%v > 2 * %v)", sz, ts.maxraftstate)
 		tester.AnnotateCheckerFailure(err, err)
-		ts.Fatalf(err)
+		ts.Fatalf("%s", err)
 	}
 
 	// rsm must have made snapshots by now; shutdown all servers and

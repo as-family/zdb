@@ -44,10 +44,11 @@ const std::string SERVER_ADDR = "localhost:50052";
 class KVStoreClientTest : public ::testing::Test {
 protected:
     InMemoryKVStore kvStore;
-    raft::SyncChannel<std::shared_ptr<raft::Command>> leader{};
-    TestRaft raft{leader};
-    zdb::KVStateMachine kvState {kvStore, leader, raft};
-    KVStoreServiceImpl serviceImpl{kvState};
+    std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> leader = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
+    std::shared_ptr<TestRaft> raft = std::make_shared<TestRaft>(*leader);
+    std::shared_ptr<zdb::KVStateMachine> kvState = std::make_shared<zdb::KVStateMachine>(kvStore);
+    raft::Rsm rsm{kvState.get(), leader.get(), raft.get()};
+    KVStoreServiceImpl serviceImpl{rsm};
     std::unique_ptr<KVStoreServer> server;
     const RetryPolicy policy{std::chrono::milliseconds{100L}, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{5000L}, 3, 1, std::chrono::milliseconds{1000L}, std::chrono::milliseconds{200L}};
     std::vector<std::string> addresses{SERVER_ADDR};
@@ -240,10 +241,11 @@ TEST_F(KVStoreClientTest, MultipleServicesWithVariousRetryLimits) {
     // Set up additional server
     const std::string serverAddress2 = "localhost:50053";
     InMemoryKVStore kvStore2;
-    auto channel2 = raft::SyncChannel<std::shared_ptr<raft::Command>>{};
-    TestRaft raft2{channel2};
-    zdb::KVStateMachine kvState2 = zdb::KVStateMachine{kvStore2, channel2, raft2};
-    KVStoreServiceImpl serviceImpl2{kvState2};
+    std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> channel2 = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
+    std::shared_ptr<TestRaft> raft2 = std::make_shared<TestRaft>(*channel2);
+    std::shared_ptr<zdb::KVStateMachine> kvState2 = std::make_shared<zdb::KVStateMachine>(kvStore2);
+    raft::Rsm rsm2{kvState2.get(), channel2.get(), raft2.get()};
+    KVStoreServiceImpl serviceImpl2{rsm2};
     std::unique_ptr<KVStoreServer> server2;
     std::thread serverThread2;
     
@@ -417,12 +419,16 @@ TEST_F(KVStoreClientTest, MultiServiceFailoverResilience) {
     const std::string serverAddress3 = "localhost:50055";
     
     InMemoryKVStore kvStore2, kvStore3;
-    auto channel2 = raft::SyncChannel<std::shared_ptr<raft::Command>>();
-    auto channel3 = raft::SyncChannel<std::shared_ptr<raft::Command>>();
-    TestRaft raft2{channel2}, raft3{channel3};
-    zdb::KVStateMachine kvState2 {kvStore2, channel2, raft2};
-    zdb::KVStateMachine kvState3 {kvStore3, channel3, raft3};
-    KVStoreServiceImpl serviceImpl2{kvState2}, serviceImpl3{kvState3};
+    std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> channel2 = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
+    std::shared_ptr<TestRaft> raft2 = std::make_shared<TestRaft>(*channel2);
+    std::shared_ptr<zdb::KVStateMachine> kvState2 = std::make_shared<zdb::KVStateMachine>(kvStore2);
+    raft::Rsm rsm2{kvState2.get(), channel2.get(), raft2.get()};
+    KVStoreServiceImpl serviceImpl2{rsm2};
+    std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> channel3 = std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>();
+    std::shared_ptr<TestRaft> raft3 = std::make_shared<TestRaft>(*channel3);
+    std::shared_ptr<zdb::KVStateMachine> kvState3 = std::make_shared<zdb::KVStateMachine>(kvStore3);
+    raft::Rsm rsm3{kvState3.get(), channel3.get(), raft3.get()};
+    KVStoreServiceImpl serviceImpl3{rsm3};
     std::unique_ptr<KVStoreServer> server2, server3;
     std::thread serverThread2, serverThread3;
     

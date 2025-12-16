@@ -34,14 +34,7 @@ void kill_raft(RaftHandle* h) {
     if (!h) {
         return;
     }
-    if (h->raft) {
-        h->raft->kill();
-        h->raft.reset();
-    }
-    if (h->goChannel) {
-        h->goChannel->close();
-        h->goChannel.reset();
-    }
+    delete h;
 }
 
 RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, uintptr_t pCb) {
@@ -71,8 +64,8 @@ RaftHandle* create_raft(int id, int servers, uintptr_t cb, uintptr_t channelCb, 
         channelCb,
         nullptr,
         ids,
-        {},
         nullptr,
+        {},
         nullptr
     };
     handle->goChannel = std::make_unique<GoChannel>(handle->channelCallback, handle);

@@ -10,30 +10,25 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef RAFT_HANDLE_HPP
-#define RAFT_HANDLE_HPP
+#ifndef RSM_WRAPPER_H
+#define RSM_WRAPPER_H
 
-#include <raft/RaftImpl.hpp>
-#include <raft/Channel.hpp>
-#include <string>
-#include <unordered_map>
-#include <memory>
-#include "goRaft/cgo/GoRPCClient.hpp"
-#include "storage/Persister.hpp"
+#include <stdint.h>
 
-struct RaftHandle {
-    int id;
-    int servers;
-    std::string selfId;
-    std::vector<std::string> peers;
-    zdb::RetryPolicy policy;
-    uintptr_t callback;
-    uintptr_t channelCallback;
-    std::unique_ptr<raft::Channel<std::shared_ptr<raft::Command>>> goChannel;
-    std::unordered_map<std::string, int> peerIds;
-    std::unique_ptr<zdb::Persister> persister;
-    std::unordered_map<std::string, std::unique_ptr<GoRPCClient>> clients;
-    std::unique_ptr<raft::RaftImpl<GoRPCClient>> raft;
-};
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#endif // RAFT_HANDLE_HPP
+typedef struct RsmHandle RsmHandle;
+typedef struct RaftHandle RaftHandle;
+
+RsmHandle* create_rsm(int id, int servers, uintptr_t rpc, uintptr_t channel, uintptr_t persister, int maxraftstate, uintptr_t sm);
+int rsm_submit(RsmHandle* handle, void* command, int command_size, void* state);
+RaftHandle* rsm_raft_handle(RsmHandle* handle);
+void rsm_kill(RsmHandle* handle);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // RSM_WRAPPER_H

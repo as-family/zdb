@@ -19,7 +19,7 @@
 #include "raft/Log.hpp"
 
 struct TestRaft : raft::Raft {
-    TestRaft(raft::Channel<std::shared_ptr<raft::Command>>& c) : raft::Raft("", std::chrono::milliseconds(0L), std::chrono::milliseconds(0L), 0), channel {c}, mainLog{} {}
+    TestRaft(raft::Channel<std::shared_ptr<raft::Command>>& c) : raft::Raft("", std::chrono::milliseconds(0L), std::chrono::milliseconds(0L), 0), channel {c} {}
     bool start(std::shared_ptr<raft::Command> cmd) override {
         auto t = std::chrono::system_clock::now() + std::chrono::milliseconds{100L};
         if (!channel.sendUntil(cmd, t)) {
@@ -41,6 +41,7 @@ struct TestRaft : raft::Raft {
     void requestVote(std::string) override {
     }
     raft::Log& log() override {
+        static raft::Log mainLog;
         return mainLog;
     }
     void kill() override {
@@ -52,8 +53,6 @@ struct TestRaft : raft::Raft {
     void snapshot(const uint64_t, const std::string&) override {
     }
     raft::Channel<std::shared_ptr<raft::Command>>& channel;
-private:
-    raft::Log mainLog;
 };
 
 #endif // RAFT_TEST_RAFT_H

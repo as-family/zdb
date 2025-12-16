@@ -51,10 +51,7 @@ using zdb::kvStore::SizeReply;
 class TestKVServer {
 public:
     explicit TestKVServer(std::string addr)
-        : raft{leader},
-          kvState{kvStore, leader, raft},
-          serviceImpl{kvState},
-          address{std::move(addr)} {
+        : address{std::move(addr)} {
         grpc::ServerBuilder builder;
         builder.AddListeningPort(address, grpc::InsecureServerCredentials());
         builder.RegisterService(&serviceImpl);
@@ -67,10 +64,11 @@ public:
     }
 private:
     InMemoryKVStore kvStore;
-    raft::SyncChannel<std::shared_ptr<raft::Command>> leader;
-    TestRaft raft;
-    zdb::KVStateMachine kvState;
-    KVStoreServiceImpl serviceImpl;
+    std::shared_ptr<raft::SyncChannel<std::shared_ptr<raft::Command>>> raftCh {std::make_shared<raft::SyncChannel<std::shared_ptr<raft::Command>>>()};
+    std::shared_ptr<raft::Raft> raftPtr {std::make_shared<TestRaft>(*raftCh)};
+    std::shared_ptr<zdb::KVStateMachine> kvStatePtr {std::make_shared<zdb::KVStateMachine>(kvStore)};
+    raft::Rsm rsm{kvStatePtr.get(), raftCh.get(), raftPtr.get()};
+    KVStoreServiceImpl serviceImpl {rsm};
     std::unique_ptr<grpc::Server> server;
     std::string address;
 };

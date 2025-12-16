@@ -10,27 +10,27 @@
  * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef GO_CHANNEL_HPP
-#define GO_CHANNEL_HPP
+#ifndef GO_STATE_MACHINE_H
+#define GO_STATE_MACHINE_H
 
-#include "raft/Channel.hpp"
+#include <raft/StateMachine.hpp>
 #include <raft/Command.hpp>
-#include "goRaft/cgo/raft_wrapper.hpp"
-#include <expected>
-#include <optional>
+#include <raft/Types.hpp>
+#include <memory>
+#include <cstdint>
 
-class GoChannel : public raft::Channel<std::shared_ptr<raft::Command>> {
+extern "C" int state_machine_go_apply_command(uintptr_t handle, void *command, int command_size, void* state);
+extern "C" int state_machine_go_snapshot(uintptr_t handle, void* buffer, int buffer_len);
+extern "C" int state_machine_go_install_snapshot(uintptr_t handle, void* buffer, int buffer_len);
+
+class GoStateMachine : public raft::StateMachine {
 public:
-    GoChannel(uintptr_t h, RaftHandle* r);
-    ~GoChannel() override;
-    void send(std::shared_ptr<raft::Command>) override;
-    bool sendUntil(std::shared_ptr<raft::Command>, std::chrono::system_clock::time_point t) override;
-    std::optional<std::shared_ptr<raft::Command>> receive() override;
-    std::expected<std::optional<std::shared_ptr<raft::Command>>, raft::ChannelError> receiveUntil(std::chrono::system_clock::time_point t) override;
-    void close() override;
+    GoStateMachine(uintptr_t h);
+    std::unique_ptr<raft::State> applyCommand(raft::Command& command) override;
+    std::shared_ptr<raft::Command> snapshot() override;
+    void installSnapshot(std::shared_ptr<raft::Command>) override;
 private:
     uintptr_t handle;
-    RaftHandle* raftHandle;
 };
 
-#endif // GO_CHANNEL_HPP
+#endif // GO_STATE_MACHINE_H

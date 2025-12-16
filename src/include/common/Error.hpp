@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <functional>
 #include <type_traits>
+#include <proto/error.pb.h>
 
 namespace zdb {
 
@@ -61,6 +62,7 @@ struct Error {
     Error(const ErrorCode& c, std::string w);
     Error(const ErrorCode& c, std::string w, std::string k, std::string v, uint64_t ver);
     explicit Error(const ErrorCode& c);
+    explicit Error(const proto::ErrorDetails& error);
 };
 
 } // namespace zdb

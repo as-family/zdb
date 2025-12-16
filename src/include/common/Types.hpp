@@ -20,6 +20,8 @@
 #include "common/Error.hpp"
 #include <variant>
 #include <functional>
+#include <proto/kvStore.pb.h>
+#include <spdlog/spdlog.h>
 
 namespace zdb {
 
@@ -99,6 +101,52 @@ struct State : public raft::State {
         : key(std::nullopt), u{v} {}
     explicit  State(const Error& error)
         : key{std::nullopt}, u{error} {}
+    explicit State(std::string s)
+        : key{std::nullopt}, u{Value{s, 0}} {}
+    static std::unique_ptr<raft::State> fromString(std::string s) {
+        zdb::kvStore::State state;
+        if (!state.ParseFromString(s)) {
+            spdlog::error("GoStateMachine::applyCommand: Could not parse command");
+            return nullptr;
+        }
+        if (state.has_error()) {
+            return std::make_unique<State>(Error(state.error()));
+        }
+        if (state.has_size()) {
+            return std::make_unique<State>(state.size());
+        }
+        if (!state.has_value()) {
+            spdlog::error("GoStateMachine::applyCommand: State has no error, size, or value");
+            return nullptr;
+        }
+        return std::make_unique<State>(state.value().data());
+    }
+    zdb::kvStore::State toProto() override {
+        zdb::kvStore::State s{};
+        if (key.has_value()) {
+            s.mutable_key()->set_data(key.value().data);
+        }
+        if (std::holds_alternative<Error>(u)) {
+            auto e = std::get<Error>(u);
+            s.mutable_error()->set_code(static_cast<zdb::proto::ErrorCode>(e.code));
+            s.mutable_error()->set_key(e.key);
+            s.mutable_error()->set_value(e.value);
+            s.mutable_error()->set_version(e.version);
+            s.mutable_error()->set_what(e.what);
+        }
+        else if (std::holds_alternative<std::optional<Value>>(u)) {
+            auto v = std::get<std::optional<Value>>(u);
+            if (v.has_value()) {
+                s.mutable_value()->set_data(v.value().data);
+                s.mutable_value()->set_version(v.value().version);
+            }
+        }
+        else if (std::holds_alternative<size_t>(u)) {
+            auto size = std::get<size_t>(u);
+            s.set_size(size);
+        }
+        return s;
+    }
 };
 
 } // namespace zdb

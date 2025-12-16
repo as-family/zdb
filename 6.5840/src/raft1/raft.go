@@ -14,7 +14,7 @@ import (
 	"time"
 
 	//	"6.5840/labgob"
-	cppraft "github.com/as-family/zdb"
+	zdb "github.com/as-family/zdb"
 
 	"6.5840/labrpc"
 	"6.5840/raftapi"
@@ -215,5 +215,5 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	persister *tester.Persister, applyCh chan raftapi.ApplyMsg) raftapi.Raft {
 
 	// Use C++ implementation via CGO
-	return cppraft.Make(peers, me, persister, applyCh)
+	return zdb.Make(peers, me, persister, applyCh)
 }

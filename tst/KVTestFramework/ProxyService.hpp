@@ -110,6 +110,60 @@ public:
             }
         }
     }
+    template<typename Req, typename Rep = zdb::map_to_t<Req>>
+    std::expected<Rep, std::vector<zdb::Error>> call(
+        std::string op,
+        const Req& request,
+        const std::chrono::system_clock::time_point& deadline) {
+        std::lock_guard l{m};
+        if (!networkConfig.isConnected()) {
+            return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::UNAVAILABLE, "Disconnected"))});
+        }
+        if (!stub || !channel) {
+            return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::UNAVAILABLE, "Not Connected"))});
+        }
+        auto funcIt = functions.find(op);
+        if (funcIt == functions.end()) {
+            return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "Unknown operation"))});
+        }
+        grpc::ClientContext c;
+        c.set_deadline(deadline);
+        auto& reqMsg = static_cast<const google::protobuf::Message&>(request);
+        auto reply = Rep{};
+        auto& repMsg = static_cast<google::protobuf::Message&>(reply);
+        if (networkConfig.isReliable()) {
+            auto status = funcIt->second(stub, &c, reqMsg, &repMsg);
+            if (status.ok()) {
+                if constexpr (std::is_base_of_v<raft::Reply, Rep>) {
+                    return Rep{repMsg};
+                } else {
+                    return reply;
+                }
+            } else {
+                return std::unexpected(std::vector<zdb::Error> {zdb::toError(status)});
+            }
+        } else {
+            if (networkConfig.shouldDrop()) {
+                return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
+            }
+            auto status = funcIt->second(stub, &c, reqMsg, &repMsg);
+            if (networkConfig.shouldDrop()) {
+               return std::unexpected(std::vector<zdb::Error> {zdb::toError(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "Dropped"))});
+            }
+            if (networkConfig.shouldDelay()) {
+                std::this_thread::sleep_for(networkConfig.delayTime());
+            }
+            if (status.ok()) {
+                if constexpr (std::is_base_of_v<raft::Reply, Rep>) {
+                    return Rep{repMsg};
+                } else {
+                    return reply;
+                }
+            } else {
+                return std::unexpected(std::vector<zdb::Error> {zdb::toError(status)});
+            }
+        }
+    }
     NetworkConfig& getNetworkConfig() {
         return networkConfig;
     }

@@ -8,7 +8,8 @@ import (
 	"6.5840/labgob"
 	"6.5840/labrpc"
 	"6.5840/raftapi"
-	"6.5840/tester1"
+	tester "6.5840/tester1"
+	zdb "github.com/as-family/zdb"
 )
 
 type Inc struct {
@@ -30,14 +31,14 @@ type Dec struct {
 type rsmSrv struct {
 	ts      *Test
 	me      int
-	rsm     *RSM
+	rsm     *zdb.RSM
 	mu      sync.Mutex
 	counter int
 }
 
 func makeRsmSrv(ts *Test, srv int, ends []*labrpc.ClientEnd, persister *tester.Persister, snapshot bool) *rsmSrv {
 	//log.Printf("mksrv %d", srv)
-	labgob.Register(Op{})
+	labgob.Register(zdb.Op{})
 	labgob.Register(Inc{})
 	labgob.Register(IncRep{})
 	labgob.Register(Null{})
